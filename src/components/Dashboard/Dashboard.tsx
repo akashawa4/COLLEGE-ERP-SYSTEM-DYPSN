@@ -24,6 +24,7 @@ const getGreeting = (): string => {
 import TakeAttendancePanel from '../Attendance/TakeAttendancePanel';
 import TeacherStudentPanel from '../StudentManagement/TeacherStudentPanel';
 import TeacherManagementPanel from '../TeacherManagement/TeacherManagementPanel';
+import AdminDashboard from './AdminDashboard';
 
 interface DashboardProps {
   onPageChange?: (page: string) => void;
@@ -258,6 +259,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onPageChange }) => {
         </>
       )}
 
+      {/* Admin Dashboard Section */}
+      {user?.role === 'admin' && (
+        <AdminDashboard onPageChange={onPageChange} />
+      )}
+
       {/* HOD Management Section */}
       {user?.role === 'hod' && (
         <div className="space-y-4">
@@ -306,17 +312,19 @@ const Dashboard: React.FC<DashboardProps> = ({ onPageChange }) => {
         </div>
       )}
 
-      {/* Dashboard Stats */}
-      <DashboardStats 
-        dashboardData={dashboardData} 
-        loading={loading}
-        studentData={studentData}
-        totalStudents={totalStudents}
-        userRole={user?.role || ''}
-      />
+      {/* Dashboard Stats - Only show for non-admin users */}
+      {user?.role !== 'admin' && (
+        <DashboardStats 
+          dashboardData={dashboardData} 
+          loading={loading}
+          studentData={studentData}
+          totalStudents={totalStudents}
+          userRole={user?.role || ''}
+        />
+      )}
 
-      {/* Admin Section */}
-      {(user?.accessLevel === 'full' || user?.role === 'hod') ? (
+      {/* Admin Section - Only show for HOD users */}
+      {user?.role === 'hod' ? (
         <>
           <div className="grid grid-cols-1 gap-6">
             <RecentActivity />

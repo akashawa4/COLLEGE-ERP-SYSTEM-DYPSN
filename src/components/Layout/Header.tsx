@@ -23,7 +23,7 @@ const Header: React.FC<HeaderProps> = ({
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <header className="bg-white shadow-mobile border-b border-gray-200 sticky top-0 z-40">
+    <header className="bg-white shadow-mobile border-b border-gray-200 sticky top-0 z-50">
       <div className="flex items-center justify-between px-4 py-3 lg:px-6 lg:py-4">
         {/* Left Section */}
         <div className="flex items-center space-x-3">

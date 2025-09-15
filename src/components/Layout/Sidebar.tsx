@@ -16,7 +16,20 @@ import {
   LogOut,
   GraduationCap,
   BookOpen,
-  Layers
+  Layers,
+  Shield,
+  Building2,
+  DollarSign,
+  Calendar as CalendarIcon,
+  Users as UsersIcon,
+  AlertTriangle,
+  Utensils,
+  Package,
+  Wrench,
+  UserCheck,
+  TestTube,
+  Eye,
+  Library
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -37,6 +50,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onPageC
       { id: 'my-leaves', label: 'My Leaves', icon: FileText },
       { id: 'my-attendance', label: 'My Attendance', icon: Calendar },
       { id: 'my-results', label: 'My Results', icon: FileCheck },
+      { id: 'events', label: 'Events', icon: CalendarIcon },
+      { id: 'clubs', label: 'Clubs', icon: UsersIcon },
+      { id: 'complaints', label: 'Complaints', icon: AlertTriangle },
+      { id: 'canteen', label: 'Canteen', icon: Utensils },
+      { id: 'stationary', label: 'Stationary', icon: Package },
+      { id: 'library', label: 'Library', icon: Library },
       { id: 'notifications', label: 'Updates', icon: Bell },
     ];
 
@@ -48,18 +67,79 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onPageC
       { id: 'notifications', label: 'Updates', icon: Bell },
       { id: 'leave-requests', label: 'Leave Approval Panel', icon: CheckCircle },
       { id: 'student-management', label: 'Student Management', icon: Users },
+      { id: 'teacher-management', label: 'Teacher Management', icon: GraduationCap },
       { id: 'subject-management', label: 'Subject Management', icon: BookOpen },
       { id: 'batch-management', label: 'Batch Management', icon: Layers },
+      { id: 'events', label: 'Event Management', icon: CalendarIcon },
+      { id: 'clubs', label: 'Club Management', icon: UsersIcon },
+      { id: 'complaints', label: 'Complaint Management', icon: AlertTriangle },
+      { id: 'canteen', label: 'Canteen Management', icon: Utensils },
+      { id: 'stationary', label: 'Xerox/Stationary Centre', icon: Package },
+      { id: 'library', label: 'Library Management', icon: Library },
     ];
 
     const adminItems = [
-      ...teacherItems,
-      // Admin has all teacher items plus additional admin features
+      { id: 'dashboard', label: 'Admin Dashboard', icon: BarChart3 },
+      { id: 'user-management', label: 'User Management', icon: Users },
+      { id: 'department-management', label: 'Department Management', icon: Building2 },
+      { id: 'institution-settings', label: 'Institution Settings', icon: Settings },
+      { id: 'financial-admin', label: 'Financial Admin', icon: DollarSign },
       { id: 'teacher-management', label: 'Teacher Management', icon: GraduationCap },
+      { id: 'student-management', label: 'Student Management', icon: Users },
+      { id: 'subject-management', label: 'Subject Management', icon: BookOpen },
+      { id: 'batch-management', label: 'Batch Management', icon: Layers },
+      { id: 'events', label: 'Event Management', icon: CalendarIcon },
+      { id: 'clubs', label: 'Club Management', icon: UsersIcon },
+      { id: 'complaints', label: 'Complaint Management', icon: AlertTriangle },
+      { id: 'canteen', label: 'Canteen Management', icon: Utensils },
+      { id: 'stationary', label: 'Xerox/Stationary Centre', icon: Package },
+      { id: 'library', label: 'Library Management', icon: Library },
+      { id: 'notifications', label: 'Updates', icon: Bell },
     ];
 
-    if (user?.accessLevel === 'full' || user?.role === 'hod') return adminItems;
+    const getNonTeachingItems = () => {
+      const baseItems = [
+        { id: 'dashboard', label: 'Dashboard', icon: Home },
+        { id: 'notifications', label: 'Updates', icon: Bell },
+      ];
+
+      // Add sub-role specific items
+      if (user?.subRole === 'cleaner') {
+        baseItems.push(
+          { id: 'cleaner-panel', label: 'Cleaning Tasks', icon: Wrench },
+          { id: 'my-attendance', label: 'My Attendance', icon: Calendar }
+        );
+      } else if (user?.subRole === 'peon') {
+        baseItems.push(
+          { id: 'peon-panel', label: 'Delivery Tasks', icon: UserCheck },
+          { id: 'my-attendance', label: 'My Attendance', icon: Calendar }
+        );
+      } else if (user?.subRole === 'lab-assistant') {
+        baseItems.push(
+          { id: 'lab-assistant-panel', label: 'Lab Management', icon: TestTube },
+          { id: 'my-attendance', label: 'My Attendance', icon: Calendar }
+        );
+      } else if (user?.subRole === 'security') {
+        baseItems.push(
+          { id: 'security-panel', label: 'Security Panel', icon: Eye },
+          { id: 'my-attendance', label: 'My Attendance', icon: Calendar }
+        );
+      }
+
+      return baseItems;
+    };
+
+    const getLibraryStaffItems = () => [
+      { id: 'dashboard', label: 'Dashboard', icon: Home },
+      { id: 'library', label: 'Library Management', icon: Library },
+      { id: 'notifications', label: 'Updates', icon: Bell },
+    ];
+
+    if (user?.role === 'admin') return adminItems;
+    if (user?.accessLevel === 'full' || user?.role === 'hod') return teacherItems;
     if (user?.role === 'teacher') return teacherItems;
+    if (user?.role === 'library-staff') return getLibraryStaffItems();
+    if (user?.role === 'non-teaching') return getNonTeachingItems();
     return studentItems;
   };
 
@@ -79,8 +159,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onPageC
       <div className={`
         fixed top-0 left-0 h-full w-80 max-w-[85vw] bg-white shadow-mobile-lg transform transition-transform duration-300 ease-in-out z-50
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:translate-x-0 lg:static lg:shadow-none lg:border-r lg:border-gray-200 lg:w-64
-        flex flex-col
+        lg:translate-x-0 lg:sticky lg:top-0 lg:shadow-none lg:border-r lg:border-gray-200 lg:w-64
+        flex flex-col max-h-screen
       `}>
         {/* Header - Fixed */}
         <div className="flex-shrink-0 flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
@@ -102,32 +182,34 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onPageC
         </div>
 
         {/* Navigation - Scrollable */}
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-6 space-y-1 scrollbar-mobile">
-          {navigationItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentPage === item.id;
-            
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  onPageChange(item.id);
-                  onClose();
-                }}
-                className={`
-                  w-full flex items-center space-x-4 px-4 py-4 rounded-xl text-left transition-all duration-200
-                  ${isActive 
-                    ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border-l-4 border-blue-600 shadow-mobile' 
-                    : 'text-gray-700 hover:bg-gray-50 hover:shadow-mobile'
-                  }
-                  active:scale-95
-                `}
-              >
-                <Icon className={`w-6 h-6 ${isActive ? 'text-blue-600' : 'text-gray-400'}`} />
-                <span className="font-medium text-base">{item.label}</span>
-              </button>
-            );
-          })}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-6 space-y-1 scrollbar-mobile min-h-0 scroll-smooth">
+          <div className="space-y-1">
+            {navigationItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = currentPage === item.id;
+              
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    onPageChange(item.id);
+                    onClose();
+                  }}
+                  className={`
+                    w-full flex items-center space-x-4 px-4 py-4 rounded-xl text-left transition-all duration-200
+                    ${isActive 
+                      ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border-l-4 border-blue-600 shadow-mobile' 
+                      : 'text-gray-700 hover:bg-gray-50 hover:shadow-mobile'
+                    }
+                    active:scale-95
+                  `}
+                >
+                  <Icon className={`w-6 h-6 ${isActive ? 'text-blue-600' : 'text-gray-400'}`} />
+                  <span className="font-medium text-base">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </nav>
 
         {/* User Profile Section - Fixed */}

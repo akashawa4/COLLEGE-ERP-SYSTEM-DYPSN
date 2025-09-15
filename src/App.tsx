@@ -22,6 +22,21 @@ import { Upload, BarChart3, Users, Calendar, FileText } from 'lucide-react';
 import StudentProfile from './components/StudentProfile';
 import TakeAttendancePanel from './components/Attendance/TakeAttendancePanel';
 import BatchManagementPanel from './components/BatchManagement/BatchManagementPanel';
+import UserManagement from './components/Admin/UserManagement';
+import InstitutionSettings from './components/Admin/InstitutionSettings';
+import DepartmentManagement from './components/Admin/DepartmentManagement';
+import FinancialAdmin from './components/Admin/FinancialAdmin';
+import EventManagement from './components/Events/EventManagement';
+import ClubManagement from './components/Clubs/ClubManagement';
+import ComplaintManagement from './components/Complaints/ComplaintManagement';
+import CanteenManagement from './components/Canteen/CanteenManagement';
+import StationaryManagement from './components/Stationary/StationaryManagement';
+import LibraryManagement from './components/Library/LibraryManagement';
+import NonTeachingDashboard from './components/NonTeaching/NonTeachingDashboard';
+import CleanerPanel from './components/NonTeaching/CleanerPanel';
+import PeonPanel from './components/NonTeaching/PeonPanel';
+import LabAssistantPanel from './components/NonTeaching/LabAssistantPanel';
+import SecurityPanel from './components/NonTeaching/SecurityPanel';
 
 const ProfilePage: React.FC<{ user: any }> = ({ user }) => (
   <div className="max-w-md mx-auto bg-white rounded-xl shadow-md p-6 border border-gray-200 mt-8">
@@ -312,7 +327,20 @@ const AttendanceLogsPage: React.FC = () => {
 const AppContent: React.FC = () => {
   const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState('dashboard');
+  const [currentPage, setCurrentPage] = useState(() => {
+    // Check if there's a stored current page
+    const storedPage = localStorage.getItem('dypsn_current_page');
+    if (storedPage) {
+      return storedPage;
+    }
+    return 'dashboard';
+  });
+
+  // Function to handle page changes and save to localStorage
+  const handlePageChange = (page: string) => {
+    setCurrentPage(page);
+    localStorage.setItem('dypsn_current_page', page);
+  };
   // Notification state
   const [notifications, setNotifications] = useState([
     { id: 1, message: 'New leave request from John Doe', read: false },
@@ -336,6 +364,13 @@ const AppContent: React.FC = () => {
     }
   }, [showNotifications]);
 
+  // Clear stored page when user logs out
+  React.useEffect(() => {
+    if (!user) {
+      localStorage.removeItem('dypsn_current_page');
+    }
+  }, [user]);
+
   if (!user) {
     return <LoginForm />;
   }
@@ -356,14 +391,17 @@ const AppContent: React.FC = () => {
         }
         return <ProfilePage user={user} />;
       case 'dashboard':
-        return <Dashboard onPageChange={setCurrentPage} />;
+        if (user.role === 'non-teaching') {
+          return <NonTeachingDashboard user={user} onPageChange={handlePageChange} />;
+        }
+        return <Dashboard onPageChange={handlePageChange} />;
       case 'apply-leave':
         // Only students can apply for leave
         if (user.role === 'student') {
           return <LeaveRequestForm />;
         }
         // Redirect teachers and HODs to dashboard
-        return <Dashboard onPageChange={setCurrentPage} />;
+        return <Dashboard onPageChange={handlePageChange} />;
       case 'my-leaves':
         // Show Student Leaves for teacher and HOD
         if (user.role === 'teacher' || user.role === 'hod') {
@@ -386,7 +424,7 @@ const AppContent: React.FC = () => {
         if (user.role === 'teacher' || user.role === 'hod') {
           return <ResultEntryPanel />;
         }
-        return <Dashboard onPageChange={setCurrentPage} />;
+        return <Dashboard onPageChange={handlePageChange} />;
       case 'esl-integration':
         return <ESLBiometricIntegration />;
       case 'notifications':
@@ -443,7 +481,91 @@ const AppContent: React.FC = () => {
             <p className="text-gray-600">Communication and announcement system will be displayed here.</p>
           </div>
         );
+      // Admin routes
+      case 'user-management':
+        if (user.role === 'admin') {
+          return <UserManagement />;
+        }
+        return <Dashboard onPageChange={handlePageChange} />;
+      case 'institution-settings':
+        if (user.role === 'admin') {
+          return <InstitutionSettings />;
+        }
+        return <Dashboard onPageChange={handlePageChange} />;
+      case 'department-management':
+        if (user.role === 'admin') {
+          return <DepartmentManagement />;
+        }
+        return <Dashboard onPageChange={handlePageChange} />;
+      case 'financial-admin':
+        if (user.role === 'admin') {
+          return <FinancialAdmin />;
+        }
+        return <Dashboard onPageChange={handlePageChange} />;
+      // New module routes
+      case 'events':
+        // Students can view events, teachers/HODs/admin can manage
+        if (user.role === 'student') {
+          return <EventManagement />;
+        }
+        return <EventManagement />;
+      case 'clubs':
+        // Students can view clubs, teachers/HODs/admin can manage
+        if (user.role === 'student') {
+          return <ClubManagement />;
+        }
+        return <ClubManagement />;
+      case 'complaints':
+        // All users can submit complaints, teachers/HODs/admin can manage
+        return <ComplaintManagement />;
+      case 'canteen':
+        // All users can view canteen, teachers/HODs/admin can manage
+        if (user.role === 'student') {
+          return <CanteenManagement />;
+        }
+        return <CanteenManagement />;
+      case 'stationary':
+        // All users can view stationary, teachers/HODs/admin can manage
+        if (user.role === 'student') {
+          return <StationaryManagement />;
+        }
+        return <StationaryManagement />;
+      case 'library':
+        // Library staff can manage, students can view
+        if (user.role === 'library-staff') {
+          return <LibraryManagement />;
+        }
+        if (user.role === 'student') {
+          return <LibraryManagement />;
+        }
+        return <LibraryManagement />;
+      // Non-Teaching Staff specific routes
+      case 'non-teaching-dashboard':
+        return <NonTeachingDashboard user={user} onPageChange={handlePageChange} />;
+      case 'cleaner-panel':
+        if (user.role === 'non-teaching' && user.subRole === 'cleaner') {
+          return <CleanerPanel />;
+        }
+        return <NonTeachingDashboard user={user} onPageChange={handlePageChange} />;
+      case 'peon-panel':
+        if (user.role === 'non-teaching' && user.subRole === 'peon') {
+          return <PeonPanel />;
+        }
+        return <NonTeachingDashboard user={user} onPageChange={handlePageChange} />;
+      case 'lab-assistant-panel':
+        if (user.role === 'non-teaching' && user.subRole === 'lab-assistant') {
+          return <LabAssistantPanel />;
+        }
+        return <NonTeachingDashboard user={user} onPageChange={handlePageChange} />;
+      case 'security-panel':
+        if (user.role === 'non-teaching' && user.subRole === 'security') {
+          return <SecurityPanel />;
+        }
+        return <NonTeachingDashboard user={user} onPageChange={handlePageChange} />;
       default:
+        if (user.role === 'non-teaching') {
+          return <NonTeachingDashboard user={user} onPageChange={handlePageChange} />;
+        }
         return <Dashboard />;
     }
   };
@@ -455,21 +577,21 @@ const AppContent: React.FC = () => {
         isOpen={sidebarOpen} 
         onClose={() => setSidebarOpen(false)}
         currentPage={currentPage}
-        onPageChange={setCurrentPage}
+        onPageChange={handlePageChange}
       />
       
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col lg:ml-4">
+      <div className="flex-1 flex flex-col lg:ml-0 min-h-screen">
         <Header
           onMenuClick={() => setSidebarOpen(true)}
-          onProfileClick={() => setCurrentPage('profile')}
+          onProfileClick={() => handlePageChange('profile')}
           notifications={notifications}
           showNotifications={showNotifications}
           setShowNotifications={setShowNotifications}
         />
         
-        {/* Main Content */}
-        <main className="flex-1 pb-24 lg:pb-0">
+        {/* Main Content - Scrollable */}
+        <main className="flex-1 overflow-y-auto pb-24 lg:pb-0">
           {renderPage()}
         </main>
 
@@ -480,7 +602,7 @@ const AppContent: React.FC = () => {
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav 
         currentPage={currentPage}
-        onPageChange={setCurrentPage}
+        onPageChange={handlePageChange}
       />
     </div>
   );

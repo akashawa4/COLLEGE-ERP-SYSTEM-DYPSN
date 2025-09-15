@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, FileText, CheckCircle, AlertCircle, X, Calendar, TrendingUp, User, Users } from 'lucide-react';
+import { Clock, FileText, CheckCircle, AlertCircle, X, Calendar, TrendingUp, User, Users, GraduationCap, Building2, DollarSign } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { leaveService, userService, getBatchYear } from '../../firebase/firestore';
 import { getDepartmentCode } from '../../utils/departmentMapping';
@@ -174,9 +174,50 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ dashboardData, loading,
     const pendingRequests = leaveRequests.filter(req => req.status === 'pending').length;
     const totalRequests = leaveRequests.length;
 
-    // Only show admin stats for users with full access who are NOT HODs
-    if (user.accessLevel === 'full' && user.role !== 'hod') {
-      // Admin stats (unchanged)
+    // Admin stats - only show for admin role
+    if (user.role === 'admin') {
+      return [
+        {
+          id: 'students',
+          title: 'Total Students',
+          value: '1,250',
+          change: '+5.2% from last month',
+          changeType: 'positive' as const,
+          icon: Users,
+          color: 'blue'
+        },
+        {
+          id: 'teachers',
+          title: 'Total Teachers',
+          value: '85',
+          change: '+2 new this month',
+          changeType: 'positive' as const,
+          icon: GraduationCap,
+          color: 'green'
+        },
+        {
+          id: 'departments',
+          title: 'Departments',
+          value: '8',
+          change: 'All active',
+          changeType: 'positive' as const,
+          icon: Building2,
+          color: 'purple'
+        },
+        {
+          id: 'revenue',
+          title: 'Total Revenue',
+          value: '₹2.5M',
+          change: '+12.5% this quarter',
+          changeType: 'positive' as const,
+          icon: DollarSign,
+          color: 'green'
+        }
+      ];
+    }
+
+    // HOD stats - only show for HOD role
+    if (user.role === 'hod') {
       return [
         {
           id: 'staff',

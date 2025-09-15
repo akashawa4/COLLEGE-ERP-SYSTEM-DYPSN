@@ -18,7 +18,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { DocumentData, QuerySnapshot } from 'firebase/firestore';
-import { User, LeaveRequest, AttendanceLog, Notification, Subject, ResultRecord } from '../types';
+import { User, LeaveRequest, AttendanceLog, Notification, Subject, ResultRecord, Department, AcademicYear, FeeStructureItem, InstitutionInfo, Complaint, Event, Club, ClubMember, LibraryBook, LibraryMember, LibraryTransaction } from '../types';
 import { getDepartmentCode } from '../utils/departmentMapping';
 
 // Collection names
@@ -33,7 +33,16 @@ export const COLLECTIONS = {
   AUDIT_LOGS: 'auditLogs',
   SETTINGS: 'settings',
   STUDENTS: 'students',
-  SUBJECTS: 'subjects'
+  SUBJECTS: 'subjects',
+  DEPARTMENTS: 'departments',
+  INSTITUTION_SETTINGS: 'institutionSettings',
+  COMPLAINTS: 'complaints',
+  EVENTS: 'events',
+  CLUBS: 'clubs',
+  CLUB_MEMBERS: 'clubMembers',
+  LIBRARY_BOOKS: 'libraryBooks',
+  LIBRARY_MEMBERS: 'libraryMembers',
+  LIBRARY_TRANSACTIONS: 'libraryTransactions'
 } as const;
 
 // Department constants
@@ -1089,9 +1098,9 @@ export const userService = {
       // Debug: List all users in the collection to help identify the issue
       console.log(`🔍 Debug: Listing all users in users collection...`);
       const usersRef = collection(db, COLLECTIONS.USERS);
-      const allUsersQuery = query(usersRef, where('role', '==', 'teacher'));
+      const allUsersQuery = query(usersRef, where('role', 'in', ['teacher', 'hod']));
       const allUsersSnap = await getDocs(allUsersQuery);
-      console.log(`📊 Found ${allUsersSnap.size} teachers in users collection:`);
+      console.log(`📊 Found ${allUsersSnap.size} teachers/HODs in users collection:`);
       allUsersSnap.docs.forEach(doc => {
         const data = doc.data();
         console.log(`  - ${doc.id}: ${data.email} (role: ${data.role})`);
@@ -1114,8 +1123,8 @@ export const userService = {
           phone: userData.phone
         });
         
-        if (userData.role === 'teacher') {
-          console.log(`✅ User has teacher role, validating phone number...`);
+        if (userData.role === 'teacher' || userData.role === 'hod') {
+          console.log(`✅ User has teacher/HOD role, validating phone number...`);
           
           // Validate phone number
           const teacherPhone = userData.phone || '';
@@ -1145,7 +1154,7 @@ export const userService = {
             return null;
           }
         } else {
-          console.log(`❌ User found but role is "${userData.role}", not "teacher"`);
+          console.log(`❌ User found but role is "${userData.role}", not "teacher" or "hod"`);
           return null;
         }
       } else {
@@ -1153,7 +1162,7 @@ export const userService = {
         
         // Fallback: Search by email field using query
         console.log(`🔍 Fallback: Searching by email field in users collection...`);
-        const emailQuery = query(usersRef, where('email', '==', cleanEmail), where('role', '==', 'teacher'));
+        const emailQuery = query(usersRef, where('email', '==', cleanEmail), where('role', 'in', ['teacher', 'hod']));
         const emailQuerySnap = await getDocs(emailQuery);
         
         console.log(`📊 Email field query result: ${emailQuerySnap.size} documents found`);
@@ -1169,8 +1178,8 @@ export const userService = {
             phone: userData.phone
           });
           
-          if (userData.role === 'teacher') {
-            console.log(`✅ User has teacher role, validating phone number...`);
+          if (userData.role === 'teacher' || userData.role === 'hod') {
+            console.log(`✅ User has teacher/HOD role, validating phone number...`);
             
             // Validate phone number
             const teacherPhone = userData.phone || '';
@@ -1200,27 +1209,27 @@ export const userService = {
               return null;
             }
           } else {
-            console.log(`❌ User found but role is "${userData.role}", not "teacher"`);
+            console.log(`❌ User found but role is "${userData.role}", not "teacher" or "hod"`);
     return null;
           }
         } else {
-          console.log(`❌ No teacher found with email: ${cleanEmail}`);
+          console.log(`❌ No teacher/HOD found with email: ${cleanEmail}`);
           
-          // Final fallback: Search through all teachers we found earlier
-          console.log(`🔍 Final fallback: Searching through known teachers...`);
-          const allTeachersQuery = query(usersRef, where('role', '==', 'teacher'));
+          // Final fallback: Search through all teachers/HODs we found earlier
+          console.log(`🔍 Final fallback: Searching through known teachers/HODs...`);
+          const allTeachersQuery = query(usersRef, where('role', 'in', ['teacher', 'hod']));
           const allTeachersSnap = await getDocs(allTeachersQuery);
           
-          console.log(`📊 All teachers query result: ${allTeachersSnap.size} documents found`);
+          console.log(`📊 All teachers/HODs query result: ${allTeachersSnap.size} documents found`);
           
           for (const doc of allTeachersSnap.docs) {
             const userData = doc.data();
-            console.log(`🔍 Checking teacher: ${doc.id} - email: "${userData.email}"`);
+            console.log(`🔍 Checking teacher/HOD: ${doc.id} - email: "${userData.email}"`);
             
             // Check if email matches (with trimming)
             const docEmail = (userData.email || '').trim();
             if (docEmail === cleanEmail) {
-              console.log(`✅ Found matching teacher by email comparison:`, {
+              console.log(`✅ Found matching teacher/HOD by email comparison:`, {
                 id: doc.id,
                 email: userData.email,
                 role: userData.role,
@@ -1228,8 +1237,8 @@ export const userService = {
                 phone: userData.phone
               });
               
-              if (userData.role === 'teacher') {
-                console.log(`✅ User has teacher role, validating phone number...`);
+              if (userData.role === 'teacher' || userData.role === 'hod') {
+                console.log(`✅ User has teacher/HOD role, validating phone number...`);
                 
                 // Validate phone number
                 const teacherPhone = userData.phone || '';
@@ -1258,12 +1267,12 @@ export const userService = {
                   console.log(`❌ Teacher phone number does not match for ${doc.id}`);
                 }
               } else {
-                console.log(`❌ User found but role is "${userData.role}", not "teacher"`);
+                console.log(`❌ User found but role is "${userData.role}", not "teacher" or "hod"`);
               }
             }
           }
           
-          console.log(`❌ No matching teacher found after checking all teachers`);
+          console.log(`❌ No matching teacher/HOD found after checking all teachers/HODs`);
         }
       }
       
@@ -1317,6 +1326,73 @@ export const userService = {
       
     } catch (error) {
       console.error(`❌ Error in validateTeacherCredentials:`, error);
+      return null;
+    }
+  },
+
+  // Validate non-teaching staff credentials (email and phone number)
+  async validateNonTeachingCredentials(email: string, phoneNumber: string): Promise<User | null> {
+    console.log(`🔍 Searching for non-teaching staff with email: ${email}, phone: ${phoneNumber}`);
+    
+    try {
+      // Clean the email to remove any trailing spaces
+      const cleanEmail = email.trim();
+      console.log(`🔍 Cleaned email: "${cleanEmail}"`);
+      
+      // Check users collection for non-teaching staff
+      console.log(`🔍 Checking users collection for non-teaching staff...`);
+      const usersRef = collection(db, COLLECTIONS.USERS);
+      const q = query(
+        usersRef, 
+        where('email', '==', cleanEmail), 
+        where('role', '==', 'non-teaching')
+      );
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        console.log(`❌ Non-teaching staff not found in users collection: ${cleanEmail}`);
+        return null;
+      }
+      
+      const nonTeachingStaff = querySnapshot.docs[0].data() as User;
+      console.log(`👤 Found non-teaching staff:`, {
+        id: querySnapshot.docs[0].id,
+        name: nonTeachingStaff.name,
+        email: nonTeachingStaff.email,
+        role: nonTeachingStaff.role,
+        subRole: nonTeachingStaff.subRole,
+        phone: nonTeachingStaff.phone
+      });
+      
+      // Check if phone number matches (with or without country code)
+      const staffPhone = nonTeachingStaff.phone || '';
+      
+      // Only proceed if staff has a phone number
+      if (!staffPhone) {
+        console.log(`❌ Non-teaching staff ${nonTeachingStaff.email} has no phone number`);
+        return null;
+      }
+      
+      const normalizedStaffPhone = staffPhone.toString().replace(/\D/g, ''); // Remove non-digits
+      const normalizedInputPhone = phoneNumber.replace(/\D/g, ''); // Remove non-digits
+      
+      console.log(`📱 Phone comparison: ${normalizedStaffPhone} vs ${normalizedInputPhone}`);
+      
+      // Check if phone numbers match (allowing for different formats)
+      if (normalizedStaffPhone === normalizedInputPhone || 
+          staffPhone.toString() === phoneNumber ||
+          staffPhone.toString().endsWith(phoneNumber) ||
+          phoneNumber.endsWith(normalizedStaffPhone.slice(-10))) {
+        console.log(`✅ Phone number match found for non-teaching staff: ${nonTeachingStaff.name}`);
+        const { id: _ignoredId, ...staffRest } = nonTeachingStaff as any;
+        return { id: querySnapshot.docs[0].id, ...staffRest };
+      } else {
+        console.log(`❌ Non-teaching staff phone number does not match`);
+        return null;
+      }
+      
+    } catch (error) {
+      console.error(`❌ Error in validateNonTeachingCredentials:`, error);
       return null;
     }
   },
@@ -1420,6 +1496,75 @@ export const userService = {
     const collectionPath = `students/${student.year}/sems/${student.sem}/divs/${student.div}/students`;
     const studentRef = doc(db, collectionPath, student.rollNumber || student.id);
     await deleteDoc(studentRef);
+  },
+
+  // Validate library staff credentials (email and phone number)
+  async validateLibraryStaffCredentials(email: string, phoneNumber: string): Promise<User | null> {
+    console.log(`🔍 Searching for library staff with email: ${email}, phone: ${phoneNumber}`);
+    
+    try {
+      // Clean the email to remove any trailing spaces
+      const cleanEmail = email.trim();
+      console.log(`🔍 Cleaned email: "${cleanEmail}"`);
+      
+      // Check users collection for library staff
+      console.log(`🔍 Checking users collection for library staff...`);
+      const usersRef = collection(db, COLLECTIONS.USERS);
+      const q = query(
+        usersRef, 
+        where('email', '==', cleanEmail), 
+        where('role', '==', 'library-staff')
+      );
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        console.log(`❌ Library staff not found in users collection: ${cleanEmail}`);
+        return null;
+      }
+      
+      const libraryStaff = querySnapshot.docs[0].data() as User;
+      console.log(`👤 Found library staff:`, {
+        id: querySnapshot.docs[0].id,
+        name: libraryStaff.name,
+        email: libraryStaff.email,
+        role: libraryStaff.role,
+        phone: libraryStaff.phone
+      });
+      
+      // Check if phone number matches (with or without country code)
+      const staffPhone = libraryStaff.phone || '';
+      
+      // Only proceed if staff has a phone number
+      if (!staffPhone) {
+        console.log(`❌ Library staff ${libraryStaff.email} has no phone number`);
+        return null;
+      }
+      
+      const normalizedStaffPhone = staffPhone.toString().replace(/\D/g, ''); // Remove non-digits
+      const normalizedInputPhone = phoneNumber.replace(/\D/g, '');
+      
+      // Check if phone numbers match (allowing for different formats)
+      if (normalizedStaffPhone === normalizedInputPhone || 
+          staffPhone.toString() === phoneNumber ||
+          staffPhone.toString().endsWith(phoneNumber) ||
+          phoneNumber.endsWith(normalizedStaffPhone.slice(-10))) {
+        
+        const { id: _ignoredId, ...staffRest } = libraryStaff as any;
+        const result = {
+          id: querySnapshot.docs[0].id,
+          ...staffRest
+        } as User;
+        
+        console.log(`✅ Library staff credentials validated: ${libraryStaff.name}`);
+        return result;
+      }
+      
+      console.log(`❌ Phone number mismatch for library staff: ${libraryStaff.name}`);
+      return null;
+    } catch (error) {
+      console.log(`❌ Error in validateLibraryStaffCredentials:`, error);
+      return null;
+    }
   }
 };
 
@@ -4446,11 +4591,50 @@ export const subjectService = {
         }
       }
       
-      // Apply year filter if provided
-      let finalSubjects = year ? subjects.filter(s => String((s as any).year || '').trim() === String(year).trim()) : subjects;
-      console.log(`[subjectService] Final subjects after year filter: ${finalSubjects.length}`);
+      // Apply year filter if provided - use flexible matching
+      let finalSubjects = subjects;
+      if (year) {
+        console.log(`[subjectService] Applying year filter for: ${year}`);
+        console.log(`[subjectService] Sample subject years:`, subjects.slice(0, 3).map(s => ({ 
+          subjectCode: (s as any).subjectCode, 
+          year: (s as any).year,
+          yearType: typeof (s as any).year 
+        })));
+        
+        finalSubjects = subjects.filter(s => {
+          const subjectYear = String((s as any).year || '').trim().toLowerCase();
+          const filterYear = String(year).trim().toLowerCase();
+          
+          console.log(`[subjectService] Comparing subject year "${subjectYear}" with filter year "${filterYear}"`);
+          
+          // Direct match
+          if (subjectYear === filterYear) {
+            console.log(`[subjectService] Direct match found`);
+            return true;
+          }
+          
+          // Flexible matching for different year formats
+          const yearMappings = {
+            '1': ['1', '1st', 'first'],
+            '2': ['2', '2nd', 'second'], 
+            '3': ['3', '3rd', 'third'],
+            '4': ['4', '4th', 'fourth']
+          };
+          
+          // Check if both years map to the same academic year
+          for (const [academicYear, formats] of Object.entries(yearMappings)) {
+            if (formats.includes(subjectYear) && formats.includes(filterYear)) {
+              console.log(`[subjectService] Flexible match found for academic year ${academicYear}`);
+              return true;
+            }
+          }
+          
+          return false;
+        });
+        console.log(`[subjectService] Final subjects after year filter: ${finalSubjects.length}`);
+      }
       
-      // If no subjects found with exact year match, try without year filter
+      // If no subjects found with year filter, try without year filter
       if (finalSubjects.length === 0 && year) {
         console.log(`[subjectService] No subjects found for year ${year}, returning all subjects for department`);
         finalSubjects = subjects;
@@ -4773,6 +4957,1993 @@ export const subjectService = {
         success: false,
         message: `Export failed: ${(error as any).message}`
       };
+    }
+  }
+};
+
+// Department Management Service
+export const departmentService = {
+  // Create a new department
+  async createDepartment(departmentData: Omit<Department, 'id' | 'totalTeachers' | 'totalStudents' | 'createdAt'>): Promise<string> {
+    try {
+      const departmentRef = doc(collection(db, COLLECTIONS.DEPARTMENTS));
+      const department: Department = {
+        id: departmentRef.id,
+        ...departmentData,
+        totalTeachers: 0,
+        totalStudents: 0,
+        createdAt: new Date().toISOString()
+      };
+      
+      await setDoc(departmentRef, department);
+      console.log('[departmentService] Department created successfully:', department.id);
+      return department.id;
+    } catch (error) {
+      console.error('[departmentService] Error creating department:', error);
+      throw error;
+    }
+  },
+
+  // Get all departments
+  async getAllDepartments(): Promise<Department[]> {
+    try {
+      const departmentsRef = collection(db, COLLECTIONS.DEPARTMENTS);
+      const q = query(departmentsRef, orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      
+      const departments: Department[] = [];
+      querySnapshot.forEach((doc) => {
+        departments.push(doc.data() as Department);
+      });
+      
+      console.log('[departmentService] Retrieved departments:', departments.length);
+      return departments;
+    } catch (error) {
+      console.error('[departmentService] Error getting departments:', error);
+      throw error;
+    }
+  },
+
+  // Get department by ID
+  async getDepartmentById(departmentId: string): Promise<Department | null> {
+    try {
+      const departmentRef = doc(db, COLLECTIONS.DEPARTMENTS, departmentId);
+      const departmentSnap = await getDoc(departmentRef);
+      
+      if (departmentSnap.exists()) {
+        return departmentSnap.data() as Department;
+      } else {
+        console.log('[departmentService] Department not found:', departmentId);
+        return null;
+      }
+    } catch (error) {
+      console.error('[departmentService] Error getting department:', error);
+      throw error;
+    }
+  },
+
+  // Update department
+  async updateDepartment(departmentId: string, updateData: Partial<Department>): Promise<void> {
+    try {
+      const departmentRef = doc(db, COLLECTIONS.DEPARTMENTS, departmentId);
+      const updatePayload = {
+        ...updateData,
+        updatedAt: new Date().toISOString()
+      };
+      
+      await updateDoc(departmentRef, updatePayload);
+      console.log('[departmentService] Department updated successfully:', departmentId);
+    } catch (error) {
+      console.error('[departmentService] Error updating department:', error);
+      throw error;
+    }
+  },
+
+  // Delete department
+  async deleteDepartment(departmentId: string): Promise<void> {
+    try {
+      const departmentRef = doc(db, COLLECTIONS.DEPARTMENTS, departmentId);
+      await deleteDoc(departmentRef);
+      console.log('[departmentService] Department deleted successfully:', departmentId);
+    } catch (error) {
+      console.error('[departmentService] Error deleting department:', error);
+      throw error;
+    }
+  },
+
+  // Get departments by status
+  async getDepartmentsByStatus(isActive: boolean): Promise<Department[]> {
+    try {
+      const departmentsRef = collection(db, COLLECTIONS.DEPARTMENTS);
+      const q = query(
+        departmentsRef, 
+        where('isActive', '==', isActive),
+        orderBy('createdAt', 'desc')
+      );
+      const querySnapshot = await getDocs(q);
+      
+      const departments: Department[] = [];
+      querySnapshot.forEach((doc) => {
+        departments.push(doc.data() as Department);
+      });
+      
+      console.log('[departmentService] Retrieved departments by status:', departments.length);
+      return departments;
+    } catch (error) {
+      console.error('[departmentService] Error getting departments by status:', error);
+      throw error;
+    }
+  },
+
+  // Get department by code
+  async getDepartmentByCode(code: string): Promise<Department | null> {
+    try {
+      const departmentsRef = collection(db, COLLECTIONS.DEPARTMENTS);
+      const q = query(departmentsRef, where('code', '==', code.toUpperCase()));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        return querySnapshot.docs[0].data() as Department;
+      } else {
+        console.log('[departmentService] Department not found with code:', code);
+        return null;
+      }
+    } catch (error) {
+      console.error('[departmentService] Error getting department by code:', error);
+      throw error;
+    }
+  },
+
+  // Update department statistics (teachers and students count)
+  async updateDepartmentStats(departmentId: string): Promise<void> {
+    try {
+      // Get all users for this department
+      const usersRef = collection(db, COLLECTIONS.USERS);
+      const q = query(usersRef, where('department', '==', departmentId));
+      const querySnapshot = await getDocs(q);
+      
+      let totalTeachers = 0;
+      let totalStudents = 0;
+      
+      querySnapshot.forEach((doc) => {
+        const user = doc.data() as User;
+        if (user.role === 'teacher' || user.role === 'hod') {
+          totalTeachers++;
+        } else if (user.role === 'student') {
+          totalStudents++;
+        }
+      });
+      
+      // Update department with new counts
+      await this.updateDepartment(departmentId, {
+        totalTeachers,
+        totalStudents
+      });
+      
+      console.log('[departmentService] Updated department stats:', { departmentId, totalTeachers, totalStudents });
+    } catch (error) {
+      console.error('[departmentService] Error updating department stats:', error);
+      throw error;
+    }
+  },
+
+  // Assign HOD to department
+  async assignHOD(departmentId: string, hodId: string): Promise<void> {
+    try {
+      // Get HOD details
+      const hodRef = doc(db, COLLECTIONS.USERS, hodId);
+      const hodSnap = await getDoc(hodRef);
+      
+      if (!hodSnap.exists()) {
+        throw new Error('HOD not found');
+      }
+      
+      const hod = hodSnap.data() as User;
+      
+      // Update department with HOD details
+      await this.updateDepartment(departmentId, {
+        hodId,
+        hodName: hod.name,
+        hodEmail: hod.email
+      });
+      
+      // Update HOD's role to 'hod' if not already
+      if (hod.role !== 'hod') {
+        await updateDoc(hodRef, {
+          role: 'hod',
+          updatedAt: new Date().toISOString()
+        });
+      }
+      
+      console.log('[departmentService] HOD assigned successfully:', { departmentId, hodId });
+    } catch (error) {
+      console.error('[departmentService] Error assigning HOD:', error);
+      throw error;
+    }
+  },
+
+  // Remove HOD from department
+  async removeHOD(departmentId: string): Promise<void> {
+    try {
+      // Get current department
+      const department = await this.getDepartmentById(departmentId);
+      if (!department) {
+        throw new Error('Department not found');
+      }
+      
+      // Update department to remove HOD
+      await this.updateDepartment(departmentId, {
+        hodId: undefined,
+        hodName: undefined,
+        hodEmail: undefined
+      });
+      
+      // If HOD exists, update their role back to teacher
+      if (department.hodId) {
+        const hodRef = doc(db, COLLECTIONS.USERS, department.hodId);
+        await updateDoc(hodRef, {
+          role: 'teacher',
+          updatedAt: new Date().toISOString()
+        });
+      }
+      
+      console.log('[departmentService] HOD removed successfully:', departmentId);
+    } catch (error) {
+      console.error('[departmentService] Error removing HOD:', error);
+      throw error;
+    }
+  },
+
+  // Get available teachers for HOD assignment
+  async getAvailableTeachersForHOD(): Promise<User[]> {
+    try {
+      const usersRef = collection(db, COLLECTIONS.USERS);
+      const q = query(
+        usersRef, 
+        where('role', 'in', ['teacher', 'hod']),
+        where('isActive', '==', true)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      const teachers: User[] = [];
+      querySnapshot.forEach((doc) => {
+        teachers.push(doc.data() as User);
+      });
+      
+      console.log('[departmentService] Retrieved available teachers for HOD:', teachers.length);
+      return teachers;
+    } catch (error) {
+      console.error('[departmentService] Error getting available teachers:', error);
+      throw error;
+    }
+  },
+
+  // Get teachers by department for HOD assignment
+  async getTeachersByDepartment(departmentName: string): Promise<User[]> {
+    try {
+      const usersRef = collection(db, COLLECTIONS.USERS);
+      const q = query(
+        usersRef, 
+        where('role', 'in', ['teacher', 'hod']),
+        where('department', '==', departmentName),
+        where('isActive', '==', true)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      const teachers: User[] = [];
+      querySnapshot.forEach((doc) => {
+        teachers.push(doc.data() as User);
+      });
+      
+      console.log('[departmentService] Retrieved teachers for department:', departmentName, teachers.length);
+      return teachers;
+    } catch (error) {
+      console.error('[departmentService] Error getting teachers by department:', error);
+      throw error;
+    }
+  },
+
+  // Initialize default departments
+  async initializeDefaultDepartments(): Promise<void> {
+    try {
+      const existingDepartments = await this.getAllDepartments();
+      
+      if (existingDepartments.length > 0) {
+        console.log('[departmentService] Departments already exist, skipping initialization');
+        return;
+      }
+      
+      const defaultDepartments = [
+        {
+          name: 'Computer Science Engineering',
+          code: 'CSE',
+          description: 'Computer Science and Engineering Department',
+          isActive: true
+        },
+        {
+          name: 'Information Technology',
+          code: 'IT',
+          description: 'Information Technology Department',
+          isActive: true
+        },
+        {
+          name: 'Electronics and Communication Engineering',
+          code: 'ECE',
+          description: 'Electronics and Communication Engineering Department',
+          isActive: true
+        },
+        {
+          name: 'Mechanical Engineering',
+          code: 'ME',
+          description: 'Mechanical Engineering Department',
+          isActive: true
+        },
+        {
+          name: 'Electrical Engineering',
+          code: 'EE',
+          description: 'Electrical Engineering Department',
+          isActive: true
+        },
+        {
+          name: 'Civil Engineering',
+          code: 'CE',
+          description: 'Civil Engineering Department',
+          isActive: true
+        }
+      ];
+      
+      for (const dept of defaultDepartments) {
+        await this.createDepartment(dept);
+      }
+      
+      console.log('[departmentService] Default departments initialized successfully');
+    } catch (error) {
+      console.error('[departmentService] Error initializing default departments:', error);
+      throw error;
+    }
+  }
+};
+
+// Institution Settings Service
+export const institutionService = {
+  // Academic Year Management
+  async createAcademicYear(yearData: Omit<AcademicYear, 'id'>): Promise<string> {
+    try {
+      const yearRef = doc(collection(db, COLLECTIONS.INSTITUTION_SETTINGS, 'academic-years', 'years'));
+      const yearId = yearRef.id;
+      
+      await setDoc(yearRef, {
+        ...yearData,
+        id: yearId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[institutionService] Academic year created:', yearId);
+      return yearId;
+    } catch (error) {
+      console.error('[institutionService] Error creating academic year:', error);
+      throw error;
+    }
+  },
+
+  async getAllAcademicYears(): Promise<AcademicYear[]> {
+    try {
+      const yearsRef = collection(db, COLLECTIONS.INSTITUTION_SETTINGS, 'academic-years', 'years');
+      const q = query(yearsRef, orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as AcademicYear));
+    } catch (error) {
+      console.error('[institutionService] Error getting academic years:', error);
+      throw error;
+    }
+  },
+
+  async updateAcademicYear(yearId: string, updateData: Partial<AcademicYear>): Promise<void> {
+    try {
+      const yearRef = doc(db, COLLECTIONS.INSTITUTION_SETTINGS, 'academic-years', 'years', yearId);
+      await updateDoc(yearRef, {
+        ...updateData,
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[institutionService] Academic year updated:', yearId);
+    } catch (error) {
+      console.error('[institutionService] Error updating academic year:', error);
+      throw error;
+    }
+  },
+
+  async deleteAcademicYear(yearId: string): Promise<void> {
+    try {
+      const yearRef = doc(db, COLLECTIONS.INSTITUTION_SETTINGS, 'academic-years', 'years', yearId);
+      await deleteDoc(yearRef);
+      
+      console.log('[institutionService] Academic year deleted:', yearId);
+    } catch (error) {
+      console.error('[institutionService] Error deleting academic year:', error);
+      throw error;
+    }
+  },
+
+  async setActiveAcademicYear(yearId: string): Promise<void> {
+    try {
+      // First, deactivate all years
+      const yearsRef = collection(db, COLLECTIONS.INSTITUTION_SETTINGS, 'academic-years', 'years');
+      const allYearsQuery = query(yearsRef);
+      const allYearsSnapshot = await getDocs(allYearsQuery);
+      
+      const updatePromises = allYearsSnapshot.docs.map(doc => 
+        updateDoc(doc.ref, { isActive: false, updatedAt: serverTimestamp() })
+      );
+      
+      await Promise.all(updatePromises);
+      
+      // Then activate the selected year
+      const yearRef = doc(db, COLLECTIONS.INSTITUTION_SETTINGS, 'academic-years', 'years', yearId);
+      await updateDoc(yearRef, {
+        isActive: true,
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[institutionService] Active academic year set:', yearId);
+    } catch (error) {
+      console.error('[institutionService] Error setting active academic year:', error);
+      throw error;
+    }
+  },
+
+  // Fee Structure Management
+  async createFeeItem(feeData: Omit<FeeStructureItem, 'id'>): Promise<string> {
+    try {
+      const feeRef = doc(collection(db, COLLECTIONS.INSTITUTION_SETTINGS, 'fee-structure', 'items'));
+      const feeId = feeRef.id;
+      
+      await setDoc(feeRef, {
+        ...feeData,
+        id: feeId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[institutionService] Fee item created:', feeId);
+      return feeId;
+    } catch (error) {
+      console.error('[institutionService] Error creating fee item:', error);
+      throw error;
+    }
+  },
+
+  async getAllFeeItems(): Promise<FeeStructureItem[]> {
+    try {
+      const feesRef = collection(db, COLLECTIONS.INSTITUTION_SETTINGS, 'fee-structure', 'items');
+      const q = query(feesRef, orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as FeeStructureItem));
+    } catch (error) {
+      console.error('[institutionService] Error getting fee items:', error);
+      throw error;
+    }
+  },
+
+  async updateFeeItem(feeId: string, updateData: Partial<FeeStructureItem>): Promise<void> {
+    try {
+      const feeRef = doc(db, COLLECTIONS.INSTITUTION_SETTINGS, 'fee-structure', 'items', feeId);
+      await updateDoc(feeRef, {
+        ...updateData,
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[institutionService] Fee item updated:', feeId);
+    } catch (error) {
+      console.error('[institutionService] Error updating fee item:', error);
+      throw error;
+    }
+  },
+
+  async deleteFeeItem(feeId: string): Promise<void> {
+    try {
+      const feeRef = doc(db, COLLECTIONS.INSTITUTION_SETTINGS, 'fee-structure', 'items', feeId);
+      await deleteDoc(feeRef);
+      
+      console.log('[institutionService] Fee item deleted:', feeId);
+    } catch (error) {
+      console.error('[institutionService] Error deleting fee item:', error);
+      throw error;
+    }
+  },
+
+  async toggleFeeItemStatus(feeId: string): Promise<void> {
+    try {
+      const feeRef = doc(db, COLLECTIONS.INSTITUTION_SETTINGS, 'fee-structure', 'items', feeId);
+      const feeSnap = await getDoc(feeRef);
+      
+      if (feeSnap.exists()) {
+        const currentStatus = feeSnap.data().isActive;
+        await updateDoc(feeRef, {
+          isActive: !currentStatus,
+          updatedAt: serverTimestamp()
+        });
+        
+        console.log('[institutionService] Fee item status toggled:', feeId, !currentStatus);
+      }
+    } catch (error) {
+      console.error('[institutionService] Error toggling fee item status:', error);
+      throw error;
+    }
+  },
+
+  // Institution Information Management
+  async getInstitutionInfo(): Promise<InstitutionInfo> {
+    try {
+      const infoRef = doc(db, COLLECTIONS.INSTITUTION_SETTINGS, 'institution-info');
+      const infoSnap = await getDoc(infoRef);
+      
+      if (infoSnap.exists()) {
+        return infoSnap.data() as InstitutionInfo;
+      } else {
+        // Return default info if not found
+        return {
+          name: "DYPSN College of Engineering",
+          address: "123 Education Street, Pune, Maharashtra 411001",
+          phone: "+91 20 1234 5678",
+          email: "info@dypsn.edu",
+          website: "www.dypsn.edu",
+          establishedYear: "1995",
+          affiliation: "Savitribai Phule Pune University",
+          accreditation: "NAAC A+ Grade"
+        };
+      }
+    } catch (error) {
+      console.error('[institutionService] Error getting institution info:', error);
+      throw error;
+    }
+  },
+
+  async updateInstitutionInfo(infoData: InstitutionInfo): Promise<void> {
+    try {
+      const infoRef = doc(db, COLLECTIONS.INSTITUTION_SETTINGS, 'institution-info');
+      await setDoc(infoRef, {
+        ...infoData,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      
+      console.log('[institutionService] Institution info updated');
+    } catch (error) {
+      console.error('[institutionService] Error updating institution info:', error);
+      throw error;
+    }
+  },
+
+  // Initialize default data
+  async initializeDefaultData(): Promise<void> {
+    try {
+      // Check if data already exists
+      const yearsRef = collection(db, COLLECTIONS.INSTITUTION_SETTINGS, 'academic-years', 'years');
+      const yearsSnapshot = await getDocs(yearsRef);
+      
+      if (yearsSnapshot.empty) {
+        // Create default academic years
+        const defaultYears = [
+          {
+            name: "2024-25",
+            startDate: "2024-06-01",
+            endDate: "2025-05-31",
+            isActive: true
+          },
+          {
+            name: "2023-24",
+            startDate: "2023-06-01",
+            endDate: "2024-05-31",
+            isActive: false
+          }
+        ];
+        
+        for (const year of defaultYears) {
+          await this.createAcademicYear(year);
+        }
+      }
+      
+      // Check if fee items exist
+      const feesRef = collection(db, COLLECTIONS.INSTITUTION_SETTINGS, 'fee-structure', 'items');
+      const feesSnapshot = await getDocs(feesRef);
+      
+      if (feesSnapshot.empty) {
+        // Create default fee items
+        const defaultFees = [
+          {
+            name: "Tuition Fee - CSE",
+            category: "Tuition",
+            reservationCategory: "Open",
+            department: "CSE",
+            amount: 50000,
+            description: "Annual tuition fee for Computer Science Engineering",
+            isActive: true
+          },
+          {
+            name: "Library Fee",
+            category: "Library",
+            reservationCategory: "Open",
+            department: "All",
+            amount: 2000,
+            description: "Annual library membership fee",
+            isActive: true
+          },
+          {
+            name: "Examination Fee",
+            category: "Examination",
+            reservationCategory: "Open",
+            department: "All",
+            amount: 1000,
+            description: "Per semester examination fee",
+            isActive: true
+          }
+        ];
+        
+        for (const fee of defaultFees) {
+          await this.createFeeItem(fee);
+        }
+      }
+      
+      console.log('[institutionService] Default institution data initialized successfully');
+    } catch (error) {
+      console.error('[institutionService] Error initializing default data:', error);
+      throw error;
+    }
+  }
+};
+
+// Complaint Management Service
+export const complaintService = {
+  // Create a new complaint
+  async createComplaint(complaintData: Omit<Complaint, 'id'>): Promise<string> {
+    try {
+      const complaintRef = doc(collection(db, COLLECTIONS.COMPLAINTS));
+      const complaintId = complaintRef.id;
+      
+      await setDoc(complaintRef, {
+        ...complaintData,
+        id: complaintId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[complaintService] Complaint created:', complaintId);
+      return complaintId;
+    } catch (error) {
+      console.error('[complaintService] Error creating complaint:', error);
+      throw error;
+    }
+  },
+
+  // Get all complaints
+  async getAllComplaints(): Promise<Complaint[]> {
+    try {
+      const complaintsRef = collection(db, COLLECTIONS.COMPLAINTS);
+      const querySnapshot = await getDocs(complaintsRef);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Complaint));
+    } catch (error) {
+      console.error('[complaintService] Error getting complaints:', error);
+      throw error;
+    }
+  },
+
+  // Get complaints by status
+  async getComplaintsByStatus(status: Complaint['status']): Promise<Complaint[]> {
+    try {
+      const complaintsRef = collection(db, COLLECTIONS.COMPLAINTS);
+      const q = query(complaintsRef, where('status', '==', status));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Complaint));
+    } catch (error) {
+      console.error('[complaintService] Error getting complaints by status:', error);
+      throw error;
+    }
+  },
+
+  // Get complaints by category
+  async getComplaintsByCategory(category: Complaint['category']): Promise<Complaint[]> {
+    try {
+      const complaintsRef = collection(db, COLLECTIONS.COMPLAINTS);
+      const q = query(complaintsRef, where('category', '==', category));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Complaint));
+    } catch (error) {
+      console.error('[complaintService] Error getting complaints by category:', error);
+      throw error;
+    }
+  },
+
+  // Get complaints by priority
+  async getComplaintsByPriority(priority: Complaint['priority']): Promise<Complaint[]> {
+    try {
+      const complaintsRef = collection(db, COLLECTIONS.COMPLAINTS);
+      const q = query(complaintsRef, where('priority', '==', priority));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Complaint));
+    } catch (error) {
+      console.error('[complaintService] Error getting complaints by priority:', error);
+      throw error;
+    }
+  },
+
+  // Get complaints by department
+  async getComplaintsByDepartment(department: string): Promise<Complaint[]> {
+    try {
+      const complaintsRef = collection(db, COLLECTIONS.COMPLAINTS);
+      const q = query(complaintsRef, where('department', '==', department));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Complaint));
+    } catch (error) {
+      console.error('[complaintService] Error getting complaints by department:', error);
+      throw error;
+    }
+  },
+
+  // Update complaint
+  async updateComplaint(complaintId: string, updateData: Partial<Complaint>): Promise<void> {
+    try {
+      const complaintRef = doc(db, COLLECTIONS.COMPLAINTS, complaintId);
+      await updateDoc(complaintRef, {
+        ...updateData,
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[complaintService] Complaint updated:', complaintId);
+    } catch (error) {
+      console.error('[complaintService] Error updating complaint:', error);
+      throw error;
+    }
+  },
+
+  // Update complaint status
+  async updateComplaintStatus(complaintId: string, status: Complaint['status'], resolution?: string): Promise<void> {
+    try {
+      const complaintRef = doc(db, COLLECTIONS.COMPLAINTS, complaintId);
+      const updateData: any = {
+        status,
+        lastUpdated: new Date().toISOString(),
+        updatedAt: serverTimestamp()
+      };
+      
+      if (resolution) {
+        updateData.resolution = resolution;
+      }
+      
+      await updateDoc(complaintRef, updateData);
+      
+      console.log('[complaintService] Complaint status updated:', complaintId, status);
+    } catch (error) {
+      console.error('[complaintService] Error updating complaint status:', error);
+      throw error;
+    }
+  },
+
+  // Assign complaint to someone
+  async assignComplaint(complaintId: string, assignedTo: string, assignedToEmail: string): Promise<void> {
+    try {
+      const complaintRef = doc(db, COLLECTIONS.COMPLAINTS, complaintId);
+      await updateDoc(complaintRef, {
+        assignedTo,
+        assignedToEmail,
+        status: 'In Progress',
+        lastUpdated: new Date().toISOString(),
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[complaintService] Complaint assigned:', complaintId, assignedTo);
+    } catch (error) {
+      console.error('[complaintService] Error assigning complaint:', error);
+      throw error;
+    }
+  },
+
+  // Delete complaint
+  async deleteComplaint(complaintId: string): Promise<void> {
+    try {
+      const complaintRef = doc(db, COLLECTIONS.COMPLAINTS, complaintId);
+      await deleteDoc(complaintRef);
+      
+      console.log('[complaintService] Complaint deleted:', complaintId);
+    } catch (error) {
+      console.error('[complaintService] Error deleting complaint:', error);
+      throw error;
+    }
+  },
+
+  // Get complaint statistics
+  async getComplaintStats(): Promise<{
+    total: number;
+    open: number;
+    inProgress: number;
+    resolved: number;
+    closed: number;
+    rejected: number;
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  }> {
+    try {
+      const complaintsRef = collection(db, COLLECTIONS.COMPLAINTS);
+      const querySnapshot = await getDocs(complaintsRef);
+      
+      const complaints = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Complaint));
+
+      const stats = {
+        total: complaints.length,
+        open: complaints.filter(c => c.status === 'Open').length,
+        inProgress: complaints.filter(c => c.status === 'In Progress').length,
+        resolved: complaints.filter(c => c.status === 'Resolved').length,
+        closed: complaints.filter(c => c.status === 'Closed').length,
+        rejected: complaints.filter(c => c.status === 'Rejected').length,
+        critical: complaints.filter(c => c.priority === 'Critical').length,
+        high: complaints.filter(c => c.priority === 'High').length,
+        medium: complaints.filter(c => c.priority === 'Medium').length,
+        low: complaints.filter(c => c.priority === 'Low').length,
+      };
+
+      console.log('[complaintService] Complaint stats retrieved:', stats);
+      return stats;
+    } catch (error) {
+      console.error('[complaintService] Error getting complaint stats:', error);
+      throw error;
+    }
+  }
+};
+
+// Utility function to clean data for Firestore
+const cleanFirestoreData = (data: any): any => {
+  if (data === null || data === undefined) {
+    return undefined;
+  }
+  
+  if (Array.isArray(data)) {
+    return data.map(cleanFirestoreData).filter(item => item !== undefined);
+  }
+  
+  if (typeof data === 'object') {
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(data)) {
+      const cleanedValue = cleanFirestoreData(value);
+      if (cleanedValue !== undefined && cleanedValue !== null && cleanedValue !== '') {
+        cleaned[key] = cleanedValue;
+      }
+    }
+    return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+  }
+  
+  return data;
+};
+
+// Event Management Service
+export const eventService = {
+  // Create a new event
+  async createEvent(eventData: Omit<Event, 'id'>): Promise<string> {
+    try {
+      const eventRef = doc(collection(db, COLLECTIONS.EVENTS));
+      const eventId = eventRef.id;
+      
+      // Clean data to avoid Firestore errors with undefined/null/empty values
+      const cleanEventData = cleanFirestoreData(eventData);
+      
+      await setDoc(eventRef, {
+        ...cleanEventData,
+        id: eventId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[eventService] Event created:', eventId);
+      return eventId;
+    } catch (error) {
+      console.error('[eventService] Error creating event:', error);
+      throw error;
+    }
+  },
+
+  // Get all events
+  async getAllEvents(): Promise<Event[]> {
+    try {
+      const eventsRef = collection(db, COLLECTIONS.EVENTS);
+      const querySnapshot = await getDocs(eventsRef);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Event));
+    } catch (error) {
+      console.error('[eventService] Error getting events:', error);
+      throw error;
+    }
+  },
+
+  // Get events by category
+  async getEventsByCategory(category: Event['category']): Promise<Event[]> {
+    try {
+      const eventsRef = collection(db, COLLECTIONS.EVENTS);
+      const q = query(eventsRef, where('category', '==', category));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Event));
+    } catch (error) {
+      console.error('[eventService] Error getting events by category:', error);
+      throw error;
+    }
+  },
+
+  // Get events by status
+  async getEventsByStatus(status: Event['status']): Promise<Event[]> {
+    try {
+      const eventsRef = collection(db, COLLECTIONS.EVENTS);
+      const q = query(eventsRef, where('status', '==', status));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Event));
+    } catch (error) {
+      console.error('[eventService] Error getting events by status:', error);
+      throw error;
+    }
+  },
+
+  // Get events by department
+  async getEventsByDepartment(department: string): Promise<Event[]> {
+    try {
+      const eventsRef = collection(db, COLLECTIONS.EVENTS);
+      const q = query(eventsRef, where('department', '==', department));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Event));
+    } catch (error) {
+      console.error('[eventService] Error getting events by department:', error);
+      throw error;
+    }
+  },
+
+  // Get upcoming events
+  async getUpcomingEvents(): Promise<Event[]> {
+    try {
+      const eventsRef = collection(db, COLLECTIONS.EVENTS);
+      const q = query(
+        eventsRef, 
+        where('status', 'in', ['upcoming', 'ongoing']),
+        orderBy('date', 'asc')
+      );
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Event));
+    } catch (error) {
+      console.error('[eventService] Error getting upcoming events:', error);
+      throw error;
+    }
+  },
+
+  // Get events by date range
+  async getEventsByDateRange(startDate: string, endDate: string): Promise<Event[]> {
+    try {
+      const eventsRef = collection(db, COLLECTIONS.EVENTS);
+      const q = query(
+        eventsRef,
+        where('date', '>=', startDate),
+        where('date', '<=', endDate),
+        orderBy('date', 'asc')
+      );
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Event));
+    } catch (error) {
+      console.error('[eventService] Error getting events by date range:', error);
+      throw error;
+    }
+  },
+
+  // Update event
+  async updateEvent(eventId: string, updateData: Partial<Event>): Promise<void> {
+    try {
+      const eventRef = doc(db, COLLECTIONS.EVENTS, eventId);
+      
+      // Clean data to avoid Firestore errors with undefined/null/empty values
+      const cleanUpdateData = cleanFirestoreData(updateData);
+      
+      await updateDoc(eventRef, {
+        ...cleanUpdateData,
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[eventService] Event updated:', eventId);
+    } catch (error) {
+      console.error('[eventService] Error updating event:', error);
+      throw error;
+    }
+  },
+
+  // Update event status
+  async updateEventStatus(eventId: string, status: Event['status']): Promise<void> {
+    try {
+      const eventRef = doc(db, COLLECTIONS.EVENTS, eventId);
+      await updateDoc(eventRef, {
+        status,
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[eventService] Event status updated:', eventId, status);
+    } catch (error) {
+      console.error('[eventService] Error updating event status:', error);
+      throw error;
+    }
+  },
+
+  // Update participant count
+  async updateParticipantCount(eventId: string, currentParticipants: number): Promise<void> {
+    try {
+      const eventRef = doc(db, COLLECTIONS.EVENTS, eventId);
+      await updateDoc(eventRef, {
+        currentParticipants,
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[eventService] Event participant count updated:', eventId, currentParticipants);
+    } catch (error) {
+      console.error('[eventService] Error updating participant count:', error);
+      throw error;
+    }
+  },
+
+  // Register for event
+  async registerForEvent(eventId: string): Promise<void> {
+    try {
+      const eventRef = doc(db, COLLECTIONS.EVENTS, eventId);
+      const eventSnap = await getDoc(eventRef);
+      
+      if (eventSnap.exists()) {
+        const eventData = eventSnap.data() as Event;
+        const newCount = eventData.currentParticipants + 1;
+        
+        // Check if event has max participants limit
+        if (eventData.maxParticipants && newCount > eventData.maxParticipants) {
+          throw new Error('Event is full. Cannot register more participants.');
+        }
+        
+        await updateDoc(eventRef, {
+          currentParticipants: newCount,
+          updatedAt: serverTimestamp()
+        });
+        
+        console.log('[eventService] User registered for event:', eventId);
+      }
+    } catch (error) {
+      console.error('[eventService] Error registering for event:', error);
+      throw error;
+    }
+  },
+
+  // Unregister from event
+  async unregisterFromEvent(eventId: string): Promise<void> {
+    try {
+      const eventRef = doc(db, COLLECTIONS.EVENTS, eventId);
+      const eventSnap = await getDoc(eventRef);
+      
+      if (eventSnap.exists()) {
+        const eventData = eventSnap.data() as Event;
+        const newCount = Math.max(0, eventData.currentParticipants - 1);
+        
+        await updateDoc(eventRef, {
+          currentParticipants: newCount,
+          updatedAt: serverTimestamp()
+        });
+        
+        console.log('[eventService] User unregistered from event:', eventId);
+      }
+    } catch (error) {
+      console.error('[eventService] Error unregistering from event:', error);
+      throw error;
+    }
+  },
+
+  // Delete event
+  async deleteEvent(eventId: string): Promise<void> {
+    try {
+      const eventRef = doc(db, COLLECTIONS.EVENTS, eventId);
+      await deleteDoc(eventRef);
+      
+      console.log('[eventService] Event deleted:', eventId);
+    } catch (error) {
+      console.error('[eventService] Error deleting event:', error);
+      throw error;
+    }
+  },
+
+  // Get event statistics
+  async getEventStats(): Promise<{
+    total: number;
+    upcoming: number;
+    ongoing: number;
+    completed: number;
+    cancelled: number;
+    academic: number;
+    cultural: number;
+    sports: number;
+    technical: number;
+    social: number;
+    other: number;
+  }> {
+    try {
+      const eventsRef = collection(db, COLLECTIONS.EVENTS);
+      const querySnapshot = await getDocs(eventsRef);
+      
+      const events = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Event));
+
+      const stats = {
+        total: events.length,
+        upcoming: events.filter(e => e.status === 'upcoming').length,
+        ongoing: events.filter(e => e.status === 'ongoing').length,
+        completed: events.filter(e => e.status === 'completed').length,
+        cancelled: events.filter(e => e.status === 'cancelled').length,
+        academic: events.filter(e => e.category === 'Academic').length,
+        cultural: events.filter(e => e.category === 'Cultural').length,
+        sports: events.filter(e => e.category === 'Sports').length,
+        technical: events.filter(e => e.category === 'Technical').length,
+        social: events.filter(e => e.category === 'Social').length,
+        other: events.filter(e => e.category === 'Other').length,
+      };
+
+      console.log('[eventService] Event stats retrieved:', stats);
+      return stats;
+    } catch (error) {
+      console.error('[eventService] Error getting event stats:', error);
+      throw error;
+    }
+  }
+};
+
+// Club Management Service
+export const clubService = {
+  // Create a new club
+  async createClub(clubData: Omit<Club, 'id'>): Promise<string> {
+    try {
+      const clubRef = doc(collection(db, COLLECTIONS.CLUBS));
+      const clubId = clubRef.id;
+      
+      // Clean data to avoid Firestore errors with undefined/null/empty values
+      const cleanClubData = cleanFirestoreData(clubData);
+      
+      await setDoc(clubRef, {
+        ...cleanClubData,
+        id: clubId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[clubService] Club created:', clubId);
+      return clubId;
+    } catch (error) {
+      console.error('[clubService] Error creating club:', error);
+      throw error;
+    }
+  },
+
+  // Get all clubs
+  async getAllClubs(): Promise<Club[]> {
+    try {
+      const clubsRef = collection(db, COLLECTIONS.CLUBS);
+      const querySnapshot = await getDocs(clubsRef);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Club));
+    } catch (error) {
+      console.error('[clubService] Error getting clubs:', error);
+      throw error;
+    }
+  },
+
+  // Get clubs by category
+  async getClubsByCategory(category: Club['category']): Promise<Club[]> {
+    try {
+      const clubsRef = collection(db, COLLECTIONS.CLUBS);
+      const q = query(clubsRef, where('category', '==', category));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Club));
+    } catch (error) {
+      console.error('[clubService] Error getting clubs by category:', error);
+      throw error;
+    }
+  },
+
+  // Get clubs by status
+  async getClubsByStatus(status: Club['status']): Promise<Club[]> {
+    try {
+      const clubsRef = collection(db, COLLECTIONS.CLUBS);
+      const q = query(clubsRef, where('status', '==', status));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Club));
+    } catch (error) {
+      console.error('[clubService] Error getting clubs by status:', error);
+      throw error;
+    }
+  },
+
+  // Get clubs by department
+  async getClubsByDepartment(department: string): Promise<Club[]> {
+    try {
+      const clubsRef = collection(db, COLLECTIONS.CLUBS);
+      const q = query(clubsRef, where('department', '==', department));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Club));
+    } catch (error) {
+      console.error('[clubService] Error getting clubs by department:', error);
+      throw error;
+    }
+  },
+
+  // Get active clubs
+  async getActiveClubs(): Promise<Club[]> {
+    try {
+      const clubsRef = collection(db, COLLECTIONS.CLUBS);
+      const q = query(clubsRef, where('status', '==', 'active'));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Club));
+    } catch (error) {
+      console.error('[clubService] Error getting active clubs:', error);
+      throw error;
+    }
+  },
+
+  // Update club
+  async updateClub(clubId: string, updateData: Partial<Club>): Promise<void> {
+    try {
+      const clubRef = doc(db, COLLECTIONS.CLUBS, clubId);
+      
+      // Clean data to avoid Firestore errors with undefined/null/empty values
+      const cleanUpdateData = cleanFirestoreData(updateData);
+      
+      await updateDoc(clubRef, {
+        ...cleanUpdateData,
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[clubService] Club updated:', clubId);
+    } catch (error) {
+      console.error('[clubService] Error updating club:', error);
+      throw error;
+    }
+  },
+
+  // Update club status
+  async updateClubStatus(clubId: string, status: Club['status']): Promise<void> {
+    try {
+      const clubRef = doc(db, COLLECTIONS.CLUBS, clubId);
+      await updateDoc(clubRef, {
+        status,
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[clubService] Club status updated:', clubId, status);
+    } catch (error) {
+      console.error('[clubService] Error updating club status:', error);
+      throw error;
+    }
+  },
+
+  // Update member count
+  async updateMemberCount(clubId: string, totalMembers: number): Promise<void> {
+    try {
+      const clubRef = doc(db, COLLECTIONS.CLUBS, clubId);
+      await updateDoc(clubRef, {
+        totalMembers,
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[clubService] Club member count updated:', clubId, totalMembers);
+    } catch (error) {
+      console.error('[clubService] Error updating member count:', error);
+      throw error;
+    }
+  },
+
+  // Delete club
+  async deleteClub(clubId: string): Promise<void> {
+    try {
+      const clubRef = doc(db, COLLECTIONS.CLUBS, clubId);
+      await deleteDoc(clubRef);
+      
+      // Also delete all members of this club
+      const membersRef = collection(db, COLLECTIONS.CLUB_MEMBERS);
+      const q = query(membersRef, where('clubId', '==', clubId));
+      const membersSnapshot = await getDocs(q);
+      
+      const deletePromises = membersSnapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+      
+      console.log('[clubService] Club and members deleted:', clubId);
+    } catch (error) {
+      console.error('[clubService] Error deleting club:', error);
+      throw error;
+    }
+  },
+
+  // Get club statistics
+  async getClubStats(): Promise<{
+    total: number;
+    active: number;
+    inactive: number;
+    suspended: number;
+    academic: number;
+    cultural: number;
+    sports: number;
+    technical: number;
+    social: number;
+    literary: number;
+    other: number;
+  }> {
+    try {
+      const clubsRef = collection(db, COLLECTIONS.CLUBS);
+      const querySnapshot = await getDocs(clubsRef);
+      
+      const clubs = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Club));
+
+      const stats = {
+        total: clubs.length,
+        active: clubs.filter(c => c.status === 'active').length,
+        inactive: clubs.filter(c => c.status === 'inactive').length,
+        suspended: clubs.filter(c => c.status === 'suspended').length,
+        academic: clubs.filter(c => c.category === 'Academic').length,
+        cultural: clubs.filter(c => c.category === 'Cultural').length,
+        sports: clubs.filter(c => c.category === 'Sports').length,
+        technical: clubs.filter(c => c.category === 'Technical').length,
+        social: clubs.filter(c => c.category === 'Social').length,
+        literary: clubs.filter(c => c.category === 'Literary').length,
+        other: clubs.filter(c => c.category === 'Other').length,
+      };
+
+      console.log('[clubService] Club stats retrieved:', stats);
+      return stats;
+    } catch (error) {
+      console.error('[clubService] Error getting club stats:', error);
+      throw error;
+    }
+  }
+};
+
+// Club Member Management Service
+export const clubMemberService = {
+  // Add member to club
+  async addMember(memberData: Omit<ClubMember, 'id'>): Promise<string> {
+    try {
+      const memberRef = doc(collection(db, COLLECTIONS.CLUB_MEMBERS));
+      const memberId = memberRef.id;
+      
+      // Clean data to avoid Firestore errors with undefined/null/empty values
+      const cleanMemberData = cleanFirestoreData(memberData);
+      
+      await setDoc(memberRef, {
+        ...cleanMemberData,
+        id: memberId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      
+      // Update club member count
+      await clubService.updateMemberCount(memberData.clubId, 0); // Will be recalculated
+      
+      console.log('[clubMemberService] Member added:', memberId);
+      return memberId;
+    } catch (error) {
+      console.error('[clubMemberService] Error adding member:', error);
+      throw error;
+    }
+  },
+
+  // Get all members of a club
+  async getClubMembers(clubId: string): Promise<ClubMember[]> {
+    try {
+      const membersRef = collection(db, COLLECTIONS.CLUB_MEMBERS);
+      const q = query(membersRef, where('clubId', '==', clubId));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as ClubMember));
+    } catch (error) {
+      console.error('[clubMemberService] Error getting club members:', error);
+      throw error;
+    }
+  },
+
+  // Get members by role
+  async getMembersByRole(clubId: string, role: ClubMember['role']): Promise<ClubMember[]> {
+    try {
+      const membersRef = collection(db, COLLECTIONS.CLUB_MEMBERS);
+      const q = query(membersRef, where('clubId', '==', clubId), where('role', '==', role));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as ClubMember));
+    } catch (error) {
+      console.error('[clubMemberService] Error getting members by role:', error);
+      throw error;
+    }
+  },
+
+  // Get active members
+  async getActiveMembers(clubId: string): Promise<ClubMember[]> {
+    try {
+      const membersRef = collection(db, COLLECTIONS.CLUB_MEMBERS);
+      const q = query(membersRef, where('clubId', '==', clubId), where('status', '==', 'active'));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as ClubMember));
+    } catch (error) {
+      console.error('[clubMemberService] Error getting active members:', error);
+      throw error;
+    }
+  },
+
+  // Update member
+  async updateMember(memberId: string, updateData: Partial<ClubMember>): Promise<void> {
+    try {
+      const memberRef = doc(db, COLLECTIONS.CLUB_MEMBERS, memberId);
+      
+      // Clean data to avoid Firestore errors with undefined/null/empty values
+      const cleanUpdateData = cleanFirestoreData(updateData);
+      
+      await updateDoc(memberRef, {
+        ...cleanUpdateData,
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[clubMemberService] Member updated:', memberId);
+    } catch (error) {
+      console.error('[clubMemberService] Error updating member:', error);
+      throw error;
+    }
+  },
+
+  // Update member status
+  async updateMemberStatus(memberId: string, status: ClubMember['status']): Promise<void> {
+    try {
+      const memberRef = doc(db, COLLECTIONS.CLUB_MEMBERS, memberId);
+      await updateDoc(memberRef, {
+        status,
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[clubMemberService] Member status updated:', memberId, status);
+    } catch (error) {
+      console.error('[clubMemberService] Error updating member status:', error);
+      throw error;
+    }
+  },
+
+  // Remove member from club
+  async removeMember(memberId: string): Promise<void> {
+    try {
+      const memberRef = doc(db, COLLECTIONS.CLUB_MEMBERS, memberId);
+      const memberSnap = await getDoc(memberRef);
+      
+      if (memberSnap.exists()) {
+        const memberData = memberSnap.data() as ClubMember;
+        await deleteDoc(memberRef);
+        
+        // Update club member count
+        await clubService.updateMemberCount(memberData.clubId, 0); // Will be recalculated
+        
+        console.log('[clubMemberService] Member removed:', memberId);
+      }
+    } catch (error) {
+      console.error('[clubMemberService] Error removing member:', error);
+      throw error;
+    }
+  },
+
+  // Get member statistics for a club
+  async getMemberStats(clubId: string): Promise<{
+    total: number;
+    active: number;
+    inactive: number;
+    presidents: number;
+    vicePresidents: number;
+    secretaries: number;
+    treasurers: number;
+    members: number;
+  }> {
+    try {
+      const members = await this.getClubMembers(clubId);
+      
+      const stats = {
+        total: members.length,
+        active: members.filter(m => m.status === 'active').length,
+        inactive: members.filter(m => m.status === 'inactive').length,
+        presidents: members.filter(m => m.role === 'President').length,
+        vicePresidents: members.filter(m => m.role === 'Vice President').length,
+        secretaries: members.filter(m => m.role === 'Secretary').length,
+        treasurers: members.filter(m => m.role === 'Treasurer').length,
+        members: members.filter(m => m.role === 'Member').length,
+      };
+
+      console.log('[clubMemberService] Member stats retrieved for club:', clubId, stats);
+      return stats;
+    } catch (error) {
+      console.error('[clubMemberService] Error getting member stats:', error);
+      throw error;
+    }
+  }
+};
+
+// Library Book Service
+export const libraryBookService = {
+  // Create a new book
+  async createBook(bookData: Omit<LibraryBook, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+    try {
+      const bookRef = await addDoc(collection(db, COLLECTIONS.LIBRARY_BOOKS), {
+        ...cleanFirestoreData(bookData),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[libraryBookService] Book created:', bookRef.id);
+      return bookRef.id;
+    } catch (error) {
+      console.error('[libraryBookService] Error creating book:', error);
+      throw error;
+    }
+  },
+
+  // Get all books
+  async getAllBooks(): Promise<LibraryBook[]> {
+    try {
+      const booksRef = collection(db, COLLECTIONS.LIBRARY_BOOKS);
+      const q = query(booksRef, orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      
+      const books = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as LibraryBook[];
+      
+      console.log('[libraryBookService] Books retrieved:', books.length);
+      return books;
+    } catch (error) {
+      console.error('[libraryBookService] Error getting books:', error);
+      throw error;
+    }
+  },
+
+  // Get book by ID
+  async getBook(bookId: string): Promise<LibraryBook | null> {
+    try {
+      const bookRef = doc(db, COLLECTIONS.LIBRARY_BOOKS, bookId);
+      const bookSnap = await getDoc(bookRef);
+      
+      if (bookSnap.exists()) {
+        const book = { id: bookSnap.id, ...bookSnap.data() } as LibraryBook;
+        console.log('[libraryBookService] Book retrieved:', bookId);
+        return book;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('[libraryBookService] Error getting book:', error);
+      throw error;
+    }
+  },
+
+  // Update book
+  async updateBook(bookId: string, bookData: Partial<LibraryBook>): Promise<void> {
+    try {
+      const bookRef = doc(db, COLLECTIONS.LIBRARY_BOOKS, bookId);
+      await updateDoc(bookRef, {
+        ...cleanFirestoreData(bookData),
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[libraryBookService] Book updated:', bookId);
+    } catch (error) {
+      console.error('[libraryBookService] Error updating book:', error);
+      throw error;
+    }
+  },
+
+  // Delete book
+  async deleteBook(bookId: string): Promise<void> {
+    try {
+      const bookRef = doc(db, COLLECTIONS.LIBRARY_BOOKS, bookId);
+      await deleteDoc(bookRef);
+      
+      console.log('[libraryBookService] Book deleted:', bookId);
+    } catch (error) {
+      console.error('[libraryBookService] Error deleting book:', error);
+      throw error;
+    }
+  },
+
+  // Search books
+  async searchBooks(searchTerm: string): Promise<LibraryBook[]> {
+    try {
+      const booksRef = collection(db, COLLECTIONS.LIBRARY_BOOKS);
+      const q = query(booksRef, orderBy('title'));
+      const querySnapshot = await getDocs(q);
+      
+      const books = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as LibraryBook[];
+      
+      const filteredBooks = books.filter(book => 
+        book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        book.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        book.isbn.includes(searchTerm)
+      );
+      
+      console.log('[libraryBookService] Books searched:', filteredBooks.length);
+      return filteredBooks;
+    } catch (error) {
+      console.error('[libraryBookService] Error searching books:', error);
+      throw error;
+    }
+  },
+
+  // Get books by category
+  async getBooksByCategory(category: LibraryBook['category']): Promise<LibraryBook[]> {
+    try {
+      const booksRef = collection(db, COLLECTIONS.LIBRARY_BOOKS);
+      const q = query(booksRef, where('category', '==', category), orderBy('title'));
+      const querySnapshot = await getDocs(q);
+      
+      const books = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as LibraryBook[];
+      
+      console.log('[libraryBookService] Books by category retrieved:', category, books.length);
+      return books;
+    } catch (error) {
+      console.error('[libraryBookService] Error getting books by category:', error);
+      throw error;
+    }
+  },
+
+  // Get available books
+  async getAvailableBooks(): Promise<LibraryBook[]> {
+    try {
+      const booksRef = collection(db, COLLECTIONS.LIBRARY_BOOKS);
+      const q = query(booksRef, where('status', '==', 'Available'), orderBy('title'));
+      const querySnapshot = await getDocs(q);
+      
+      const books = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as LibraryBook[];
+      
+      console.log('[libraryBookService] Available books retrieved:', books.length);
+      return books;
+    } catch (error) {
+      console.error('[libraryBookService] Error getting available books:', error);
+      throw error;
+    }
+  }
+};
+
+// Library Member Service
+export const libraryMemberService = {
+  // Create a new member
+  async createMember(memberData: Omit<LibraryMember, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+    try {
+      const memberRef = await addDoc(collection(db, COLLECTIONS.LIBRARY_MEMBERS), {
+        ...cleanFirestoreData(memberData),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[libraryMemberService] Member created:', memberRef.id);
+      return memberRef.id;
+    } catch (error) {
+      console.error('[libraryMemberService] Error creating member:', error);
+      throw error;
+    }
+  },
+
+  // Get all members
+  async getAllMembers(): Promise<LibraryMember[]> {
+    try {
+      const membersRef = collection(db, COLLECTIONS.LIBRARY_MEMBERS);
+      const q = query(membersRef, orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      
+      const members = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as LibraryMember[];
+      
+      console.log('[libraryMemberService] Members retrieved:', members.length);
+      return members;
+    } catch (error) {
+      console.error('[libraryMemberService] Error getting members:', error);
+      throw error;
+    }
+  },
+
+  // Get member by ID
+  async getMember(memberId: string): Promise<LibraryMember | null> {
+    try {
+      const memberRef = doc(db, COLLECTIONS.LIBRARY_MEMBERS, memberId);
+      const memberSnap = await getDoc(memberRef);
+      
+      if (memberSnap.exists()) {
+        const member = { id: memberSnap.id, ...memberSnap.data() } as LibraryMember;
+        console.log('[libraryMemberService] Member retrieved:', memberId);
+        return member;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('[libraryMemberService] Error getting member:', error);
+      throw error;
+    }
+  },
+
+  // Update member
+  async updateMember(memberId: string, memberData: Partial<LibraryMember>): Promise<void> {
+    try {
+      const memberRef = doc(db, COLLECTIONS.LIBRARY_MEMBERS, memberId);
+      await updateDoc(memberRef, {
+        ...cleanFirestoreData(memberData),
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[libraryMemberService] Member updated:', memberId);
+    } catch (error) {
+      console.error('[libraryMemberService] Error updating member:', error);
+      throw error;
+    }
+  },
+
+  // Delete member
+  async deleteMember(memberId: string): Promise<void> {
+    try {
+      const memberRef = doc(db, COLLECTIONS.LIBRARY_MEMBERS, memberId);
+      await deleteDoc(memberRef);
+      
+      console.log('[libraryMemberService] Member deleted:', memberId);
+    } catch (error) {
+      console.error('[libraryMemberService] Error deleting member:', error);
+      throw error;
+    }
+  },
+
+  // Get active members
+  async getActiveMembers(): Promise<LibraryMember[]> {
+    try {
+      const membersRef = collection(db, COLLECTIONS.LIBRARY_MEMBERS);
+      const q = query(membersRef, where('status', '==', 'Active'), orderBy('name'));
+      const querySnapshot = await getDocs(q);
+      
+      const members = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as LibraryMember[];
+      
+      console.log('[libraryMemberService] Active members retrieved:', members.length);
+      return members;
+    } catch (error) {
+      console.error('[libraryMemberService] Error getting active members:', error);
+      throw error;
+    }
+  }
+};
+
+// Library Transaction Service
+export const libraryTransactionService = {
+  // Create a new transaction (issue book)
+  async createTransaction(transactionData: Omit<LibraryTransaction, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+    try {
+      const transactionRef = await addDoc(collection(db, COLLECTIONS.LIBRARY_TRANSACTIONS), {
+        ...cleanFirestoreData(transactionData),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      
+      // Update book availability
+      await libraryBookService.updateBook(transactionData.bookId, {
+        availableCopies: 0, // Will be calculated properly
+        status: 'Issued'
+      });
+      
+      // Update member's current books issued
+      await libraryMemberService.updateMember(transactionData.memberId, {
+        currentBooksIssued: 1 // Will be calculated properly
+      });
+      
+      console.log('[libraryTransactionService] Transaction created:', transactionRef.id);
+      return transactionRef.id;
+    } catch (error) {
+      console.error('[libraryTransactionService] Error creating transaction:', error);
+      throw error;
+    }
+  },
+
+  // Get all transactions
+  async getAllTransactions(): Promise<LibraryTransaction[]> {
+    try {
+      const transactionsRef = collection(db, COLLECTIONS.LIBRARY_TRANSACTIONS);
+      const q = query(transactionsRef, orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      
+      const transactions = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as LibraryTransaction[];
+      
+      console.log('[libraryTransactionService] Transactions retrieved:', transactions.length);
+      return transactions;
+    } catch (error) {
+      console.error('[libraryTransactionService] Error getting transactions:', error);
+      throw error;
+    }
+  },
+
+  // Get transaction by ID
+  async getTransaction(transactionId: string): Promise<LibraryTransaction | null> {
+    try {
+      const transactionRef = doc(db, COLLECTIONS.LIBRARY_TRANSACTIONS, transactionId);
+      const transactionSnap = await getDoc(transactionRef);
+      
+      if (transactionSnap.exists()) {
+        const transaction = { id: transactionSnap.id, ...transactionSnap.data() } as LibraryTransaction;
+        console.log('[libraryTransactionService] Transaction retrieved:', transactionId);
+        return transaction;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('[libraryTransactionService] Error getting transaction:', error);
+      throw error;
+    }
+  },
+
+  // Update transaction (return book)
+  async updateTransaction(transactionId: string, transactionData: Partial<LibraryTransaction>): Promise<void> {
+    try {
+      const transactionRef = doc(db, COLLECTIONS.LIBRARY_TRANSACTIONS, transactionId);
+      await updateDoc(transactionRef, {
+        ...cleanFirestoreData(transactionData),
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[libraryTransactionService] Transaction updated:', transactionId);
+    } catch (error) {
+      console.error('[libraryTransactionService] Error updating transaction:', error);
+      throw error;
+    }
+  },
+
+  // Return book
+  async returnBook(transactionId: string, returnedBy: string): Promise<void> {
+    try {
+      const transaction = await this.getTransaction(transactionId);
+      if (!transaction) throw new Error('Transaction not found');
+      
+      // Update transaction
+      await this.updateTransaction(transactionId, {
+        status: 'Returned',
+        returnDate: new Date().toISOString().split('T')[0],
+        returnedBy
+      });
+      
+      // Update book availability
+      await libraryBookService.updateBook(transaction.bookId, {
+        status: 'Available'
+      });
+      
+      // Update member's current books issued
+      await libraryMemberService.updateMember(transaction.memberId, {
+        currentBooksIssued: 0 // Will be calculated properly
+      });
+      
+      console.log('[libraryTransactionService] Book returned:', transactionId);
+    } catch (error) {
+      console.error('[libraryTransactionService] Error returning book:', error);
+      throw error;
+    }
+  },
+
+  // Get overdue transactions
+  async getOverdueTransactions(): Promise<LibraryTransaction[]> {
+    try {
+      const transactionsRef = collection(db, COLLECTIONS.LIBRARY_TRANSACTIONS);
+      const q = query(transactionsRef, where('status', '==', 'Issued'), orderBy('dueDate'));
+      const querySnapshot = await getDocs(q);
+      
+      const transactions = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as LibraryTransaction[];
+      
+      const today = new Date().toISOString().split('T')[0];
+      const overdueTransactions = transactions.filter(transaction => 
+        transaction.dueDate < today
+      );
+      
+      console.log('[libraryTransactionService] Overdue transactions retrieved:', overdueTransactions.length);
+      return overdueTransactions;
+    } catch (error) {
+      console.error('[libraryTransactionService] Error getting overdue transactions:', error);
+      throw error;
     }
   }
 };

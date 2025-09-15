@@ -31,6 +31,7 @@ const BatchManagementPanel: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState('2nd');
   const [selectedSem, setSelectedSem] = useState('3');
   const [selectedDiv, setSelectedDiv] = useState('A');
+  const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [availableSemesters, setAvailableSemesters] = useState<string[]>(getAvailableSemesters('2'));
   
   // Form states
@@ -69,7 +70,7 @@ const BatchManagementPanel: React.FC = () => {
   // Filter batches based on search
   useEffect(() => {
     filterBatches();
-  }, [batches]);
+  }, [batches, selectedDepartment]);
 
   const loadBatches = async () => {
     setLoading(true);
@@ -95,7 +96,10 @@ const BatchManagementPanel: React.FC = () => {
   };
 
   const filterBatches = () => {
-    setFilteredBatches(batches);
+    const filtered = batches.filter(batch => 
+      selectedDepartment === 'all' || batch.department === selectedDepartment
+    );
+    setFilteredBatches(filtered);
   };
 
   const generateBatchNames = (div: string): string[] => {
@@ -227,7 +231,25 @@ const BatchManagementPanel: React.FC = () => {
       </div>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+          <select
+            value={selectedDepartment}
+            onChange={e => setSelectedDepartment(e.target.value)}
+            className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="all">All Departments</option>
+            <option value="CSE">Computer Science</option>
+            <option value="IT">Information Technology</option>
+            <option value="ECE">Electronics & Communication</option>
+            <option value="EEE">Electrical & Electronics</option>
+            <option value="ME">Mechanical</option>
+            <option value="CE">Civil</option>
+            <option value="AI&ML">AI & Machine Learning</option>
+            <option value="Data Science">Data Science</option>
+          </select>
+        </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
           <select

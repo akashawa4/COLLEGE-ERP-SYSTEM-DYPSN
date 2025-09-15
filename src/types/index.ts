@@ -2,7 +2,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'student' | 'teacher' | 'hod';
+  role: 'student' | 'teacher' | 'hod' | 'admin' | 'non-teaching';
   department: string;
   accessLevel: 'basic' | 'approver' | 'full';
   isActive: boolean;
@@ -28,6 +28,29 @@ export interface User {
   emergencyContact?: string;
   bloodGroup?: string;
   dateOfBirth?: string;
+  
+  // Non-Teaching Staff specific fields
+  subRole?: 'cleaner' | 'peon' | 'lab-assistant' | 'security' | 'maintenance' | 'canteen-staff' | 'library-staff' | 'office-assistant' | 'driver' | 'gardener';
+  workShift?: 'morning' | 'evening' | 'night' | 'full-day';
+  workLocation?: string;
+  supervisor?: string;
+  contractType?: 'permanent' | 'temporary' | 'contract';
+  workStatus?: 'active' | 'on-leave' | 'suspended' | 'terminated';
+}
+
+export interface Department {
+  id: string;
+  name: string;
+  code: string;
+  description: string;
+  hodId?: string;
+  hodName?: string;
+  hodEmail?: string;
+  totalTeachers: number;
+  totalStudents: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface LeaveRequest {
@@ -160,6 +183,132 @@ export interface ResultRecord {
   percentage?: number;
   grade?: string;
   remarks?: string;
+  createdAt?: any; // Firestore timestamp
+  updatedAt?: any; // Firestore timestamp
+}
+
+// Institution Settings Interfaces
+export interface AcademicYear {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+  createdAt?: any; // Firestore timestamp
+  updatedAt?: any; // Firestore timestamp
+}
+
+export interface FeeStructureItem {
+  id: string;
+  name: string;
+  category: string;
+  reservationCategory: string; // Open, OBC, SC, ST, etc.
+  department: string;
+  amount: number;
+  description: string;
+  isActive: boolean;
+  createdAt?: any; // Firestore timestamp
+  updatedAt?: any; // Firestore timestamp
+}
+
+export interface InstitutionInfo {
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  website: string;
+  establishedYear: string;
+  affiliation: string;
+  accreditation: string;
+  updatedAt?: any; // Firestore timestamp
+}
+
+export interface Complaint {
+  id: string;
+  title: string;
+  description: string;
+  category: 'Academic' | 'Administrative' | 'Infrastructure' | 'Hostel' | 'Canteen' | 'Library' | 'Sports' | 'Other';
+  priority: 'Low' | 'Medium' | 'High' | 'Critical';
+  status: 'Open' | 'In Progress' | 'Resolved' | 'Closed' | 'Rejected';
+  complainantName: string;
+  complainantEmail: string;
+  complainantPhone: string;
+  complainantRole: 'Student' | 'Teacher' | 'Staff' | 'Parent' | 'Other';
+  department?: string;
+  assignedTo?: string;
+  assignedToEmail?: string;
+  submittedDate: string;
+  lastUpdated: string;
+  resolution?: string;
+  attachments?: string[];
+  anonymous: boolean;
+  createdAt?: any; // Firestore timestamp
+  updatedAt?: any; // Firestore timestamp
+}
+
+export interface Event {
+  id: string;
+  title: string;
+  description: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:mm
+  location: string;
+  organizer: string;
+  category: "Academic" | "Cultural" | "Sports" | "Technical" | "Social" | "Other";
+  maxParticipants?: number;
+  currentParticipants: number;
+  status: "upcoming" | "ongoing" | "completed" | "cancelled";
+  registrationRequired: boolean;
+  department?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  registrationDeadline?: string;
+  requirements?: string;
+  createdAt?: any; // Firestore timestamp
+  updatedAt?: any; // Firestore timestamp
+}
+
+export interface Club {
+  id: string;
+  name: string;
+  description: string;
+  category: "Academic" | "Cultural" | "Sports" | "Technical" | "Social" | "Literary" | "Other";
+  president: string;
+  presidentEmail: string;
+  presidentPhone: string;
+  facultyAdvisor: string;
+  advisorEmail: string;
+  totalMembers: number;
+  maxMembers?: number;
+  establishedDate: string;
+  status: "active" | "inactive" | "suspended";
+  activities: string[];
+  achievements: string[];
+  department?: string;
+  meetingSchedule?: string;
+  budget?: number;
+  socialMedia?: {
+    facebook?: string;
+    instagram?: string;
+    twitter?: string;
+    linkedin?: string;
+  };
+  createdAt?: any; // Firestore timestamp
+  updatedAt?: any; // Firestore timestamp
+}
+
+export interface ClubMember {
+  id: string;
+  clubId: string;
+  name: string;
+  email: string;
+  role: "President" | "Vice President" | "Secretary" | "Treasurer" | "Member";
+  joinDate: string;
+  status: "active" | "inactive";
+  studentId?: string;
+  phone?: string;
+  department?: string;
+  year?: string;
   createdAt?: any; // Firestore timestamp
   updatedAt?: any; // Firestore timestamp
 }

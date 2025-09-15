@@ -51,6 +51,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
     }
   };
   const [searchTerm, setSearchTerm] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('all');
   const [showImportModal, setShowImportModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -95,7 +96,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
 
   useEffect(() => {
     filterStudents();
-  }, [students, searchTerm]);
+  }, [students, searchTerm, departmentFilter]);
 
   const fetchStudents = async () => {
     setLoading(true);
@@ -129,7 +130,8 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
       student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (student.rollNumber && student.rollNumber.toLowerCase().includes(searchTerm.toLowerCase()))
-      )
+      ) &&
+      (departmentFilter === 'all' || student.department === departmentFilter)
     );
     setFilteredStudents(filtered);
   };
@@ -606,6 +608,21 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
               </button>
             )}
           </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+          <select
+            value={departmentFilter}
+            onChange={(e) => setDepartmentFilter(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="all">All Departments</option>
+            <option value="Computer Science">Computer Science</option>
+            <option value="Information Technology">Information Technology</option>
+            <option value="Mechanical">Mechanical</option>
+            <option value="Electrical">Electrical</option>
+            <option value="Civil">Civil</option>
+          </select>
         </div>
         <div className="flex gap-2">
           <button

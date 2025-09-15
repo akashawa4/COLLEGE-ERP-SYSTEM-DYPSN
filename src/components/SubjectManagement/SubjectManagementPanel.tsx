@@ -35,11 +35,12 @@ const SubjectManagementPanel: React.FC = () => {
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
-  const [filterYear, setFilterYear] = useState('2'); // Default to Year 2
-  const [filterSem, setFilterSem] = useState('3'); // Default to Semester 3
+  const [filterDepartment, setFilterDepartment] = useState('all');
+  const [filterYear, setFilterYear] = useState('1'); // Default to Year 1 (where subjects exist)
+  const [filterSem, setFilterSem] = useState('2'); // Default to Semester 2 (where subjects exist)
   const [filterDiv, setFilterDiv] = useState('A'); // Default to Division A
-  const [availableSemesters, setAvailableSemesters] = useState<string[]>(getAvailableSemesters('2'));
-  const [formAvailableSemesters, setFormAvailableSemesters] = useState<string[]>(getAvailableSemesters('2'));
+  const [availableSemesters, setAvailableSemesters] = useState<string[]>(getAvailableSemesters('1'));
+  const [formAvailableSemesters, setFormAvailableSemesters] = useState<string[]>(getAvailableSemesters('1'));
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [subjectToDelete, setSubjectToDelete] = useState<Subject | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -51,8 +52,8 @@ const SubjectManagementPanel: React.FC = () => {
     subjectName: '',
     subjectType: 'Theory',
     department: 'CSE',
-    year: filterYear,
-    sem: filterSem
+    year: '1', // Default to Year 1
+    sem: '2' // Default to Semester 2
   });
 
   const departments = ['CSE', 'IT', 'ECE', 'EEE', 'ME', 'CE', 'AI&ML', 'Data Science'];
@@ -84,7 +85,7 @@ const SubjectManagementPanel: React.FC = () => {
     loadData();
 
     return () => clearTimeout(timeoutId);
-  }, [filterYear, filterSem, filterType, filterDiv]);
+  }, [filterYear, filterSem, filterType, filterDiv, filterDepartment]);
 
   const loadData = async () => {
     try {
@@ -116,44 +117,40 @@ const SubjectManagementPanel: React.FC = () => {
     try {
       let subjectsData: Subject[] = [];
       
-      if (user?.role === 'teacher') {
-        // For teachers, show all subjects (same as HOD) instead of just assigned ones
-        const deptCode = getDepartmentCode(user?.department);
-        
-        // Use the same logic as HOD to get all subjects
-        // Convert filter values to the correct format for the new structure
-        const mappedYear = formatYear(filterYear);
-        
-        subjectsData = await subjectService.getSubjectsByDepartment(
-          deptCode,
-          mappedYear,
-          filterSem
-        );
-      } else {
-        const deptCode = getDepartmentCode(user?.department);
-        
-        // For HOD, use optimized query with server-side filtering
-        // Convert filter values to the correct format for the new structure
-        const mappedYear = formatYear(filterYear);
-        
-        subjectsData = await subjectService.getSubjectsByDepartment(
-          deptCode,
-          mappedYear,
-          filterSem
-        );
-      }
+      const deptCode = getDepartmentCode(user?.department);
+      const mappedYear = formatYear(filterYear);
+      
+      console.log('[SubjectManagement] Loading subjects with filters:', {
+        userRole: user?.role,
+        userDepartment: user?.department,
+        deptCode,
+        filterYear,
+        mappedYear,
+        filterSem,
+        filterType,
+        filterDiv
+      });
+      
+      subjectsData = await subjectService.getSubjectsByDepartment(
+        deptCode,
+        mappedYear,
+        filterSem
+      );
+      
+      console.log('[SubjectManagement] Raw subjects data:', subjectsData.length, subjectsData);
       
       // Apply type filter (client-side for both roles)
       if (filterType) {
         subjectsData = subjectsData.filter(subject => subject.subjectType === filterType);
+        console.log('[SubjectManagement] After type filter:', subjectsData.length);
       }
       
       return subjectsData;
     } catch (error) {
+      console.error('[SubjectManagement] Error loading subjects:', error);
       return [];
     }
   };
-
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -391,10 +388,11 @@ const SubjectManagementPanel: React.FC = () => {
 
 
   const filteredSubjects = subjects.filter(subject =>
-    subject.subjectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (subject.subjectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     subject.subjectCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
     subject.subjectType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    subject.department.toLowerCase().includes(searchTerm.toLowerCase())
+    subject.department.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    (filterDepartment === 'all' || subject.department === filterDepartment)
   );
 
   return (
@@ -445,6 +443,7 @@ const SubjectManagementPanel: React.FC = () => {
             <span className="hidden sm:inline">Add Subject</span>
             <span className="sm:hidden">Add</span>
           </button>
+          
           
           
         </div>
@@ -503,6 +502,20 @@ const SubjectManagementPanel: React.FC = () => {
             >
               {divs.map(div => (
                 <option key={div} value={div}>Div {div}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div>
+            <label className="label-mobile">Department</label>
+            <select
+              value={filterDepartment}
+              onChange={(e) => setFilterDepartment(e.target.value)}
+              className="input-mobile"
+            >
+              <option value="all">All Departments</option>
+              {departments.map(dept => (
+                <option key={dept} value={dept}>{dept}</option>
               ))}
             </select>
           </div>
@@ -894,6 +907,7 @@ const SubjectManagementPanel: React.FC = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };

@@ -385,103 +385,98 @@ const TeacherManagementPanel: React.FC = () => {
   };
 
   const downloadExcelTemplate = () => {
-    // Create Excel template with proper formatting
-    const headers = [
-      'Name',
-      'Email', 
-      'Phone',
-      'Department',
-      'Designation',
-      'Qualification',
-      'Specialization',
-      'Experience (Years)',
-      'Joining Date (YYYY-MM-DD)',
-      'Address',
-      'Blood Group',
-      'Date of Birth (YYYY-MM-DD)',
-      'Gender',
-      'Is Active (true/false)'
-    ];
-    
-    const sampleData = [
-      {
-        name: 'Dr. Aakash Patil',
-        email: 'aakash.patil@college.edu',
-        phone: '+91 9876543210',
-        department: 'CSE',
-        designation: 'Assistant Professor',
-        qualification: 'Ph.D.',
-        specialization: 'Machine Learning',
-        experience: '6',
-        joiningDate: '2020-07-01',
-        address: 'Pune, Maharashtra',
-        bloodGroup: 'O+',
-        dateOfBirth: '1985-05-12',
-        gender: 'Male',
-        isActive: 'true'
-      },
-      {
-        name: 'Prof. Neha Shah',
-        email: 'neha.shah@college.edu',
-        phone: '+91 9988776655',
-        department: 'CSE',
-        designation: 'Associate Professor',
-        qualification: 'M.Tech',
-        specialization: 'Database Systems',
-        experience: '10',
-        joiningDate: '2016-08-15',
-        address: 'Mumbai, Maharashtra',
-        bloodGroup: 'AB+',
-        dateOfBirth: '1982-03-22',
-        gender: 'Female',
-        isActive: 'true'
-      },
-      {
-        name: 'Dr. Rajesh Kumar',
-        email: 'rajesh.kumar@college.edu',
-        phone: '+91 9876543211',
-        department: 'CSE',
-        designation: 'Professor',
-        qualification: 'Ph.D.',
-        specialization: 'Artificial Intelligence',
-        experience: '15',
-        joiningDate: '2010-06-01',
-        address: 'Delhi, India',
-        bloodGroup: 'B+',
-        dateOfBirth: '1978-12-15',
-        gender: 'Male',
-        isActive: 'true'
-      }
-    ];
+    try {
+      // Create Excel template with proper formatting
+      const sampleData = [
+        {
+          'Name': 'Dr. Aakash Patil',
+          'Email': 'aakash.patil@college.edu',
+          'Phone': '+91 9876543210',
+          'Department': 'Computer Science',
+          'Designation': 'Assistant Professor',
+          'Qualification': 'Ph.D.',
+          'Specialization': 'Machine Learning',
+          'Experience (Years)': '6',
+          'Joining Date (YYYY-MM-DD)': '2020-07-01',
+          'Salary': '60000',
+          'Address': 'Pune, Maharashtra',
+          'Blood Group': 'O+',
+          'Date of Birth (YYYY-MM-DD)': '1985-05-12',
+          'Gender': 'Male',
+          'Is Active (true/false)': 'true'
+        },
+        {
+          'Name': 'Prof. Neha Shah',
+          'Email': 'neha.shah@college.edu',
+          'Phone': '+91 9988776655',
+          'Department': 'Information Technology',
+          'Designation': 'Associate Professor',
+          'Qualification': 'M.Tech',
+          'Specialization': 'Database Systems',
+          'Experience (Years)': '10',
+          'Joining Date (YYYY-MM-DD)': '2016-08-15',
+          'Salary': '70000',
+          'Address': 'Mumbai, Maharashtra',
+          'Blood Group': 'AB+',
+          'Date of Birth (YYYY-MM-DD)': '1982-03-22',
+          'Gender': 'Female',
+          'Is Active (true/false)': 'true'
+        },
+        {
+          'Name': 'Dr. Rajesh Kumar',
+          'Email': 'rajesh.kumar@college.edu',
+          'Phone': '+91 9876543211',
+          'Department': 'Computer Science',
+          'Designation': 'Professor',
+          'Qualification': 'Ph.D.',
+          'Specialization': 'Artificial Intelligence',
+          'Experience (Years)': '15',
+          'Joining Date (YYYY-MM-DD)': '2010-06-01',
+          'Salary': '80000',
+          'Address': 'Delhi, India',
+          'Blood Group': 'B+',
+          'Date of Birth (YYYY-MM-DD)': '1978-12-15',
+          'Gender': 'Male',
+          'Is Active (true/false)': 'true'
+        }
+      ];
 
     // Create workbook and worksheet
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.json_to_sheet(sampleData);
     
-    // Set column widths for better readability
-    const columnWidths = [
-      { wch: 25 }, // Name
-      { wch: 30 }, // Email
-      { wch: 18 }, // Phone
-      { wch: 12 }, // Department
-      { wch: 20 }, // Designation
-      { wch: 15 }, // Qualification
-      { wch: 20 }, // Specialization
-      { wch: 18 }, // Experience
-      { wch: 20 }, // Joining Date
-      { wch: 25 }, // Address
-      { wch: 12 }, // Blood Group
-      { wch: 20 }, // Date of Birth
-      { wch: 10 }, // Gender
-      { wch: 15 }  // Is Active
-    ];
-    worksheet['!cols'] = columnWidths;
+      // Set column widths for better readability
+      const columnWidths = [
+        { wch: 25 }, // Name
+        { wch: 30 }, // Email
+        { wch: 18 }, // Phone
+        { wch: 20 }, // Department
+        { wch: 20 }, // Designation
+        { wch: 25 }, // Qualification
+        { wch: 20 }, // Specialization
+        { wch: 18 }, // Experience
+        { wch: 20 }, // Joining Date
+        { wch: 12 }, // Salary
+        { wch: 30 }, // Address
+        { wch: 12 }, // Blood Group
+        { wch: 20 }, // Date of Birth
+        { wch: 10 }, // Gender
+        { wch: 15 }  // Is Active
+      ];
+      worksheet['!cols'] = columnWidths;
 
-    // Add the worksheet to workbook
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Teacher Template');
-    
-    // Generate and download the file
-    XLSX.writeFile(workbook, 'teacher_import_template.xlsx');
+      // Add the worksheet to workbook
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Teacher Template');
+      
+      // Generate and download the file
+      const filename = `teacher_import_template_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      XLSX.writeFile(workbook, filename);
+      
+      console.log('Excel template downloaded successfully');
+    } catch (error) {
+      console.error('Error downloading template:', error);
+      alert('Failed to download template. Please try again.');
+    }
   };
 
   const addDemoTeachers = async () => {
@@ -577,98 +572,191 @@ const TeacherManagementPanel: React.FC = () => {
 
   const handleImportTeachers = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      return;
+    }
+
+    // Validate file type
+    const validTypes = ['.xlsx', '.xls', '.csv'];
+    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+    if (!validTypes.includes(fileExtension)) {
+      alert('Please select a valid Excel file (.xlsx, .xls) or CSV file (.csv)');
+      e.target.value = '';
+      return;
+    }
+
     try {
       setIsImporting(true);
+      console.log('Starting teacher import...');
+      
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data, { type: 'array' });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
       const rows = XLSX.utils.sheet_to_json<any>(sheet, { defval: '' });
 
-      // Handle both old and new CSV formats with flexible header mapping
-      const headerMapping: { [key: string]: string } = {
-        'name': 'name',
-        'Name': 'name',
-        'email': 'email',
-        'Email': 'email',
-        'phone': 'phone',
-        'Phone': 'phone',
-        'department': 'department',
-        'Department': 'department',
-        'designation': 'designation',
-        'Designation': 'designation',
-        'qualification': 'qualification',
-        'Qualification': 'qualification',
-        'specialization': 'specialization',
-        'Specialization': 'specialization',
-        'experience': 'experience',
-        'Experience (Years)': 'experience',
-        'joiningDate': 'joiningDate',
-        'Joining Date (YYYY-MM-DD)': 'joiningDate',
-        'address': 'address',
-        'Address': 'address',
-        'bloodGroup': 'bloodGroup',
-        'Blood Group': 'bloodGroup',
-        'dateOfBirth': 'dateOfBirth',
-        'Date of Birth (YYYY-MM-DD)': 'dateOfBirth',
-        'gender': 'gender',
-        'Gender': 'gender',
-        'isActive': 'isActive',
-        'Is Active (true/false)': 'isActive'
-      };
+      console.log('Excel data loaded:', rows.length, 'rows');
 
-      const teachers: UserType[] = rows.map((row: any, idx: number) => {
-        const id = (row.id || row.email || `teacher_${Date.now()}_${idx}`).toString();
-        
-        // Map values using the header mapping
-        const getValue = (key: string) => {
-          for (const [header, mappedKey] of Object.entries(headerMapping)) {
-            if (header === mappedKey) {
-              return row[key] || '';
-            }
-          }
-          // Try direct mapping first
-          if (row[key] !== undefined) return row[key];
-          // Try case-insensitive mapping
-          const lowerKey = key.toLowerCase();
-          for (const [header, mappedKey] of Object.entries(headerMapping)) {
-            if (header.toLowerCase() === lowerKey) {
-              return row[header] || '';
-            }
-          }
-          return '';
-        };
-
-        return {
-          id,
-          name: getValue('name') || '',
-          email: getValue('email') || '',
-          phone: getValue('phone')?.toString?.() || '',
-          role: 'teacher',
-          department: getValue('department') || 'CSE',
-          accessLevel: 'approver',
-          isActive: String(getValue('isActive') || 'true').toLowerCase() !== 'false',
-          designation: getValue('designation') || 'Assistant Professor',
-          qualification: getValue('qualification') || '',
-          specialization: getValue('specialization') || '',
-          experience: getValue('experience')?.toString?.() || '',
-          joiningDate: getValue('joiningDate') || '',
-          address: getValue('address') || '',
-          bloodGroup: getValue('bloodGroup') || '',
-          dateOfBirth: getValue('dateOfBirth') || '',
-          gender: getValue('gender') || '',
-        } as UserType;
-      }).filter(t => t.email);
-
-      if (teachers.length === 0) {
+      if (rows.length === 0) {
+        alert('No data found in the Excel file. Please check the file and try again.');
         return;
       }
 
+      // Map Excel headers to our field names
+      const headerMapping: { [key: string]: string } = {
+        'Name': 'name',
+        'name': 'name',
+        'Email': 'email', 
+        'email': 'email',
+        'Phone': 'phone',
+        'phone': 'phone',
+        'Department': 'department',
+        'department': 'department',
+        'Designation': 'designation',
+        'designation': 'designation',
+        'Qualification': 'qualification',
+        'qualification': 'qualification',
+        'Specialization': 'specialization',
+        'specialization': 'specialization',
+        'Experience (Years)': 'experience',
+        'experience': 'experience',
+        'Experience': 'experience',
+        'Joining Date (YYYY-MM-DD)': 'joiningDate',
+        'joiningDate': 'joiningDate',
+        'Joining Date': 'joiningDate',
+        'Address': 'address',
+        'address': 'address',
+        'Blood Group': 'bloodGroup',
+        'bloodGroup': 'bloodGroup',
+        'Date of Birth (YYYY-MM-DD)': 'dateOfBirth',
+        'dateOfBirth': 'dateOfBirth',
+        'Date of Birth': 'dateOfBirth',
+        'Gender': 'gender',
+        'gender': 'gender',
+        'Is Active (true/false)': 'isActive',
+        'isActive': 'isActive',
+        'Is Active': 'isActive',
+        'Salary': 'salary',
+        'salary': 'salary'
+      };
+
+      const teachers: UserType[] = [];
+      const errors: string[] = [];
+
+      rows.forEach((row: any, idx: number) => {
+        try {
+          // Skip empty rows
+          if (!row || Object.keys(row).length === 0) {
+            return;
+          }
+
+          // Get the first non-empty key to check if row has data
+          const firstKey = Object.keys(row).find(key => row[key] && String(row[key]).trim() !== '');
+          if (!firstKey) {
+            return;
+          }
+
+          const id = `teacher_${Date.now()}_${idx}`;
+          
+          // Helper function to get value from row using header mapping
+          const getValue = (fieldName: string): string => {
+            // Try exact match first
+            if (row[fieldName] !== undefined && row[fieldName] !== null) {
+              return String(row[fieldName]).trim();
+            }
+            
+            // Try case-insensitive match
+            const lowerFieldName = fieldName.toLowerCase();
+            for (const [excelHeader, mappedField] of Object.entries(headerMapping)) {
+              if (mappedField === fieldName && 
+                  excelHeader.toLowerCase() === lowerFieldName && 
+                  row[excelHeader] !== undefined) {
+                return String(row[excelHeader]).trim();
+              }
+            }
+            
+            // Try direct header mapping
+            for (const [excelHeader, mappedField] of Object.entries(headerMapping)) {
+              if (mappedField === fieldName && row[excelHeader] !== undefined) {
+                return String(row[excelHeader]).trim();
+              }
+            }
+            
+            return '';
+          };
+
+          const name = getValue('name');
+          const email = getValue('email');
+          
+          // Validate required fields
+          if (!name) {
+            errors.push(`Row ${idx + 2}: Name is required`);
+            return;
+          }
+          
+          if (!email) {
+            errors.push(`Row ${idx + 2}: Email is required`);
+            return;
+          }
+          
+          // Validate email format
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(email)) {
+            errors.push(`Row ${idx + 2}: Invalid email format for ${email}`);
+            return;
+          }
+
+          const teacher: UserType = {
+            id,
+            name,
+            email,
+            phone: getValue('phone') || '',
+            role: 'teacher',
+            department: getValue('department') || 'CSE',
+            accessLevel: 'approver',
+            isActive: getValue('isActive').toLowerCase() !== 'false' && getValue('isActive') !== '0',
+            designation: getValue('designation') || 'Assistant Professor',
+            qualification: getValue('qualification') || '',
+            specialization: getValue('specialization') || '',
+            experience: getValue('experience') || '',
+            joiningDate: getValue('joiningDate') || '',
+            salary: getValue('salary') || '',
+            address: getValue('address') || '',
+            bloodGroup: getValue('bloodGroup') || '',
+            dateOfBirth: getValue('dateOfBirth') || '',
+            gender: getValue('gender') || 'Male',
+            createdAt: new Date().toISOString()
+          };
+
+          teachers.push(teacher);
+        } catch (rowError) {
+          errors.push(`Row ${idx + 2}: ${rowError instanceof Error ? rowError.message : 'Unknown error'}`);
+        }
+      });
+
+      if (errors.length > 0) {
+        console.error('Import errors:', errors);
+        alert(`Import completed with ${errors.length} errors:\n\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? '\n... and more' : ''}`);
+      }
+
+      if (teachers.length === 0) {
+        alert('No valid teacher data found in the file. Please check the format and try again.');
+        return;
+      }
+
+      console.log('Importing teachers:', teachers.length);
+      
+      // Import teachers to Firestore
       await userService.bulkImportTeachers(teachers);
+      
+      // Reload the teacher list
       await loadTeachers();
-    } catch (err) {
-      // Handle error silently
+      
+      alert(`Successfully imported ${teachers.length} teachers!${errors.length > 0 ? ` (${errors.length} rows had errors)` : ''}`);
+      
+    } catch (error) {
+      console.error('Import error:', error);
+      alert(`Failed to import teachers: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsImporting(false);
       e.target.value = '';
@@ -1059,7 +1147,7 @@ const TeacherManagementPanel: React.FC = () => {
               {/* Basic Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4">
                 <div>
-                  <label className="label-mobile">Full Name *</label>
+                  <label className="label-mobile">Name *</label>
                   <input
                     type="text"
                     value={formData.name}
@@ -1070,7 +1158,7 @@ const TeacherManagementPanel: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="label-mobile">Email Address *</label>
+                  <label className="label-mobile">Email *</label>
                   <input
                     type="email"
                     value={formData.email}
@@ -1081,7 +1169,7 @@ const TeacherManagementPanel: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="label-mobile">Phone Number *</label>
+                  <label className="label-mobile">Phone *</label>
                   <input
                     type="tel"
                     value={formData.phone}
@@ -1091,22 +1179,6 @@ const TeacherManagementPanel: React.FC = () => {
                     required
                   />
                 </div>
-                <div>
-                  <label className="label-mobile">Gender</label>
-                  <select
-                    value={formData.gender}
-                    onChange={(e) => setFormData({...formData, gender: e.target.value})}
-                    className="input-mobile"
-                  >
-                    {genders.map(gender => (
-                      <option key={gender} value={gender}>{gender}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Academic Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4">
                 <div>
                   <label className="label-mobile">Department *</label>
                   <select
@@ -1154,12 +1226,8 @@ const TeacherManagementPanel: React.FC = () => {
                     placeholder="e.g., Machine Learning, Database Systems"
                   />
                 </div>
-              </div>
-
-              {/* Experience and Employment */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4">
                 <div>
-                  <label className="label-mobile">Years of Experience</label>
+                  <label className="label-mobile">Experience</label>
                   <input
                     type="text"
                     value={formData.experience}
@@ -1178,7 +1246,7 @@ const TeacherManagementPanel: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="label-mobile">Salary (Annual)</label>
+                  <label className="label-mobile">Salary</label>
                   <input
                     type="text"
                     value={formData.salary}
@@ -1188,18 +1256,15 @@ const TeacherManagementPanel: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="label-mobile">Date of Birth</label>
-                  <input
-                    type="date"
-                    value={formData.dateOfBirth}
-                    onChange={(e) => setFormData({...formData, dateOfBirth: e.target.value})}
+                  <label className="label-mobile">Address</label>
+                  <textarea
+                    value={formData.address}
+                    onChange={(e) => setFormData({...formData, address: e.target.value})}
                     className="input-mobile"
+                    rows={2}
+                    placeholder="Enter complete address"
                   />
                 </div>
-              </div>
-
-              {/* Additional Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4">
                 <div>
                   <label className="label-mobile">Blood Group</label>
                   <select
@@ -1213,30 +1278,39 @@ const TeacherManagementPanel: React.FC = () => {
                     ))}
                   </select>
                 </div>
-              </div>
-
-              <div>
-                <label className="label-mobile">Address</label>
-                <textarea
-                  value={formData.address}
-                  onChange={(e) => setFormData({...formData, address: e.target.value})}
-                  className="input-mobile"
-                  rows={3}
-                  placeholder="Enter complete address"
-                />
-              </div>
-
-              <div className="flex items-center space-x-3">
-                <input
-                  type="checkbox"
-                  id="isActive"
-                  checked={formData.isActive}
-                  onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
-                  Active Teacher
-                </label>
+                <div>
+                  <label className="label-mobile">Date of Birth</label>
+                  <input
+                    type="date"
+                    value={formData.dateOfBirth}
+                    onChange={(e) => setFormData({...formData, dateOfBirth: e.target.value})}
+                    className="input-mobile"
+                  />
+                </div>
+                <div>
+                  <label className="label-mobile">Gender</label>
+                  <select
+                    value={formData.gender}
+                    onChange={(e) => setFormData({...formData, gender: e.target.value})}
+                    className="input-mobile"
+                  >
+                    {genders.map(gender => (
+                      <option key={gender} value={gender}>{gender}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    id="isActive"
+                    checked={formData.isActive}
+                    onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
+                    Is Active
+                  </label>
+                </div>
               </div>
 
               <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200">
