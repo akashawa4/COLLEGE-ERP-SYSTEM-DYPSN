@@ -363,7 +363,7 @@ const EventManagement: React.FC = () => {
                 <Eye className="w-4 h-4" />
               </button>
 
-              {user?.role !== "student" && (
+              {user?.role !== "student" && user?.role !== 'visitor' && (
                 <div ref={actionRef} className="relative">
                   <button
                     aria-haspopup="true"
@@ -563,7 +563,7 @@ const EventManagement: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              {user?.role !== "student" && (
+              {user?.role !== "student" && user?.role !== 'visitor' && (
                 <>
                   <button
                     onClick={() => openEditForm(ev)}
@@ -628,7 +628,7 @@ const EventManagement: React.FC = () => {
             <span className="hidden sm:inline">Refresh</span>
           </button>
 
-          {user?.role !== "student" && (
+          {user?.role !== "student" && user?.role !== 'visitor' && (
             <button
               onClick={openCreateForm}
               className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -792,7 +792,7 @@ const EventManagement: React.FC = () => {
       </section>
 
       {/* Floating Add button for mobile */}
-      {user?.role !== "student" && (
+      {user?.role !== "student" && user?.role !== 'visitor' && (
         <div className="fixed right-4 bottom-6 md:hidden z-40">
           <button
             onClick={openCreateForm}

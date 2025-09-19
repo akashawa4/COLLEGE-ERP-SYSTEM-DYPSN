@@ -18,7 +18,11 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { DocumentData, QuerySnapshot } from 'firebase/firestore';
-import { User, LeaveRequest, AttendanceLog, Notification, Subject, ResultRecord, Department, AcademicYear, FeeStructureItem, InstitutionInfo, Complaint, Event, Club, ClubMember, LibraryBook, LibraryMember, LibraryTransaction } from '../types';
+import { User, LeaveRequest, AttendanceLog, Notification, Subject, ResultRecord, Department, AcademicYear, FeeStructureItem, InstitutionInfo, Complaint, Event, Club, ClubMember, VisitorProfile, Bus, BusRoute, LostFoundItem, HostelRoom } from '../types';
+// Local fallbacks for library types (module does not export them)
+type LibraryBook = any;
+type LibraryMember = any;
+type LibraryTransaction = any;
 import { getDepartmentCode } from '../utils/departmentMapping';
 
 // Collection names
@@ -42,7 +46,12 @@ export const COLLECTIONS = {
   CLUB_MEMBERS: 'clubMembers',
   LIBRARY_BOOKS: 'libraryBooks',
   LIBRARY_MEMBERS: 'libraryMembers',
-  LIBRARY_TRANSACTIONS: 'libraryTransactions'
+  LIBRARY_TRANSACTIONS: 'libraryTransactions',
+  VISITORS: 'visitors',
+  BUSES: 'buses',
+  BUS_ROUTES: 'busRoutes',
+  LOST_FOUND: 'lostFound',
+  HOSTEL_ROOMS: 'hostelRooms'
 } as const;
 
 // Department constants
@@ -1563,6 +1572,41 @@ export const userService = {
       return null;
     } catch (error) {
       console.log(`❌ Error in validateLibraryStaffCredentials:`, error);
+      return null;
+    }
+  },
+
+  // Validate driver credentials
+  async validateDriverCredentials(email: string, phoneNumber: string): Promise<User | null> {
+    try {
+      console.log(`🔍 Validating driver credentials for email: ${email}, phone: ${phoneNumber}`);
+      
+      // Search for driver by email or phone
+      const usersRef = collection(db, COLLECTIONS.USERS);
+      const q = query(
+        usersRef,
+        where('role', '==', 'driver'),
+        where('isActive', '==', true)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      console.log(`📊 Found ${querySnapshot.docs.length} driver users`);
+      
+      for (const doc of querySnapshot.docs) {
+        const userData = doc.data() as User;
+        console.log(`🔍 Checking driver: ${userData.email} (${userData.phone})`);
+        
+        // Check if email or phone matches
+        if (userData.email === email || userData.phone === phoneNumber) {
+          console.log(`✅ Driver credentials validated for: ${userData.email}`);
+          return userData;
+        }
+      }
+      
+      console.log(`❌ No matching driver found for email: ${email}, phone: ${phoneNumber}`);
+      return null;
+    } catch (error) {
+      console.log(`❌ Error in validateDriverCredentials:`, error);
       return null;
     }
   }
@@ -5820,6 +5864,403 @@ export const complaintService = {
       console.error('[complaintService] Error getting complaint stats:', error);
       throw error;
     }
+  }
+};
+
+// Visitor Service
+export const visitorService = {
+  async upsertVisitor(profile: Omit<VisitorProfile, 'id' | 'createdAt'> & { id?: string }): Promise<string> {
+    try {
+      const deviceId = profile.deviceId;
+      // Use deviceId as document id for idempotency on the same device
+      const docId = profile.id || deviceId;
+      const ref = doc(db, COLLECTIONS.VISITORS, docId);
+      const snapshot = await getDoc(ref);
+      const nowIso = new Date().toISOString();
+      if (snapshot.exists()) {
+        await updateDoc(ref, {
+          name: profile.name || snapshot.data().name || null,
+          phone: profile.phone || snapshot.data().phone || null,
+          purpose: profile.purpose || snapshot.data().purpose || null,
+          lastLogin: nowIso,
+          updatedAt: serverTimestamp()
+        });
+        return docId;
+      } else {
+        await setDoc(ref, {
+          id: docId,
+          deviceId,
+          name: profile.name || null,
+          phone: profile.phone || null,
+          purpose: profile.purpose || null,
+          createdAt: serverTimestamp(),
+          lastLogin: nowIso
+        });
+        return docId;
+      }
+    } catch (error) {
+      console.error('[visitorService] upsertVisitor error:', error);
+      throw error;
+    }
+  },
+
+  async getVisitorByDevice(deviceId: string): Promise<VisitorProfile | null> {
+    try {
+      const ref = doc(db, COLLECTIONS.VISITORS, deviceId);
+      const snap = await getDoc(ref);
+      if (!snap.exists()) return null;
+      return { id: snap.id, ...(snap.data() as any) } as VisitorProfile;
+    } catch (error) {
+      console.error('[visitorService] getVisitorByDevice error:', error);
+      return null;
+    }
+  },
+
+  async getAllVisitors(): Promise<VisitorProfile[]> {
+    try {
+      const visitorsRef = collection(db, COLLECTIONS.VISITORS);
+      const querySnapshot = await getDocs(visitorsRef);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as VisitorProfile));
+    } catch (error) {
+      console.error('[visitorService] getAllVisitors error:', error);
+      throw error;
+    }
+  }
+};
+
+// Bus Management Service
+export const busService = {
+  // Create a new bus
+  async createBus(busData: Omit<Bus, 'id'>): Promise<string> {
+    try {
+      const busRef = doc(collection(db, COLLECTIONS.BUSES));
+      const busId = busRef.id;
+      
+      await setDoc(busRef, {
+        ...busData,
+        id: busId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[busService] Bus created:', busId);
+      return busId;
+    } catch (error) {
+      console.error('[busService] Error creating bus:', error);
+      throw error;
+    }
+  },
+
+  // Get all buses
+  async getAllBuses(): Promise<Bus[]> {
+    try {
+      const busesRef = collection(db, COLLECTIONS.BUSES);
+      const querySnapshot = await getDocs(busesRef);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Bus));
+    } catch (error) {
+      console.error('[busService] Error getting buses:', error);
+      throw error;
+    }
+  },
+
+  // Update bus
+  async updateBus(busId: string, updateData: Partial<Bus>): Promise<void> {
+    try {
+      const busRef = doc(db, COLLECTIONS.BUSES, busId);
+      await updateDoc(busRef, {
+        ...updateData,
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[busService] Bus updated:', busId);
+    } catch (error) {
+      console.error('[busService] Error updating bus:', error);
+      throw error;
+    }
+  },
+
+  // Delete bus
+  async deleteBus(busId: string): Promise<void> {
+    try {
+      const busRef = doc(db, COLLECTIONS.BUSES, busId);
+      await deleteDoc(busRef);
+      
+      console.log('[busService] Bus deleted:', busId);
+    } catch (error) {
+      console.error('[busService] Error deleting bus:', error);
+      throw error;
+    }
+  },
+
+  // Listen to buses changes
+  listenBuses(callback: (buses: Bus[]) => void): () => void {
+    const busesRef = collection(db, COLLECTIONS.BUSES);
+    return onSnapshot(busesRef, (snapshot) => {
+      const buses = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Bus));
+      callback(buses);
+    });
+  }
+};
+
+// Bus Route Service
+export const busRouteService = {
+  // Create a new bus route
+  async createBusRoute(routeData: Omit<BusRoute, 'id'>): Promise<string> {
+    try {
+      const routeRef = doc(collection(db, COLLECTIONS.BUS_ROUTES));
+      const routeId = routeRef.id;
+      
+      await setDoc(routeRef, {
+        ...routeData,
+        id: routeId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[busRouteService] Bus route created:', routeId);
+      return routeId;
+    } catch (error) {
+      console.error('[busRouteService] Error creating bus route:', error);
+      throw error;
+    }
+  },
+
+  // Get all bus routes
+  async getAllBusRoutes(): Promise<BusRoute[]> {
+    try {
+      const routesRef = collection(db, COLLECTIONS.BUS_ROUTES);
+      const querySnapshot = await getDocs(routesRef);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as BusRoute));
+    } catch (error) {
+      console.error('[busRouteService] Error getting bus routes:', error);
+      throw error;
+    }
+  },
+
+  // Update bus route
+  async updateBusRoute(routeId: string, updateData: Partial<BusRoute>): Promise<void> {
+    try {
+      const routeRef = doc(db, COLLECTIONS.BUS_ROUTES, routeId);
+      await updateDoc(routeRef, {
+        ...updateData,
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[busRouteService] Bus route updated:', routeId);
+    } catch (error) {
+      console.error('[busRouteService] Error updating bus route:', error);
+      throw error;
+    }
+  },
+
+  // Delete bus route
+  async deleteBusRoute(routeId: string): Promise<void> {
+    try {
+      const routeRef = doc(db, COLLECTIONS.BUS_ROUTES, routeId);
+      await deleteDoc(routeRef);
+      
+      console.log('[busRouteService] Bus route deleted:', routeId);
+    } catch (error) {
+      console.error('[busRouteService] Error deleting bus route:', error);
+      throw error;
+    }
+  },
+
+  // Listen to bus routes changes
+  listenBusRoutes(callback: (routes: BusRoute[]) => void): () => void {
+    const routesRef = collection(db, COLLECTIONS.BUS_ROUTES);
+    return onSnapshot(routesRef, (snapshot) => {
+      const routes = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as BusRoute));
+      callback(routes);
+    });
+  }
+};
+
+// Lost and Found Service
+export const lostFoundService = {
+  // Create a new lost and found item
+  async createLostFoundItem(itemData: Omit<LostFoundItem, 'id'>): Promise<string> {
+    try {
+      const itemRef = doc(collection(db, COLLECTIONS.LOST_FOUND));
+      const itemId = itemRef.id;
+      
+      await setDoc(itemRef, {
+        ...itemData,
+        id: itemId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[lostFoundService] Lost and found item created:', itemId);
+      return itemId;
+    } catch (error) {
+      console.error('[lostFoundService] Error creating lost and found item:', error);
+      throw error;
+    }
+  },
+
+  // Get all lost and found items
+  async getAllLostFoundItems(): Promise<LostFoundItem[]> {
+    try {
+      const itemsRef = collection(db, COLLECTIONS.LOST_FOUND);
+      const q = query(itemsRef, orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as LostFoundItem));
+    } catch (error) {
+      console.error('[lostFoundService] Error getting lost and found items:', error);
+      throw error;
+    }
+  },
+
+  // Update lost and found item
+  async updateLostFoundItem(itemId: string, updateData: Partial<LostFoundItem>): Promise<void> {
+    try {
+      const itemRef = doc(db, COLLECTIONS.LOST_FOUND, itemId);
+      await updateDoc(itemRef, {
+        ...updateData,
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[lostFoundService] Lost and found item updated:', itemId);
+    } catch (error) {
+      console.error('[lostFoundService] Error updating lost and found item:', error);
+      throw error;
+    }
+  },
+
+  // Delete lost and found item
+  async deleteLostFoundItem(itemId: string): Promise<void> {
+    try {
+      const itemRef = doc(db, COLLECTIONS.LOST_FOUND, itemId);
+      await deleteDoc(itemRef);
+      
+      console.log('[lostFoundService] Lost and found item deleted:', itemId);
+    } catch (error) {
+      console.error('[lostFoundService] Error deleting lost and found item:', error);
+      throw error;
+    }
+  },
+
+  // Listen to lost and found items changes
+  listenLostFoundItems(callback: (items: LostFoundItem[]) => void): () => void {
+    const itemsRef = collection(db, COLLECTIONS.LOST_FOUND);
+    const q = query(itemsRef, orderBy('createdAt', 'desc'));
+    
+    return onSnapshot(q, (snapshot) => {
+      const items = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as LostFoundItem));
+      
+      callback(items);
+    });
+  }
+};
+
+// Hostel Room Service
+export const hostelService = {
+  // Create a new hostel room
+  async createHostelRoom(roomData: Omit<HostelRoom, 'id'>): Promise<string> {
+    try {
+      const roomRef = doc(collection(db, COLLECTIONS.HOSTEL_ROOMS));
+      const roomId = roomRef.id;
+      
+      await setDoc(roomRef, {
+        ...roomData,
+        id: roomId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[hostelService] Hostel room created:', roomId);
+      return roomId;
+    } catch (error) {
+      console.error('[hostelService] Error creating hostel room:', error);
+      throw error;
+    }
+  },
+
+  // Get all hostel rooms
+  async getAllHostelRooms(): Promise<HostelRoom[]> {
+    try {
+      const roomsRef = collection(db, COLLECTIONS.HOSTEL_ROOMS);
+      const q = query(roomsRef, orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as HostelRoom));
+    } catch (error) {
+      console.error('[hostelService] Error getting hostel rooms:', error);
+      throw error;
+    }
+  },
+
+  // Update hostel room
+  async updateHostelRoom(roomId: string, updateData: Partial<HostelRoom>): Promise<void> {
+    try {
+      const roomRef = doc(db, COLLECTIONS.HOSTEL_ROOMS, roomId);
+      await updateDoc(roomRef, {
+        ...updateData,
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[hostelService] Hostel room updated:', roomId);
+    } catch (error) {
+      console.error('[hostelService] Error updating hostel room:', error);
+      throw error;
+    }
+  },
+
+  // Delete hostel room
+  async deleteHostelRoom(roomId: string): Promise<void> {
+    try {
+      const roomRef = doc(db, COLLECTIONS.HOSTEL_ROOMS, roomId);
+      await deleteDoc(roomRef);
+      
+      console.log('[hostelService] Hostel room deleted:', roomId);
+    } catch (error) {
+      console.error('[hostelService] Error deleting hostel room:', error);
+      throw error;
+    }
+  },
+
+  // Listen to hostel rooms changes
+  listenHostelRooms(callback: (rooms: HostelRoom[]) => void): () => void {
+    const roomsRef = collection(db, COLLECTIONS.HOSTEL_ROOMS);
+    const q = query(roomsRef, orderBy('createdAt', 'desc'));
+    
+    return onSnapshot(q, (snapshot) => {
+      const rooms = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as HostelRoom));
+      
+      callback(rooms);
+    });
   }
 };
 

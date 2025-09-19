@@ -37,7 +37,7 @@ const UserManagement: React.FC = () => {
   const [newUser, setNewUser] = useState<Partial<User>>({
     name: '',
     email: '',
-    role: 'student',
+    role: 'admin',
     department: '',
     accessLevel: 'basic',
     isActive: true,
@@ -77,9 +77,9 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  // Filter users
+  // Filter users - exclude students and teachers from admin user management
   useEffect(() => {
-    let filtered = users;
+    let filtered = users.filter(user => user.role !== 'student' && user.role !== 'teacher');
 
     if (searchTerm) {
       filtered = filtered.filter(
@@ -227,7 +227,7 @@ const UserManagement: React.FC = () => {
       setNewUser({
         name: '',
         email: '',
-        role: 'student',
+        role: 'admin',
         department: '',
         accessLevel: 'basic',
         isActive: true,
@@ -446,8 +446,6 @@ const UserManagement: React.FC = () => {
               <option value="all">All Roles</option>
               <option value="admin">Admin</option>
               <option value="hod">HOD</option>
-              <option value="teacher">Teacher</option>
-              <option value="student">Student</option>
               <option value="non-teaching">Non-Teaching Staff</option>
             </select>
           </div>
@@ -512,8 +510,6 @@ const UserManagement: React.FC = () => {
                 <option value="all">All Roles</option>
                 <option value="admin">Admin</option>
                 <option value="hod">HOD</option>
-                <option value="teacher">Teacher</option>
-                <option value="student">Student</option>
                 <option value="non-teaching">Non-Teaching Staff</option>
               </select>
             </div>
@@ -875,11 +871,11 @@ const UserManagement: React.FC = () => {
 
         <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center">
-            <GraduationCap className="w-8 h-8 text-green-600" />
+            <Crown className="w-8 h-8 text-purple-600" />
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Teachers</p>
+              <p className="text-sm font-medium text-gray-600">HODs</p>
               <p className="text-2xl font-bold text-gray-900">
-                {users.filter((u) => u.role === "teacher").length}
+                {users.filter((u) => u.role === "hod").length}
               </p>
             </div>
           </div>
@@ -887,11 +883,11 @@ const UserManagement: React.FC = () => {
 
         <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center">
-            <Users className="w-8 h-8 text-blue-600" />
+            <Shield className="w-8 h-8 text-red-600" />
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Students</p>
+              <p className="text-sm font-medium text-gray-600">Admins</p>
               <p className="text-2xl font-bold text-gray-900">
-                {users.filter((u) => u.role === "student").length}
+                {users.filter((u) => u.role === "admin").length}
               </p>
             </div>
           </div>
@@ -952,14 +948,12 @@ const UserManagement: React.FC = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Role *</label>
                   <select
-                    value={newUser.role || 'student'}
+                    value={newUser.role || 'admin'}
                     onChange={(e) => setNewUser({...newUser, role: e.target.value as any})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="student">Student</option>
-                    <option value="teacher">Teacher</option>
-                    <option value="hod">Head of Department</option>
                     <option value="admin">Admin</option>
+                    <option value="hod">Head of Department</option>
                     <option value="non-teaching">Non-Teaching Staff</option>
                   </select>
                 </div>
@@ -1080,10 +1074,8 @@ const UserManagement: React.FC = () => {
                     onChange={(e) => setSelectedUser({...selectedUser, role: e.target.value as any})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="student">Student</option>
-                    <option value="teacher">Teacher</option>
-                    <option value="hod">Head of Department</option>
                     <option value="admin">Admin</option>
+                    <option value="hod">Head of Department</option>
                     <option value="non-teaching">Non-Teaching Staff</option>
                   </select>
                 </div>

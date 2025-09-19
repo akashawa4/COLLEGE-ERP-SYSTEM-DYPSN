@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { userService, attendanceService } from '../../firebase/firestore';
 import { User, AttendanceLog } from '../../types';
-import { Upload, Download, Users, Plus, Trash2, Edit, Search, Filter, Calendar, FileText, BarChart3, Eye, X } from 'lucide-react';
+import { Upload, Download, Users, Plus, Trash2, Edit, Search, Filter, Calendar, FileText, BarChart3, Eye, X, CheckCircle } from 'lucide-react';
 import { getDepartmentCode } from '../../utils/departmentMapping';
 import { getAvailableSemesters, isValidSemesterForYear, getDefaultSemesterForYear } from '../../utils/semesterMapping';
 
@@ -524,125 +524,195 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Student Management</h2>
-          <p className="text-gray-600">Manage students by year, semester, and division</p>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <button
-            onClick={() => setShowImportModal(true)}
-            className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 sm:py-2 rounded-lg hover:bg-blue-700 touch-manipulation active:scale-95 transition-transform"
-          >
-            <Upload size={16} />
-            <span className="hidden sm:inline">Import Excel</span>
-            <span className="sm:hidden">Import</span>
-          </button>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2.5 sm:py-2 rounded-lg hover:bg-green-700 touch-manipulation active:scale-95 transition-transform"
-          >
-            <Plus size={16} />
-            <span className="hidden sm:inline">Add Student</span>
-            <span className="sm:hidden">Add</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
-          <select
-            value={selectedYear}
-            onChange={(e) => handleYearChange(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-          >
-            {YEARS.map(year => (
-              <option key={year} value={year}>{year}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Semester</label>
-          <select
-            value={selectedSem}
-            onChange={(e) => setSelectedSem(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-          >
-            {availableSemesters.map(sem => (
-              <option key={sem} value={sem}>{sem}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
-          <select
-            value={selectedDiv}
-            onChange={(e) => setSelectedDiv(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-          >
-            {DIVS.map(div => (
-              <option key={div} value={div}>{div}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Search students..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 pl-10 pr-10 touch-manipulation focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-            {searchTerm && (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-3 lg:p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Modern Header Section */}
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 lg:p-8 mb-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6">
+            <div className="mb-4 lg:mb-0">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Student Management</h1>
+              <p className="text-gray-600">Manage students by year, semester, and division</p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
-                onClick={() => setSearchTerm('')}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 w-4 h-4"
+                onClick={() => setShowImportModal(true)}
+                className="flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
               >
-                <X className="w-4 h-4" />
+                <Upload size={18} />
+                <span>Import Excel</span>
               </button>
-            )}
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="flex items-center justify-center gap-2 bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
+                <Plus size={18} />
+                <span>Add Student</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-blue-100 text-sm font-medium">Total Students</p>
+                  <p className="text-2xl font-bold">{filteredStudents.length}</p>
+                </div>
+                <Users className="w-8 h-8 text-blue-200" />
+              </div>
+            </div>
+            <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-4 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-green-100 text-sm font-medium">Active Students</p>
+                  <p className="text-2xl font-bold">{filteredStudents.filter(s => s.isActive).length}</p>
+                </div>
+                <CheckCircle className="w-8 h-8 text-green-200" />
+              </div>
+            </div>
+            <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-4 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-purple-100 text-sm font-medium">Current Class</p>
+                  <p className="text-lg font-bold">{selectedYear} - {selectedSem} - {selectedDiv}</p>
+                </div>
+                <Calendar className="w-8 h-8 text-purple-200" />
+              </div>
+            </div>
+            <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-4 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-orange-100 text-sm font-medium">Departments</p>
+                  <p className="text-2xl font-bold">{new Set(filteredStudents.map(s => s.department)).size}</p>
+                </div>
+                <BarChart3 className="w-8 h-8 text-orange-200" />
+              </div>
+            </div>
           </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-          <select
-            value={departmentFilter}
-            onChange={(e) => setDepartmentFilter(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="all">All Departments</option>
-            <option value="Computer Science">Computer Science</option>
-            <option value="Information Technology">Information Technology</option>
-            <option value="Mechanical">Mechanical</option>
-            <option value="Electrical">Electrical</option>
-            <option value="Civil">Civil</option>
-          </select>
+
+        {/* Modern Filters Section */}
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 lg:p-8 mb-6">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+              <Filter className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900">Filter Students</h3>
+              <p className="text-gray-600">Search and filter students by various criteria</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="space-y-2">
+              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                <Calendar className="w-4 h-4" />
+                <span>Year</span>
+              </label>
+              <select
+                value={selectedYear}
+                onChange={(e) => handleYearChange(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              >
+                {YEARS.map(year => (
+                  <option key={year} value={year}>{year} Year</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                <FileText className="w-4 h-4" />
+                <span>Semester</span>
+              </label>
+              <select
+                value={selectedSem}
+                onChange={(e) => setSelectedSem(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              >
+                {availableSemesters.map(sem => (
+                  <option key={sem} value={sem}>Semester {sem}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                <Users className="w-4 h-4" />
+                <span>Division</span>
+              </label>
+              <select
+                value={selectedDiv}
+                onChange={(e) => setSelectedDiv(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              >
+                {DIVS.map(div => (
+                  <option key={div} value={div}>Division {div}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                <Search className="w-4 h-4" />
+                <span>Search</span>
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search students..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full px-4 py-3 pl-10 pr-10 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 w-4 h-4"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div className="space-y-2">
+              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                <BarChart3 className="w-4 h-4" />
+                <span>Department</span>
+              </label>
+              <select
+                value={departmentFilter}
+                onChange={(e) => setDepartmentFilter(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              >
+                <option value="all">All Departments</option>
+                <option value="Computer Science">Computer Science</option>
+                <option value="Information Technology">Information Technology</option>
+                <option value="Mechanical">Mechanical</option>
+                <option value="Electrical">Electrical</option>
+                <option value="Civil">Civil</option>
+              </select>
+            </div>
+            <div className="flex items-end gap-3">
+              <button
+                onClick={downloadTemplate}
+                className="flex items-center gap-2 bg-gray-600 text-white px-6 py-3 rounded-xl hover:bg-gray-700 font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
+                <Download size={18} />
+                <span>Template</span>
+              </button>
+              <button
+                onClick={() => setShowExportModal(true)}
+                className="flex items-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-xl hover:bg-purple-700 font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
+                <Download size={18} />
+                <span>Export Data</span>
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={downloadTemplate}
-            className="flex items-center gap-2 bg-gray-600 text-white px-4 py-2.5 sm:py-2 rounded-lg hover:bg-gray-700 touch-manipulation active:scale-95 transition-transform"
-          >
-            <Download size={16} />
-            <span className="hidden sm:inline">Template</span>
-            <span className="sm:hidden">Template</span>
-          </button>
-          <button
-            onClick={() => setShowExportModal(true)}
-            className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2.5 sm:py-2 rounded-lg hover:bg-purple-700 touch-manipulation active:scale-95 transition-transform"
-          >
-            <Download size={16} />
-            <span className="hidden sm:inline">Export Data</span>
-            <span className="sm:hidden">Export</span>
-          </button>
-        </div>
-      </div>
 
       {/* Students List - Mobile (cards) */}
       <div className="md:hidden space-y-3">
@@ -1325,6 +1395,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

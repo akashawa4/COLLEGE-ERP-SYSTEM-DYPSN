@@ -8,6 +8,7 @@ interface HeaderProps {
   notifications?: any[];
   showNotifications?: boolean;
   setShowNotifications?: (show: boolean) => void;
+  isOnline?: boolean;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -15,7 +16,8 @@ const Header: React.FC<HeaderProps> = ({
   onProfileClick, 
   notifications = [],
   showNotifications = false,
-  setShowNotifications = () => {}
+  setShowNotifications = () => {},
+  isOnline = true
 }) => {
   const { user, logout } = useAuth();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -48,6 +50,15 @@ const Header: React.FC<HeaderProps> = ({
 
         {/* Right Section */}
         <div className="flex items-center space-x-2">
+          {/* Desktop offline indicator (non-intrusive) */}
+          {!isOnline && (
+            <div className="hidden lg:flex items-center">
+              <div className="px-2 py-1 rounded-md bg-amber-50 text-amber-800 text-xs border border-amber-200 flex items-center gap-1">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                Offline
+              </div>
+            </div>
+          )}
           {/* Notifications */}
           <button
             onClick={() => setShowNotifications(!showNotifications)}

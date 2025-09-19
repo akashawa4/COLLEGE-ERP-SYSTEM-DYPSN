@@ -18,7 +18,7 @@ import TeacherManagementPanel from './components/TeacherManagement/TeacherManage
 import SubjectManagementPanel from './components/SubjectManagement/SubjectManagementPanel';
 import ResultEntryPanel from './components/Results/ResultEntryPanel';
 import MyResults from './components/Results/MyResults';
-import { Upload, BarChart3, Users, Calendar, FileText } from 'lucide-react';
+import { Upload, BarChart3, Users, Calendar, FileText, User } from 'lucide-react';
 import StudentProfile from './components/StudentProfile';
 import TakeAttendancePanel from './components/Attendance/TakeAttendancePanel';
 import BatchManagementPanel from './components/BatchManagement/BatchManagementPanel';
@@ -37,6 +37,75 @@ import CleanerPanel from './components/NonTeaching/CleanerPanel';
 import PeonPanel from './components/NonTeaching/PeonPanel';
 import LabAssistantPanel from './components/NonTeaching/LabAssistantPanel';
 import SecurityPanel from './components/NonTeaching/SecurityPanel';
+import VisitorManagement from './components/Admin/VisitorManagement';
+import BusManagement from './components/Transport/BusManagement';
+import DriverDashboard from './components/Driver/DriverDashboard';
+import CollegeContacts from './components/Contacts/CollegeContacts';
+import LostFoundManagement from './components/LostFound/LostFoundManagement';
+import HostelManagement from './components/Hostel/HostelManagement';
+import CourseManagementPanel from './components/CourseManagement/CourseManagementPanel';
+import DocumentManagementPanel from './components/DocumentManagement/DocumentManagementPanel';
+// Visitor lightweight components
+const VisitorCard: React.FC<{ title: string; description: string; onClick: () => void }> = ({ title, description, onClick }) => (
+  <button onClick={onClick} className="p-6 bg-white border rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-left group">
+    <div className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">{title}</div>
+    <div className="text-sm text-gray-600">{description}</div>
+  </button>
+);
+
+const VisitorInfoForm: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
+  const [name, setName] = React.useState('');
+  const [phone, setPhone] = React.useState('');
+  const [purpose, setPurpose] = React.useState('General Visit');
+  // user not needed here directly; saved via localStorage + service
+  const saveVisitor = React.useCallback(async (payload: { name: string; phone: string; purpose: string }) => {
+    try {
+      const deviceId = localStorage.getItem('dypsn_device_id') || `dev_${crypto?.randomUUID?.() || Math.random().toString(36).slice(2)}`;
+      localStorage.setItem('dypsn_device_id', deviceId);
+      const { visitorService } = await import('./firebase/firestore');
+      await visitorService.upsertVisitor({ deviceId, name: payload.name, phone: payload.phone, purpose: payload.purpose });
+    } catch (e) {
+      // silent fail to keep UX smooth; can add toast later
+    }
+  }, []);
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const existing = JSON.parse(localStorage.getItem('dypsn_visitor') || '{}');
+        localStorage.setItem('dypsn_visitor', JSON.stringify({ ...existing, name, phone, purpose }));
+        const user = JSON.parse(localStorage.getItem('dypsn_user') || '{}');
+        localStorage.setItem('dypsn_user', JSON.stringify({ ...user, name, phone }));
+        saveVisitor({ name, phone, purpose });
+        onComplete();
+      }}
+      className="space-y-4"
+    >
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+        <input value={name} onChange={(e) => setName(e.target.value)} required className="w-full border rounded-lg px-3 py-2" placeholder="Your name" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
+        <input value={phone} onChange={(e) => setPhone(e.target.value)} required pattern="^[0-9]{10}$" className="w-full border rounded-lg px-3 py-2" placeholder="10-digit number" />
+        <p className="text-xs text-gray-500 mt-1">We use this only for contact during your visit.</p>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Purpose</label>
+        <select value={purpose} onChange={(e) => setPurpose(e.target.value)} className="w-full border rounded-lg px-3 py-2">
+          <option>General Visit</option>
+          <option>Admissions</option>
+          <option>Event</option>
+          <option>Library</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div className="flex justify-end gap-2 pt-2">
+        <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Continue</button>
+      </div>
+    </form>
+  );
+};
 
 const ProfilePage: React.FC<{ user: any }> = ({ user }) => (
   <div className="max-w-md mx-auto bg-white rounded-xl shadow-md p-6 border border-gray-200 mt-8">
@@ -341,6 +410,32 @@ const AppContent: React.FC = () => {
     setCurrentPage(page);
     localStorage.setItem('dypsn_current_page', page);
   };
+
+  // Enforce correct landing pages based on role and clean up restricted initial states
+  React.useEffect(() => {
+    if (!user) return;
+    if (user.role === 'visitor') {
+      const allowed = ['visitor-info', 'visitor-home', 'visitor-contact', 'canteen', 'stationary', 'clubs', 'events', 'complaints', 'profile'];
+      // If first-time visitor without details, force info form
+      const v = (() => { try { return JSON.parse(localStorage.getItem('dypsn_visitor') || 'null'); } catch { return null; } })();
+      const needsInfo = !(v?.name && v?.phone);
+      if (needsInfo && currentPage !== 'visitor-info') {
+        setCurrentPage('visitor-info');
+        localStorage.setItem('dypsn_current_page', 'visitor-info');
+        return;
+      }
+      if (!allowed.includes(currentPage)) {
+        setCurrentPage('visitor-home');
+        localStorage.setItem('dypsn_current_page', 'visitor-home');
+      }
+    } else {
+      const visitorPages = ['visitor-info', 'visitor-home', 'visitor-contact'];
+      if (visitorPages.includes(currentPage)) {
+        setCurrentPage('dashboard');
+        localStorage.setItem('dypsn_current_page', 'dashboard');
+      }
+    }
+  }, [user, currentPage]);
   // Notification state
   const [notifications, setNotifications] = useState([
     { id: 1, message: 'New leave request from John Doe', read: false },
@@ -348,6 +443,7 @@ const AppContent: React.FC = () => {
     { id: 3, message: 'System maintenance scheduled for Friday', read: false },
   ]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
   // Add notification function
   const addNotification = (message: string) => {
@@ -364,6 +460,18 @@ const AppContent: React.FC = () => {
     }
   }, [showNotifications]);
 
+  // Track online/offline and show a subtle indicator
+  React.useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   // Clear stored page when user logs out
   React.useEffect(() => {
     if (!user) {
@@ -376,6 +484,27 @@ const AppContent: React.FC = () => {
   }
 
   const renderPage = () => {
+    // Visitor role restrictions - only allow specific pages
+    if (user.role === 'visitor') {
+      const allowedPages = ['visitor-info', 'visitor-home', 'visitor-contact', 'canteen', 'stationary', 'clubs', 'events', 'complaints', 'profile'];
+      if (!allowedPages.includes(currentPage)) {
+        return (
+          <div className="max-w-2xl mx-auto p-6">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+              <h2 className="text-xl font-semibold text-yellow-800 mb-2">Access Restricted</h2>
+              <p className="text-yellow-700 mb-4">This page is not available for visitors.</p>
+              <button 
+                onClick={() => handlePageChange('visitor-home')}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Back to Visitor Home
+              </button>
+            </div>
+          </div>
+        );
+      }
+    }
+
     switch (currentPage) {
       case 'profile':
         if (user.role === 'student') {
@@ -389,12 +518,148 @@ const AppContent: React.FC = () => {
             sem={user.sem || '1'}
           />;
         }
+        if (user.role === 'visitor') {
+          return (
+            <div className="max-w-2xl mx-auto p-6">
+              <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+                <h2 className="text-2xl font-bold text-gray-900 mb-6">Visitor Profile</h2>
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
+                      <User className="w-8 h-8 text-gray-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900">{user.name}</h3>
+                      <p className="text-gray-600">Campus Visitor</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                      <p className="text-gray-900">{user.name || 'Not provided'}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                      <p className="text-gray-900">{user.phone || 'Not provided'}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                      <p className="text-gray-900">Visitor</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                      <p className="text-gray-900">Guest</p>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-4 border-t">
+                    <p className="text-sm text-gray-600">
+                      As a visitor, you have limited access to campus facilities. 
+                      You can browse canteen menus, stationary services, events, clubs, and submit complaints.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
         return <ProfilePage user={user} />;
       case 'dashboard':
         if (user.role === 'non-teaching') {
           return <NonTeachingDashboard user={user} onPageChange={handlePageChange} />;
         }
+        if (user.role === 'driver') {
+          return <DriverDashboard user={user} onPageChange={handlePageChange} />;
+        }
         return <Dashboard onPageChange={handlePageChange} />;
+      case 'visitor-info':
+        return (
+          <div className="max-w-xl mx-auto bg-white rounded-xl shadow-md p-6 border border-gray-200 mt-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Welcome Visitor</h2>
+            <p className="text-gray-600 mb-6">Please provide your basic details for a better experience.</p>
+            <VisitorInfoForm onComplete={() => handlePageChange('visitor-home')} />
+          </div>
+        );
+      case 'visitor-home':
+        return (
+          <div className="max-w-4xl mx-auto p-6">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome to DYPSN</h2>
+              <p className="text-gray-600">Explore our campus facilities and activities</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <VisitorCard 
+                title="Canteen Menu" 
+                description="View available food items and prices"
+                onClick={() => handlePageChange('canteen')} 
+              />
+              <VisitorCard 
+                title="Stationary & Xerox" 
+                description="Check printing and stationery services"
+                onClick={() => handlePageChange('stationary')} 
+              />
+              <VisitorCard 
+                title="Student Clubs" 
+                description="Explore our student organizations"
+                onClick={() => handlePageChange('clubs')} 
+              />
+              <VisitorCard 
+                title="College Events" 
+                description="View upcoming events and activities"
+                onClick={() => handlePageChange('events')} 
+              />
+              <VisitorCard 
+                title="Contact Information" 
+                description="Get in touch with administration"
+                onClick={() => handlePageChange('visitor-contact')} 
+              />
+            </div>
+          </div>
+        );
+      case 'visitor-contact':
+        return (
+          <div className="max-w-2xl mx-auto p-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Contact Information</h2>
+            <div className="bg-white rounded-lg shadow-sm border p-6 space-y-4">
+              <div className="flex items-start space-x-3">
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <span className="text-blue-600 font-semibold text-sm">📞</span>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Main Office</h3>
+                  <p className="text-gray-600">+91 98765 43210</p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-3">
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                  <span className="text-green-600 font-semibold text-sm">✉️</span>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Email</h3>
+                  <p className="text-gray-600">info@dypsn.edu</p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-3">
+                <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                  <span className="text-purple-600 font-semibold text-sm">📍</span>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Address</h3>
+                  <p className="text-gray-600">DYPSN College Campus<br />Pune, Maharashtra, India</p>
+                </div>
+              </div>
+              <div className="pt-4 border-t">
+                <button 
+                  onClick={() => handlePageChange('visitor-home')}
+                  className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Back to Home
+                </button>
+              </div>
+            </div>
+          </div>
+        );
       case 'apply-leave':
         // Only students can apply for leave
         if (user.role === 'student') {
@@ -453,6 +718,42 @@ const AppContent: React.FC = () => {
         );
       case 'users':
         return <UserManagementPage />;
+      case 'visitor-management':
+        // Admin, HOD, and Security can manage visitors
+        if (user.role === 'admin' || user.role === 'hod' || (user.role === 'non-teaching' && user.subRole === 'security')) {
+          return <VisitorManagement />;
+        }
+        return <Dashboard onPageChange={handlePageChange} />;
+      case 'bus-management':
+        // All roles can view bus management, but only admin can edit
+        return <BusManagement user={user} />;
+      case 'college-contacts':
+        // All roles can view college contacts
+        return <CollegeContacts user={user} />;
+      case 'lost-found':
+        // All roles can view lost and found, but only staff can manage
+        return <LostFoundManagement user={user} />;
+      case 'hostel':
+        // All roles can view hostel rooms, but only admin/HOD can manage
+        return <HostelManagement user={user} />;
+      case 'course-management':
+        // Admin, HOD, and Teachers can access course management
+        if (user.role === 'admin' || user.role === 'hod' || user.role === 'teacher') {
+          return <CourseManagementPanel />;
+        }
+        return <div className="p-4 text-center text-gray-600">Access denied. Only administrators, HODs, and teachers can access course management.</div>;
+      case 'document-management':
+        // Admin, HOD, and Teachers can access document management
+        if (user.role === 'admin' || user.role === 'hod' || user.role === 'teacher') {
+          return <DocumentManagementPanel />;
+        }
+        return <div className="p-4 text-center text-gray-600">Access denied. Only administrators, HODs, and teachers can access document management.</div>;
+      case 'driver-dashboard':
+        // Only drivers can access driver dashboard
+        if (user.role === 'driver') {
+          return <DriverDashboard user={user} onPageChange={handlePageChange} />;
+        }
+        return <Dashboard onPageChange={handlePageChange} />;
       case 'student-management':
         return user?.role === 'teacher' ? (
           <TeacherStudentPanel user={user} />
@@ -531,11 +832,8 @@ const AppContent: React.FC = () => {
         }
         return <StationaryManagement />;
       case 'library':
-        // Library staff can manage, students can view
-        if (user.role === 'library-staff') {
-          return <LibraryManagement />;
-        }
-        if (user.role === 'student') {
+        // Library access
+        if (user.role === 'student' || user.subRole === 'library-staff') {
           return <LibraryManagement />;
         }
         return <LibraryManagement />;
@@ -588,6 +886,7 @@ const AppContent: React.FC = () => {
           notifications={notifications}
           showNotifications={showNotifications}
           setShowNotifications={setShowNotifications}
+          isOnline={isOnline}
         />
         
         {/* Main Content - Scrollable */}
@@ -604,6 +903,20 @@ const AppContent: React.FC = () => {
         currentPage={currentPage}
         onPageChange={handlePageChange}
       />
+
+      {/* Mobile/tablet offline indicator only (desktop uses header badge) */}
+      {!isOnline && (
+        <div className="fixed right-4 bottom-20 sm:top-4 sm:bottom-auto z-50 lg:hidden">
+          <div
+            role="status"
+            aria-live="polite"
+            className="px-3 py-2 rounded-lg bg-amber-50/90 backdrop-blur-sm text-amber-800 text-xs sm:text-sm shadow-md border border-amber-200 flex items-center gap-2"
+          >
+            <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+            <span className="whitespace-nowrap">You are offline</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

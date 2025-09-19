@@ -3,13 +3,11 @@ import {
   Home, 
   FileText, 
   CheckCircle, 
-  RotateCcw, 
   Calendar, 
   BarChart3, 
   FileCheck, 
   Users, 
   Settings, 
-  Megaphone,
   PlusCircle,
   Bell,
   X,
@@ -17,7 +15,6 @@ import {
   GraduationCap,
   BookOpen,
   Layers,
-  Shield,
   Building2,
   DollarSign,
   Calendar as CalendarIcon,
@@ -29,7 +26,11 @@ import {
   UserCheck,
   TestTube,
   Eye,
-  Library
+  Library,
+  User,
+  Bus,
+  Phone,
+  Home as HomeIcon
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -50,96 +51,168 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onPageC
       { id: 'my-leaves', label: 'My Leaves', icon: FileText },
       { id: 'my-attendance', label: 'My Attendance', icon: Calendar },
       { id: 'my-results', label: 'My Results', icon: FileCheck },
+      { id: 'profile', label: 'My Profile', icon: User },
       { id: 'events', label: 'Events', icon: CalendarIcon },
       { id: 'clubs', label: 'Clubs', icon: UsersIcon },
       { id: 'complaints', label: 'Complaints', icon: AlertTriangle },
       { id: 'canteen', label: 'Canteen', icon: Utensils },
       { id: 'stationary', label: 'Stationary', icon: Package },
       { id: 'library', label: 'Library', icon: Library },
+      { id: 'bus-management', label: 'Bus Routes', icon: Bus },
+      { id: 'college-contacts', label: 'College Contacts', icon: Phone },
+      { id: 'lost-found', label: 'Lost & Found', icon: Package },
+      { id: 'hostel', label: 'Hostel & Rooms', icon: HomeIcon },
       { id: 'notifications', label: 'Updates', icon: Bell },
     ];
 
     const teacherItems = [
       { id: 'dashboard', label: 'Dashboard', icon: Home },
+      { id: 'take-attendance', label: 'Take Attendance', icon: CheckCircle },
       { id: 'student-leaves', label: 'Student Leaves', icon: FileText },
       { id: 'student-attendance', label: 'Student Attendance', icon: Calendar },
       { id: 'result-entry', label: 'Result Entry', icon: FileCheck },
-      { id: 'notifications', label: 'Updates', icon: Bell },
-      { id: 'leave-requests', label: 'Leave Approval Panel', icon: CheckCircle },
       { id: 'student-management', label: 'Student Management', icon: Users },
-      { id: 'teacher-management', label: 'Teacher Management', icon: GraduationCap },
       { id: 'subject-management', label: 'Subject Management', icon: BookOpen },
       { id: 'batch-management', label: 'Batch Management', icon: Layers },
+      { id: 'course-management', label: 'Course Management', icon: BookOpen },
+      { id: 'document-management', label: 'Document Management', icon: FileText },
       { id: 'events', label: 'Event Management', icon: CalendarIcon },
       { id: 'clubs', label: 'Club Management', icon: UsersIcon },
       { id: 'complaints', label: 'Complaint Management', icon: AlertTriangle },
       { id: 'canteen', label: 'Canteen Management', icon: Utensils },
       { id: 'stationary', label: 'Xerox/Stationary Centre', icon: Package },
       { id: 'library', label: 'Library Management', icon: Library },
+      { id: 'bus-management', label: 'Bus Management', icon: Bus },
+      { id: 'college-contacts', label: 'College Contacts', icon: Phone },
+      { id: 'lost-found', label: 'Lost & Found', icon: Package },
+      { id: 'hostel', label: 'Hostel & Rooms', icon: HomeIcon },
+      { id: 'notifications', label: 'Updates', icon: Bell },
     ];
 
     const adminItems = [
       { id: 'dashboard', label: 'Admin Dashboard', icon: BarChart3 },
       { id: 'user-management', label: 'User Management', icon: Users },
+      { id: 'teacher-management', label: 'Teacher Management', icon: GraduationCap },
+      { id: 'student-management', label: 'Student Management', icon: Users },
+      { id: 'visitor-management', label: 'Visitor Management', icon: User },
       { id: 'department-management', label: 'Department Management', icon: Building2 },
       { id: 'institution-settings', label: 'Institution Settings', icon: Settings },
       { id: 'financial-admin', label: 'Financial Admin', icon: DollarSign },
-      { id: 'teacher-management', label: 'Teacher Management', icon: GraduationCap },
-      { id: 'student-management', label: 'Student Management', icon: Users },
       { id: 'subject-management', label: 'Subject Management', icon: BookOpen },
       { id: 'batch-management', label: 'Batch Management', icon: Layers },
+      { id: 'course-management', label: 'Course Management', icon: BookOpen },
+      { id: 'document-management', label: 'Document Management', icon: FileText },
       { id: 'events', label: 'Event Management', icon: CalendarIcon },
       { id: 'clubs', label: 'Club Management', icon: UsersIcon },
       { id: 'complaints', label: 'Complaint Management', icon: AlertTriangle },
       { id: 'canteen', label: 'Canteen Management', icon: Utensils },
       { id: 'stationary', label: 'Xerox/Stationary Centre', icon: Package },
       { id: 'library', label: 'Library Management', icon: Library },
+      { id: 'bus-management', label: 'Bus Management', icon: Bus },
+      { id: 'college-contacts', label: 'College Contacts', icon: Phone },
+      { id: 'lost-found', label: 'Lost & Found', icon: Package },
+      { id: 'hostel', label: 'Hostel & Rooms', icon: HomeIcon },
       { id: 'notifications', label: 'Updates', icon: Bell },
     ];
 
     const getNonTeachingItems = () => {
       const baseItems = [
         { id: 'dashboard', label: 'Dashboard', icon: Home },
+        { id: 'my-attendance', label: 'My Attendance', icon: Calendar },
         { id: 'notifications', label: 'Updates', icon: Bell },
       ];
 
       // Add sub-role specific items
       if (user?.subRole === 'cleaner') {
         baseItems.push(
-          { id: 'cleaner-panel', label: 'Cleaning Tasks', icon: Wrench },
-          { id: 'my-attendance', label: 'My Attendance', icon: Calendar }
+          { id: 'cleaner-panel', label: 'Cleaning Tasks', icon: Wrench }
         );
       } else if (user?.subRole === 'peon') {
         baseItems.push(
-          { id: 'peon-panel', label: 'Delivery Tasks', icon: UserCheck },
-          { id: 'my-attendance', label: 'My Attendance', icon: Calendar }
+          { id: 'peon-panel', label: 'Delivery Tasks', icon: UserCheck }
         );
       } else if (user?.subRole === 'lab-assistant') {
         baseItems.push(
-          { id: 'lab-assistant-panel', label: 'Lab Management', icon: TestTube },
-          { id: 'my-attendance', label: 'My Attendance', icon: Calendar }
+          { id: 'lab-assistant-panel', label: 'Lab Management', icon: TestTube }
         );
       } else if (user?.subRole === 'security') {
         baseItems.push(
           { id: 'security-panel', label: 'Security Panel', icon: Eye },
-          { id: 'my-attendance', label: 'My Attendance', icon: Calendar }
+          { id: 'visitor-management', label: 'Visitor Management', icon: User }
+        );
+      } else if (user?.subRole === 'driver') {
+        baseItems.push(
+          { id: 'driver-dashboard', label: 'Driver Dashboard', icon: Bus }
         );
       }
+      
+      // Add common services to all non-teaching staff
+      baseItems.push(
+        { id: 'bus-management', label: 'Bus Management', icon: Bus },
+        { id: 'college-contacts', label: 'College Contacts', icon: Phone },
+        { id: 'lost-found', label: 'Lost & Found', icon: Package },
+        { id: 'hostel', label: 'Hostel & Rooms', icon: HomeIcon }
+      );
 
       return baseItems;
     };
 
-    const getLibraryStaffItems = () => [
+    const getHODItems = () => [
       { id: 'dashboard', label: 'Dashboard', icon: Home },
+      { id: 'take-attendance', label: 'Take Attendance', icon: CheckCircle },
+      { id: 'student-leaves', label: 'Student Leaves', icon: FileText },
+      { id: 'student-attendance', label: 'Student Attendance', icon: Calendar },
+      { id: 'result-entry', label: 'Result Entry', icon: FileCheck },
+      { id: 'student-management', label: 'Student Management', icon: Users },
+      { id: 'teacher-management', label: 'Teacher Management', icon: GraduationCap },
+      { id: 'subject-management', label: 'Subject Management', icon: BookOpen },
+      { id: 'batch-management', label: 'Batch Management', icon: Layers },
+      { id: 'course-management', label: 'Course Management', icon: BookOpen },
+      { id: 'document-management', label: 'Document Management', icon: FileText },
+      { id: 'visitor-management', label: 'Visitor Management', icon: User },
+      { id: 'events', label: 'Event Management', icon: CalendarIcon },
+      { id: 'clubs', label: 'Club Management', icon: UsersIcon },
+      { id: 'complaints', label: 'Complaint Management', icon: AlertTriangle },
+      { id: 'canteen', label: 'Canteen Management', icon: Utensils },
+      { id: 'stationary', label: 'Xerox/Stationary Centre', icon: Package },
       { id: 'library', label: 'Library Management', icon: Library },
+      { id: 'bus-management', label: 'Bus Management', icon: Bus },
+      { id: 'college-contacts', label: 'College Contacts', icon: Phone },
+      { id: 'lost-found', label: 'Lost & Found', icon: Package },
+      { id: 'hostel', label: 'Hostel & Rooms', icon: HomeIcon },
       { id: 'notifications', label: 'Updates', icon: Bell },
     ];
 
+    const getLibraryStaffItems = () => [
+      { id: 'dashboard', label: 'Dashboard', icon: Home },
+      { id: 'library', label: 'Library Management', icon: Library },
+      { id: 'my-attendance', label: 'My Attendance', icon: Calendar },
+      { id: 'college-contacts', label: 'College Contacts', icon: Phone },
+      { id: 'lost-found', label: 'Lost & Found', icon: Package },
+      { id: 'hostel', label: 'Hostel & Rooms', icon: HomeIcon },
+      { id: 'notifications', label: 'Updates', icon: Bell },
+    ];
+
+    // Visitor specific navigation
+    if (user?.role === 'visitor') {
+      return [
+        { id: 'visitor-home', label: 'Visitor Home', icon: Home },
+        { id: 'profile', label: 'My Profile', icon: User },
+        { id: 'canteen', label: 'Canteen', icon: Utensils },
+        { id: 'stationary', label: 'Stationary / Xerox', icon: Package },
+        { id: 'events', label: 'Events', icon: CalendarIcon },
+        { id: 'clubs', label: 'Clubs', icon: UsersIcon },
+        { id: 'complaints', label: 'Complaints', icon: AlertTriangle },
+        { id: 'visitor-contact', label: 'Contact', icon: Settings },
+      ];
+    }
+
     if (user?.role === 'admin') return adminItems;
-    if (user?.accessLevel === 'full' || user?.role === 'hod') return teacherItems;
+    if (user?.role === 'hod') return getHODItems();
     if (user?.role === 'teacher') return teacherItems;
-    if (user?.role === 'library-staff') return getLibraryStaffItems();
+    if (user?.subRole === 'library-staff') return getLibraryStaffItems();
     if (user?.role === 'non-teaching') return getNonTeachingItems();
+    if (user?.role === 'driver') return getNonTeachingItems();
     return studentItems;
   };
 

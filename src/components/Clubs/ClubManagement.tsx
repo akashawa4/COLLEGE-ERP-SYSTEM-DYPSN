@@ -538,7 +538,7 @@ const ClubManagement: React.FC = () => {
               <Users className="w-4 h-4" />
             </button>
 
-            {user?.role !== "student" && (
+            {user?.role !== "student" && user?.role !== 'visitor' && (
               <div className="relative">
                 <button
                   onClick={(e) => { e.stopPropagation(); setOpenActionFor((cur) => (cur === club.id ? null : club.id)); }}
@@ -671,7 +671,7 @@ const ClubManagement: React.FC = () => {
               </button>
             </div>
 
-            {user?.role !== "student" && (
+            {user?.role !== "student" && user?.role !== 'visitor' && (
               <div className="flex items-center gap-2">
                 <button onClick={() => openEditClub(club)} className="px-3 py-2 bg-white border rounded-md flex items-center gap-2" aria-label="Edit club">
                   <Edit className="w-4 h-4" /> Edit
@@ -849,7 +849,7 @@ const ClubManagement: React.FC = () => {
             <span className="hidden sm:inline">Refresh</span>
           </button>
 
-          {user?.role !== "student" && (
+          {user?.role !== "student" && user?.role !== 'visitor' && (
             <button onClick={openCreateClub} className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
               <Plus className="w-4 h-4" /> Add Club
             </button>
@@ -984,7 +984,7 @@ const ClubManagement: React.FC = () => {
       </section>
 
       {/* Floating Add button for mobile */}
-      {user?.role !== "student" && (
+      {user?.role !== "student" && user?.role !== 'visitor' && (
         <div className="fixed right-4 bottom-6 md:hidden z-40">
           <button onClick={openCreateClub} className="p-4 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700" aria-label="Add club">
             <Plus className="w-5 h-5" />

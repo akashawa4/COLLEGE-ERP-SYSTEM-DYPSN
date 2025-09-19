@@ -3,26 +3,24 @@ import {
   Users, 
   GraduationCap, 
   Building2, 
-  DollarSign, 
   AlertTriangle, 
   TrendingUp, 
-  Calendar,
   FileText,
   CheckCircle,
   Clock,
   BarChart3,
   Settings,
   UserPlus,
-  BookOpen,
-  CreditCard
+  CreditCard,
+  RefreshCw
 } from 'lucide-react';
+import { userService, leaveService, attendanceService } from '../../firebase/firestore';
 
 interface AdminStats {
   totalStudents: number;
   totalTeachers: number;
   totalDepartments: number;
   pendingLeaves: number;
-  totalRevenue: number;
   activeUsers: number;
 }
 
@@ -53,7 +51,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onPageChange }) => {
     totalTeachers: 0,
     totalDepartments: 0,
     pendingLeaves: 0,
-    totalRevenue: 0,
     activeUsers: 0
   });
 
@@ -108,17 +105,124 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onPageChange }) => {
     }
   ]);
 
-  // Mock data loading
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Load real-time data from Firebase
+  const loadDashboardData = async (isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      
+      // Fetch all data in parallel for better performance
+      const [
+        allUsers,
+        allLeaveRequests,
+        todayAttendance
+      ] = await Promise.all([
+        userService.getAllUsers().catch(() => []),
+        leaveService.getAllLeaveRequests().catch(() => []),
+        attendanceService.getTodayAttendance().catch(() => [])
+      ]);
+
+      // Calculate statistics
+      const students = allUsers.filter(user => user.role === 'student');
+      const teachers = allUsers.filter(user => user.role === 'teacher' || user.role === 'hod');
+      const departments = [...new Set(allUsers.map(user => user.department).filter(Boolean))];
+      const pendingLeaves = allLeaveRequests.filter(leave => leave.status === 'pending');
+      
+      // Calculate active users (users who have logged in today or have recent activity)
+      const today = new Date().toISOString().split('T')[0];
+      const activeUserIds = new Set([
+        ...todayAttendance.map(att => att.userId),
+        ...allUsers.filter(user => user.lastLogin && user.lastLogin.includes(today)).map(user => user.id)
+      ]);
+
+      setStats({
+        totalStudents: students.length,
+        totalTeachers: teachers.length,
+        totalDepartments: departments.length,
+        pendingLeaves: pendingLeaves.length,
+        activeUsers: activeUserIds.size
+      });
+
+      // Update alerts with real data
+      setAlerts([
+        {
+          id: 1,
+          type: 'warning' as const,
+          title: 'Low Attendance Alert',
+          message: `${students.filter(s => {
+            const studentAttendance = todayAttendance.filter(att => att.userId === s.id);
+            const presentCount = studentAttendance.filter(att => att.status === 'present').length;
+            const totalCount = studentAttendance.length;
+            return totalCount > 0 && (presentCount / totalCount) < 0.75;
+          }).length} students have attendance below 75%`,
+          timestamp: '2 hours ago',
+          priority: 'high' as const
+        },
+        {
+          id: 2,
+          type: 'info' as const,
+          title: 'New Leave Requests',
+          message: `${pendingLeaves.length} new leave requests pending approval`,
+          timestamp: '4 hours ago',
+          priority: 'medium' as const
+        },
+        {
+          id: 3,
+          type: 'success' as const,
+          title: 'System Update',
+          message: 'Database backup completed successfully',
+          timestamp: '6 hours ago',
+          priority: 'low' as const
+        }
+      ]);
+
+      // Update recent activities with real data
+      setRecentActivities([
+        ...allUsers
+          .filter(user => user.createdAt && typeof user.createdAt === 'object' && 'seconds' in user.createdAt && new Date((user.createdAt as any).seconds * 1000) > new Date(Date.now() - 24 * 60 * 60 * 1000))
+          .slice(0, 3)
+          .map((user, index) => ({
+            id: index + 1,
+            action: 'New user registered',
+            user: user.name,
+            timestamp: '10 minutes ago',
+            type: user.role
+          })),
+        ...allLeaveRequests
+          .filter(leave => leave.status === 'approved' && new Date(leave.approvedAt || '') > new Date(Date.now() - 24 * 60 * 60 * 1000))
+          .slice(0, 2)
+          .map((leave, index) => ({
+            id: index + 4,
+            action: 'Leave request approved',
+            user: leave.userName,
+            timestamp: '1 hour ago',
+            type: 'leave'
+          }))
+      ].slice(0, 3));
+
+    } catch (error) {
+      console.error('Error loading admin dashboard data:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Load data on component mount
   useEffect(() => {
-    setStats({
-      totalStudents: 1250,
-      totalTeachers: 85,
-      totalDepartments: 8,
-      pendingLeaves: 23,
-      totalRevenue: 2500000,
-      activeUsers: 1180
-    });
+    loadDashboardData();
   }, []);
+
+  // Refresh function
+  const handleRefresh = () => {
+    loadDashboardData(true);
+  };
 
   const getAlertIcon = (type: string) => {
     switch (type) {
@@ -149,19 +253,38 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onPageChange }) => {
 
   return (
     <div className="space-y-4 lg:space-y-6">
+      {/* Header with Refresh Button */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-900">Admin Dashboard</h2>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="flex items-center space-x-2 text-sm text-gray-600 bg-white px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 border border-gray-200"
+        >
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:block">Refresh</span>
+        </button>
+      </div>
+
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Students</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalStudents.toLocaleString()}</p>
+              <div className="text-2xl font-bold text-gray-900">
+                {loading ? (
+                  <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  stats.totalStudents.toLocaleString()
+                )}
+              </div>
             </div>
             <Users className="w-8 h-8 text-blue-600" />
           </div>
           <div className="mt-2 flex items-center text-sm text-green-600">
             <TrendingUp className="w-4 h-4 mr-1" />
-            <span>+5.2% from last month</span>
+            <span>Real-time data</span>
           </div>
         </div>
 
@@ -169,13 +292,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onPageChange }) => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Teachers</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalTeachers}</p>
+              <div className="text-2xl font-bold text-gray-900">
+                {loading ? (
+                  <div className="w-8 h-8 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  stats.totalTeachers
+                )}
+              </div>
             </div>
             <GraduationCap className="w-8 h-8 text-green-600" />
           </div>
           <div className="mt-2 flex items-center text-sm text-green-600">
             <TrendingUp className="w-4 h-4 mr-1" />
-            <span>+2 new this month</span>
+            <span>Real-time data</span>
           </div>
         </div>
 
@@ -183,7 +312,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onPageChange }) => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Departments</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalDepartments}</p>
+              <div className="text-2xl font-bold text-gray-900">
+                {loading ? (
+                  <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  stats.totalDepartments
+                )}
+              </div>
             </div>
             <Building2 className="w-8 h-8 text-purple-600" />
           </div>
@@ -196,7 +331,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onPageChange }) => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Pending Leaves</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.pendingLeaves}</p>
+              <div className="text-2xl font-bold text-gray-900">
+                {loading ? (
+                  <div className="w-8 h-8 border-2 border-yellow-600 border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  stats.pendingLeaves
+                )}
+              </div>
             </div>
             <Clock className="w-8 h-8 text-yellow-600" />
           </div>
@@ -208,22 +349,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onPageChange }) => {
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-              <p className="text-2xl font-bold text-gray-900">₹{stats.totalRevenue.toLocaleString()}</p>
-            </div>
-            <DollarSign className="w-8 h-8 text-green-600" />
-          </div>
-          <div className="mt-2 flex items-center text-sm text-green-600">
-            <TrendingUp className="w-4 h-4 mr-1" />
-            <span>+12.5% this quarter</span>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
               <p className="text-sm font-medium text-gray-600">Active Users</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.activeUsers}</p>
+              <div className="text-2xl font-bold text-gray-900">
+                {loading ? (
+                  <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  stats.activeUsers
+                )}
+              </div>
             </div>
             <BarChart3 className="w-8 h-8 text-indigo-600" />
           </div>

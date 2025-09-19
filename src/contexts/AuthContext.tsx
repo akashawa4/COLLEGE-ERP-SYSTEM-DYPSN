@@ -8,13 +8,14 @@ import {
   User as FirebaseUser
 } from 'firebase/auth';
 import { auth } from '../firebase/firebase';
-import { userService } from '../firebase/firestore';
+import { userService, visitorService } from '../firebase/firestore';
 
 interface AuthContextType {
   user: User | null;
   firebaseUser: FirebaseUser | null;
   login: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, userData: Partial<User>) => Promise<void>;
+  loginAsVisitor: () => Promise<void>;
   logout: () => void;
   isLoading: boolean;
   ensureDemoUsersInFirestore: () => Promise<void>;
@@ -126,6 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         setUser(defaultHOD);
         localStorage.setItem('dypsn_user', JSON.stringify(defaultHOD));
+        localStorage.setItem('dypsn_current_page', 'dashboard');
         return;
       }
 
@@ -178,9 +180,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      // Run student, teacher, non-teaching staff, and library staff validation in parallel using Promise.all - much faster!
+      // Run student, teacher, non-teaching staff, library staff, and driver validation in parallel using Promise.all - much faster!
       
-      const [studentResult, teacherResult, nonTeachingResult, libraryStaffResult] = await Promise.all([
+      const [studentResult, teacherResult, nonTeachingResult, libraryStaffResult, driverResult] = await Promise.all([
         userService.validateStudentCredentials(email, password).catch(() => {
           // Handle error silently
           return null;
@@ -196,6 +198,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         userService.validateLibraryStaffCredentials(email, password).catch(() => {
           // Handle error silently
           return null;
+        }),
+        userService.validateDriverCredentials(email, password).catch(() => {
+          // Handle error silently
+          return null;
         })
       ]);
 
@@ -208,6 +214,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         setUser(studentResult);
         localStorage.setItem('dypsn_user', JSON.stringify(studentResult));
+        localStorage.setItem('dypsn_current_page', 'dashboard');
         return;
       }
 
@@ -220,6 +227,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         setUser(teacherResult);
         localStorage.setItem('dypsn_user', JSON.stringify(teacherResult));
+        localStorage.setItem('dypsn_current_page', 'dashboard');
         return;
       } else {
         console.log('[AuthContext] Teacher validation returned null for:', email);
@@ -234,6 +242,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         setUser(nonTeachingResult);
         localStorage.setItem('dypsn_user', JSON.stringify(nonTeachingResult));
+        localStorage.setItem('dypsn_current_page', 'dashboard');
         return;
       } else {
         console.log('[AuthContext] Non-Teaching Staff validation returned null for:', email);
@@ -248,9 +257,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         setUser(libraryStaffResult);
         localStorage.setItem('dypsn_user', JSON.stringify(libraryStaffResult));
+        localStorage.setItem('dypsn_current_page', 'dashboard');
         return;
       } else {
         console.log('[AuthContext] Library Staff validation returned null for:', email);
+      }
+
+      // Check driver login result
+      if (driverResult) {
+        console.log('[AuthContext] Driver login successful:', driverResult.email);
+        await userService.updateUser(driverResult.id, {
+          lastLogin: new Date().toISOString(),
+          loginCount: (driverResult.loginCount || 0) + 1
+        });
+        setUser(driverResult);
+        localStorage.setItem('dypsn_user', JSON.stringify(driverResult));
+        localStorage.setItem('dypsn_current_page', 'dashboard');
+        return;
+      } else {
+        console.log('[AuthContext] Driver validation returned null for:', email);
       }
 
       // Try regular Firebase authentication for teachers/HODs
@@ -309,6 +334,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const loginAsVisitor = async () => {
+    setIsLoading(true);
+    try {
+      // Create or reuse a local visitor session
+      const existing = localStorage.getItem('dypsn_visitor');
+      let visitor: User;
+      if (existing) {
+        visitor = JSON.parse(existing);
+      } else {
+        visitor = {
+          id: `visitor_${Date.now()}`,
+          name: 'Visitor',
+          email: '',
+          role: 'visitor',
+          department: 'Guest',
+          accessLevel: 'basic',
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          lastLogin: new Date().toISOString(),
+          loginCount: 1
+        } as unknown as User;
+        localStorage.setItem('dypsn_visitor', JSON.stringify(visitor));
+      }
+      // Ensure a stable deviceId
+      const deviceId = localStorage.getItem('dypsn_device_id') || (() => {
+        const id = `dev_${crypto?.randomUUID?.() || Math.random().toString(36).slice(2)}`;
+        localStorage.setItem('dypsn_device_id', id);
+        return id;
+      })();
+      // Upsert minimal visitor record (without PII if not provided yet)
+      await visitorService.upsertVisitor({ deviceId, id: deviceId });
+
+      // Determine if we already have name/phone either locally or in cloud
+      const localVisitor = (() => {
+        try { return JSON.parse(localStorage.getItem('dypsn_visitor') || 'null'); } catch { return null; }
+      })();
+      let hasDetails = Boolean(localVisitor?.name && localVisitor?.phone);
+      if (!hasDetails) {
+        try {
+          const cloud = await visitorService.getVisitorByDevice(deviceId);
+          if (cloud?.name && cloud?.phone) {
+            localStorage.setItem('dypsn_visitor', JSON.stringify({ name: cloud.name, phone: cloud.phone, purpose: cloud.purpose }));
+            hasDetails = true;
+          }
+        } catch {}
+      }
+
+      setUser(visitor);
+      localStorage.setItem('dypsn_user', JSON.stringify(visitor));
+      localStorage.setItem('dypsn_current_page', hasDetails ? 'visitor-home' : 'visitor-info');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = async () => {
     try {
       await firebaseSignOut(auth);
@@ -319,6 +399,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     setFirebaseUser(null);
     localStorage.removeItem('dypsn_user');
+    localStorage.removeItem('dypsn_visitor');
+    localStorage.removeItem('dypsn_current_page');
   };
 
   const ensureDemoUsersInFirestore = async () => {
@@ -463,17 +545,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name: 'Dr. Meera Patel',
         email: 'library.demo@dypsn.edu',
         phone: '9876543217',
-        role: 'library-staff' as const,
+        role: 'non-teaching' as const,
+        subRole: 'library-staff' as const,
         department: 'Library',
         accessLevel: 'full' as const,
         isActive: true,
         rollNumber: 'LIB001',
         joiningDate: '2020-08-01',
         designation: 'Librarian',
-        gender: 'Female',
+        gender: 'Female'
+      },
+      {
+        id: 'driver001',
+        name: 'Rajesh Kumar',
+        email: 'driver@dypsn.edu',
+        phone: '9876543218',
+        role: 'driver' as const,
+        department: 'Transport',
+        accessLevel: 'basic' as const,
+        isActive: true,
+        rollNumber: 'DR001',
+        joiningDate: '2020-01-01',
+        designation: 'Bus Driver',
+        gender: 'Male',
         year: '1',
         sem: '1',
-        div: 'A'
+        workShift: 'full-day' as const,
+        workLocation: 'Transport Department',
+        contractType: 'permanent' as const,
+        workStatus: 'active' as const
       }
     ];
 
@@ -519,7 +619,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, firebaseUser, login, signUp, logout, isLoading, ensureDemoUsersInFirestore }}>
+    <AuthContext.Provider value={{ user, firebaseUser, login, signUp, loginAsVisitor, logout, isLoading, ensureDemoUsersInFirestore }}>
       {children}
     </AuthContext.Provider>
   );

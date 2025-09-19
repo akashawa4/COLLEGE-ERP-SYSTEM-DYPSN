@@ -8,7 +8,12 @@ import {
   CheckCircle,
   Users,
   GraduationCap,
-  BarChart3
+  BarChart3,
+  ClipboardCheck,
+  Building2,
+  Settings,
+  Phone,
+  Package
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -31,22 +36,40 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ currentPage, onPageCh
 
     const teacherItems = [
       { id: 'dashboard', label: 'Home', icon: Home },
-      { id: 'student-leaves', label: 'Leaves', icon: FileText },
-      { id: 'leave-requests', label: 'Approve', icon: CheckCircle },
+      { id: 'take-attendance', label: 'Attendance', icon: ClipboardCheck },
       { id: 'student-management', label: 'Students', icon: Users },
-      { id: 'profile', label: 'Profile', icon: User },
+      { id: 'course-management', label: 'Courses', icon: GraduationCap },
+      { id: 'notifications', label: 'Updates', icon: Bell },
+    ];
+
+    const hodItems = [
+      { id: 'dashboard', label: 'Home', icon: Home },
+      { id: 'take-attendance', label: 'Attendance', icon: ClipboardCheck },
+      { id: 'student-management', label: 'Students', icon: Users },
+      { id: 'teacher-management', label: 'Teachers', icon: GraduationCap },
+      { id: 'notifications', label: 'Updates', icon: Bell },
     ];
 
     const adminItems = [
       { id: 'dashboard', label: 'Home', icon: Home },
-      { id: 'student-management', label: 'Students', icon: Users },
-      { id: 'teacher-management', label: 'Teachers', icon: GraduationCap },
-      { id: 'leave-requests', label: 'Approve', icon: CheckCircle },
-      { id: 'profile', label: 'Profile', icon: User },
+      { id: 'user-management', label: 'Users', icon: Users },
+      { id: 'department-management', label: 'Departments', icon: Building2 },
+      { id: 'institution-settings', label: 'Settings', icon: Settings },
+      { id: 'notifications', label: 'Updates', icon: Bell },
     ];
 
-    if (user?.accessLevel === 'full' || user?.role === 'hod') return adminItems;
+    const nonTeachingItems = [
+      { id: 'dashboard', label: 'Home', icon: Home },
+      { id: 'my-attendance', label: 'Attendance', icon: Calendar },
+      { id: 'college-contacts', label: 'Contacts', icon: Phone },
+      { id: 'lost-found', label: 'Lost & Found', icon: Package },
+      { id: 'notifications', label: 'Updates', icon: Bell },
+    ];
+
+    if (user?.role === 'admin') return adminItems;
+    if (user?.role === 'hod') return hodItems;
     if (user?.role === 'teacher') return teacherItems;
+    if (user?.role === 'non-teaching' || user?.role === 'driver') return nonTeachingItems;
     return studentItems;
   };
 

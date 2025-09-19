@@ -12,13 +12,21 @@ const Footer: React.FC = () => {
           </div>
           <div className="text-center lg:text-right">
             <p className="text-xs lg:text-sm text-gray-600">
-              Designed and Developed by{' '}
-              <span className="font-semibold text-blue-600">
+              Developed by{' '}
+              <span className="font-medium text-purple-600">
                 Akash.Solution
               </span>
               {' '}
               <span className="text-gray-500">
                 (Akash Vijay Awachar)
+              </span>
+              {' & '}
+              <span className="font-medium text-blue-600">
+                CodeCatalyst
+              </span>
+              {' '}
+              <span className="text-gray-500">
+                (Prathamesh Dipak Jadhav)
               </span>
             </p>
           </div>

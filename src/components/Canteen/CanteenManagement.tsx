@@ -1,21 +1,16 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Utensils, 
   Plus, 
   Edit, 
   Trash2, 
-  Star, 
   Clock, 
-  Users, 
-  DollarSign,
-  Filter,
   Search,
-  ShoppingCart,
-  Heart,
-  AlertCircle,
-  CheckCircle
+  Phone,
+  MessageCircle
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { listenCanteenMenu, upsertCanteenItem, deleteCanteenItem } from '../../firebase/canteenStationary';
 
 interface MenuItem {
   id: string;
@@ -25,133 +20,24 @@ interface MenuItem {
   category: 'Breakfast' | 'Lunch' | 'Snacks' | 'Beverages' | 'Desserts';
   availability: 'Available' | 'Out of Stock' | 'Limited';
   preparationTime: number; // in minutes
-  rating: number;
   image?: string;
-  ingredients: string[];
-  allergens?: string[];
-  nutritionalInfo?: {
-    calories: number;
-    protein: number;
-    carbs: number;
-    fat: number;
-  };
   createdAt: string;
-}
-
-interface Order {
-  id: string;
-  customerName: string;
-  customerEmail: string;
-  items: {
-    itemId: string;
-    itemName: string;
-    quantity: number;
-    price: number;
-  }[];
-  totalAmount: number;
-  status: 'Pending' | 'Preparing' | 'Ready' | 'Completed' | 'Cancelled';
-  orderTime: string;
-  estimatedReadyTime?: string;
-  specialInstructions?: string;
 }
 
 const CanteenManagement: React.FC = () => {
   const { user } = useAuth();
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([
-    {
-      id: '1',
-      name: 'Masala Dosa',
-      description: 'Crispy dosa filled with spiced potato mixture',
-      price: 45,
-      category: 'Breakfast',
-      availability: 'Available',
-      preparationTime: 10,
-      rating: 4.5,
-      ingredients: ['Rice flour', 'Potato', 'Onion', 'Spices', 'Oil'],
-      allergens: ['Gluten'],
-      nutritionalInfo: {
-        calories: 320,
-        protein: 8,
-        carbs: 45,
-        fat: 12
-      },
-      createdAt: '2024-01-01'
-    },
-    {
-      id: '2',
-      name: 'Chicken Biryani',
-      description: 'Fragrant basmati rice with tender chicken pieces',
-      price: 120,
-      category: 'Lunch',
-      availability: 'Available',
-      preparationTime: 25,
-      rating: 4.8,
-      ingredients: ['Basmati rice', 'Chicken', 'Onion', 'Spices', 'Yogurt'],
-      allergens: ['Dairy'],
-      nutritionalInfo: {
-        calories: 580,
-        protein: 25,
-        carbs: 65,
-        fat: 18
-      },
-      createdAt: '2024-01-01'
-    },
-    {
-      id: '3',
-      name: 'Samosa',
-      description: 'Deep-fried pastry filled with spiced potatoes',
-      price: 15,
-      category: 'Snacks',
-      availability: 'Limited',
-      preparationTime: 5,
-      rating: 4.2,
-      ingredients: ['Flour', 'Potato', 'Spices', 'Oil'],
-      allergens: ['Gluten'],
-      nutritionalInfo: {
-        calories: 180,
-        protein: 4,
-        carbs: 25,
-        fat: 8
-      },
-      createdAt: '2024-01-01'
-    }
-  ]);
+  const WHATSAPP_NUMBER = '7721906820';
+  const CALL_NUMBER = '+917721906820';
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
 
-  const [orders, setOrders] = useState<Order[]>([
-    {
-      id: '1',
-      customerName: 'John Doe',
-      customerEmail: 'john.doe@dypsn.edu',
-      items: [
-        { itemId: '1', itemName: 'Masala Dosa', quantity: 2, price: 45 },
-        { itemId: '3', itemName: 'Samosa', quantity: 3, price: 15 }
-      ],
-      totalAmount: 135,
-      status: 'Preparing',
-      orderTime: '2024-03-20T10:30:00',
-      estimatedReadyTime: '2024-03-20T10:45:00',
-      specialInstructions: 'Extra spicy'
-    },
-    {
-      id: '2',
-      customerName: 'Jane Smith',
-      customerEmail: 'jane.smith@dypsn.edu',
-      items: [
-        { itemId: '2', itemName: 'Chicken Biryani', quantity: 1, price: 120 }
-      ],
-      totalAmount: 120,
-      status: 'Ready',
-      orderTime: '2024-03-20T10:15:00',
-      estimatedReadyTime: '2024-03-20T10:40:00'
-    }
-  ]);
-
-  const [activeTab, setActiveTab] = useState<'menu' | 'orders'>('menu');
+  const [activeTab, setActiveTab] = useState<'menu'>('menu');
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterAvailability, setFilterAvailability] = useState<string>('all');
+
+  const isVisitor = user?.role === 'visitor';
 
   const [formData, setFormData] = useState({
     name: '',
@@ -160,37 +46,22 @@ const CanteenManagement: React.FC = () => {
     category: 'Breakfast' as MenuItem['category'],
     availability: 'Available' as MenuItem['availability'],
     preparationTime: '',
-    ingredients: '',
-    allergens: '',
-    calories: '',
-    protein: '',
-    carbs: '',
-    fat: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newItem: MenuItem = {
-      id: editingItem?.id || Date.now().toString(),
+      id: editingItem?.id || '',
       ...formData,
       price: parseFloat(formData.price),
       preparationTime: parseInt(formData.preparationTime),
-      rating: editingItem?.rating || 0,
-      ingredients: formData.ingredients.split(',').map(i => i.trim()).filter(i => i),
-      allergens: formData.allergens.split(',').map(a => a.trim()).filter(a => a),
-      nutritionalInfo: {
-        calories: parseInt(formData.calories) || 0,
-        protein: parseInt(formData.protein) || 0,
-        carbs: parseInt(formData.carbs) || 0,
-        fat: parseInt(formData.fat) || 0
-      },
       createdAt: editingItem?.createdAt || new Date().toISOString()
     };
 
     if (editingItem) {
-      setMenuItems(menuItems.map(item => item.id === editingItem.id ? newItem : item));
+      await upsertCanteenItem(newItem);
     } else {
-      setMenuItems([...menuItems, newItem]);
+      await upsertCanteenItem(newItem);
     }
 
     setShowForm(false);
@@ -206,27 +77,13 @@ const CanteenManagement: React.FC = () => {
       price: item.price.toString(),
       category: item.category,
       availability: item.availability,
-      preparationTime: item.preparationTime.toString(),
-      ingredients: item.ingredients.join(', '),
-      allergens: item.allergens?.join(', ') || '',
-      calories: item.nutritionalInfo?.calories.toString() || '',
-      protein: item.nutritionalInfo?.protein.toString() || '',
-      carbs: item.nutritionalInfo?.carbs.toString() || '',
-      fat: item.nutritionalInfo?.fat.toString() || ''
+      preparationTime: item.preparationTime.toString()
     });
     setShowForm(true);
   };
 
-  const handleDelete = (id: string) => {
-    setMenuItems(menuItems.filter(item => item.id !== id));
-  };
-
-  const handleOrderStatusChange = (orderId: string, newStatus: Order['status']) => {
-    setOrders(orders.map(order => 
-      order.id === orderId 
-        ? { ...order, status: newStatus }
-        : order
-    ));
+  const handleDelete = async (id: string) => {
+    await deleteCanteenItem(id);
   };
 
   const resetForm = () => {
@@ -236,13 +93,7 @@ const CanteenManagement: React.FC = () => {
       price: '',
       category: 'Breakfast',
       availability: 'Available',
-      preparationTime: '',
-      ingredients: '',
-      allergens: '',
-      calories: '',
-      protein: '',
-      carbs: '',
-      fat: ''
+      preparationTime: ''
     });
   };
 
@@ -263,17 +114,6 @@ const CanteenManagement: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: Order['status']) => {
-    switch (status) {
-      case 'Pending': return 'bg-yellow-100 text-yellow-800';
-      case 'Preparing': return 'bg-blue-100 text-blue-800';
-      case 'Ready': return 'bg-green-100 text-green-800';
-      case 'Completed': return 'bg-gray-100 text-gray-800';
-      case 'Cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   const getCategoryColor = (category: MenuItem['category']) => {
     switch (category) {
       case 'Breakfast': return 'bg-orange-100 text-orange-800';
@@ -285,21 +125,47 @@ const CanteenManagement: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    const unsub = listenCanteenMenu((items) => {
+      // Firestore returns plain data; coerce to MenuItem shape safely
+      setMenuItems(items as unknown as MenuItem[]);
+    });
+    return () => unsub();
+  }, []);
+
   return (
     <div className="max-w-7xl mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-3">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
-            {user?.role === 'student' ? 'Canteen' : 'Canteen Management'}
+            {isVisitor ? 'Canteen Menu' : user?.role === 'student' ? 'Canteen' : 'Canteen Management'}
           </h1>
           <p className="text-gray-600 mt-1">
-            {user?.role === 'student' 
-              ? 'View menu and place orders' 
-              : 'Manage menu items and orders'
+            {isVisitor 
+              ? 'View our delicious menu and contact us for orders' 
+              : user?.role === 'student' 
+                ? 'View menu and contact canteen' 
+                : 'Manage menu items'
             }
           </p>
         </div>
-        <div className="flex space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <a
+            href={`https://wa.me/${WHATSAPP_NUMBER}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors flex items-center space-x-2"
+          >
+            <MessageCircle className="w-5 h-5" />
+            <span className="hidden sm:inline">WhatsApp</span>
+          </a>
+          <a
+            href={`tel:${CALL_NUMBER}`}
+            className="px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors flex items-center space-x-2"
+          >
+            <Phone className="w-5 h-5" />
+            <span className="hidden sm:inline">Call</span>
+          </a>
           <button
             onClick={() => setActiveTab('menu')}
             className={`px-4 py-2 rounded-lg transition-colors ${
@@ -310,18 +176,6 @@ const CanteenManagement: React.FC = () => {
           >
             Menu
           </button>
-          {user?.role !== 'student' && (
-            <button
-              onClick={() => setActiveTab('orders')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                activeTab === 'orders' 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Orders ({orders.length})
-            </button>
-          )}
         </div>
       </div>
 
@@ -329,9 +183,9 @@ const CanteenManagement: React.FC = () => {
         <>
           {/* Menu Filters */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex flex-wrap gap-4 flex-1">
-                <div className="flex-1 min-w-64">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-4">
+              <div className="flex flex-wrap gap-4 flex-1 w-full">
+                <div className="flex-1 min-w-0">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <input
@@ -346,7 +200,7 @@ const CanteenManagement: React.FC = () => {
                 <select
                   value={filterCategory}
                   onChange={(e) => setFilterCategory(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-auto"
                 >
                   <option value="all">All Categories</option>
                   <option value="Breakfast">Breakfast</option>
@@ -358,7 +212,7 @@ const CanteenManagement: React.FC = () => {
                 <select
                   value={filterAvailability}
                   onChange={(e) => setFilterAvailability(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-auto"
                 >
                   <option value="all">All Availability</option>
                   <option value="Available">Available</option>
@@ -366,10 +220,10 @@ const CanteenManagement: React.FC = () => {
                   <option value="Out of Stock">Out of Stock</option>
                 </select>
               </div>
-              {user?.role !== 'student' && (
+              {user?.role !== 'student' && !isVisitor && (
                 <button
                   onClick={() => setShowForm(true)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 ml-4"
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 sm:ml-4"
                 >
                   <Plus className="w-5 h-5" />
                   <span>Add Item</span>
@@ -384,7 +238,7 @@ const CanteenManagement: React.FC = () => {
               <div key={item.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-start mb-3">
                   <h3 className="text-lg font-semibold text-gray-900">{item.name}</h3>
-                  {user?.role !== 'student' && (
+                  {user?.role !== 'student' && !isVisitor && (
                     <div className="flex space-x-2">
                       <button
                         onClick={() => handleEdit(item)}
@@ -413,10 +267,6 @@ const CanteenManagement: React.FC = () => {
                     <Clock className="w-4 h-4 mr-2" />
                     {item.preparationTime} minutes
                   </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Star className="w-4 h-4 mr-2" />
-                    {item.rating}/5.0
-                  </div>
                 </div>
 
                 <div className="flex flex-wrap gap-2 mb-4">
@@ -428,20 +278,7 @@ const CanteenManagement: React.FC = () => {
                   </span>
                 </div>
 
-                {item.nutritionalInfo && (
-                  <div className="text-xs text-gray-500 mb-2">
-                    <div className="flex justify-between">
-                      <span>Calories: {item.nutritionalInfo.calories}</span>
-                      <span>Protein: {item.nutritionalInfo.protein}g</span>
-                    </div>
-                  </div>
-                )}
-
-                {item.allergens && item.allergens.length > 0 && (
-                  <div className="text-xs text-red-600">
-                    Contains: {item.allergens.join(', ')}
-                  </div>
-                )}
+                
               </div>
             ))}
           </div>
@@ -456,88 +293,7 @@ const CanteenManagement: React.FC = () => {
         </>
       )}
 
-      {activeTab === 'orders' && (
-        <div className="space-y-4">
-          {orders.map((order) => (
-            <div key={order.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Order #{order.id}</h3>
-                  <p className="text-sm text-gray-600">{order.customerName} ({order.customerEmail})</p>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
-                    {order.status}
-                  </span>
-                  <span className="text-lg font-semibold text-green-600">₹{order.totalAmount}</span>
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-medium text-gray-900 mb-2">Items:</h4>
-                <div className="space-y-1">
-                  {order.items.map((item, index) => (
-                    <div key={index} className="flex justify-between text-sm">
-                      <span>{item.itemName} x {item.quantity}</span>
-                      <span>₹{item.price * item.quantity}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 text-sm">
-                <div>
-                  <span className="font-medium text-gray-700">Order Time:</span>
-                  <p className="text-gray-600">{new Date(order.orderTime).toLocaleString()}</p>
-                </div>
-                {order.estimatedReadyTime && (
-                  <div>
-                    <span className="font-medium text-gray-700">Estimated Ready:</span>
-                    <p className="text-gray-600">{new Date(order.estimatedReadyTime).toLocaleString()}</p>
-                  </div>
-                )}
-                {order.specialInstructions && (
-                  <div>
-                    <span className="font-medium text-gray-700">Special Instructions:</span>
-                    <p className="text-gray-600">{order.specialInstructions}</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex justify-between items-center">
-                <select
-                  value={order.status}
-                  onChange={(e) => handleOrderStatusChange(order.id, e.target.value as Order['status'])}
-                  className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="Pending">Pending</option>
-                  <option value="Preparing">Preparing</option>
-                  <option value="Ready">Ready</option>
-                  <option value="Completed">Completed</option>
-                  <option value="Cancelled">Cancelled</option>
-                </select>
-                <div className="flex space-x-2">
-                  <button className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors">
-                    <CheckCircle className="w-4 h-4 inline mr-1" />
-                    Complete
-                  </button>
-                  <button className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition-colors">
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {orders.length === 0 && (
-            <div className="text-center py-12">
-              <ShoppingCart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No orders found</h3>
-              <p className="text-gray-600">Orders will appear here when customers place them</p>
-            </div>
-          )}
-        </div>
-      )}
+      
 
       {/* Menu Item Form Modal */}
       {showForm && (
@@ -623,66 +379,6 @@ const CanteenManagement: React.FC = () => {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ingredients (comma-separated)</label>
-                  <input
-                    type="text"
-                    value={formData.ingredients}
-                    onChange={(e) => setFormData({ ...formData, ingredients: e.target.value })}
-                    placeholder="e.g., Rice flour, Potato, Onion, Spices"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Allergens (comma-separated)</label>
-                  <input
-                    type="text"
-                    value={formData.allergens}
-                    onChange={(e) => setFormData({ ...formData, allergens: e.target.value })}
-                    placeholder="e.g., Gluten, Dairy, Nuts"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Calories</label>
-                    <input
-                      type="number"
-                      value={formData.calories}
-                      onChange={(e) => setFormData({ ...formData, calories: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Protein (g)</label>
-                    <input
-                      type="number"
-                      value={formData.protein}
-                      onChange={(e) => setFormData({ ...formData, protein: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Carbs (g)</label>
-                    <input
-                      type="number"
-                      value={formData.carbs}
-                      onChange={(e) => setFormData({ ...formData, carbs: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Fat (g)</label>
-                    <input
-                      type="number"
-                      value={formData.fat}
-                      onChange={(e) => setFormData({ ...formData, fat: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
 
                 <div className="flex justify-end space-x-3 pt-4">
                   <button

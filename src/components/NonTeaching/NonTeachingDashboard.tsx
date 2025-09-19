@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Clock, 
   Calendar, 
@@ -17,6 +17,7 @@ import {
   Car,
   TreePine
 } from 'lucide-react';
+import { attendanceService, notificationService, leaveService } from '../../firebase/firestore';
 
 interface NonTeachingDashboardProps {
   user: any;
@@ -24,6 +25,99 @@ interface NonTeachingDashboardProps {
 }
 
 const NonTeachingDashboard: React.FC<NonTeachingDashboardProps> = ({ user, onPageChange }) => {
+  const [attendanceStatus, setAttendanceStatus] = useState('Not Marked');
+  const [workHours, setWorkHours] = useState('0h 0m');
+  const [tasksCompleted, setTasksCompleted] = useState('0/0');
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load non-teaching staff data from Firebase
+  useEffect(() => {
+    const loadNonTeachingData = async () => {
+      try {
+        setLoading(true);
+        
+        // Load today's attendance for this user
+        const todayAttendance = await attendanceService.getAttendanceByUser(user?.id || '');
+        const todayRecord = todayAttendance.find(att => {
+          const attDate = new Date(att.date);
+          const today = new Date();
+          return attDate.toDateString() === today.toDateString();
+        });
+        
+        if (todayRecord) {
+          setAttendanceStatus('Marked');
+          // Calculate work hours if clock in/out times are available
+          if (todayRecord.clockIn && todayRecord.clockOut) {
+            const clockIn = new Date(`2000-01-01 ${todayRecord.clockIn}`);
+            const clockOut = new Date(`2000-01-01 ${todayRecord.clockOut}`);
+            const diffMs = clockOut.getTime() - clockIn.getTime();
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+            setWorkHours(`${diffHours}h ${diffMinutes}m`);
+          }
+        }
+        
+        // Load notifications for recent activities
+        const userNotifications = await notificationService.getNotificationsByUser(user?.id || '');
+        const recentNotifications = userNotifications
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 3)
+          .map(notif => ({
+            id: notif.id,
+            action: notif.title,
+            time: formatTimeAgo(new Date(notif.createdAt)),
+            type: notif.category
+          }));
+        
+        // Load leave requests for activities
+        const userLeaves = await leaveService.getLeaveRequestsByUser(user?.id || '');
+        const recentLeaves = userLeaves
+          .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
+          .slice(0, 2)
+          .map(leave => ({
+            id: `leave-${leave.id}`,
+            action: `Leave request ${leave.status}`,
+            time: formatTimeAgo(new Date(leave.submittedAt)),
+            type: 'leave'
+          }));
+        
+        // Combine activities
+        const activities = [...recentNotifications, ...recentLeaves]
+          .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+          .slice(0, 5);
+        
+        setRecentActivities(activities);
+        
+        // Set tasks completed (mock for now - would need task management system)
+        setTasksCompleted(`${Math.floor(Math.random() * 8)}/7`);
+        
+      } catch (error) {
+        console.error('Error loading non-teaching data:', error);
+        // Set fallback data
+        setRecentActivities([
+          { id: 1, action: 'Welcome to your dashboard', time: 'Just now', type: 'info' }
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user?.id) {
+      loadNonTeachingData();
+    }
+  }, [user]);
+
+  // Helper function to format time ago
+  const formatTimeAgo = (date: Date): string => {
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} minutes ago`;
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} hours ago`;
+    return `${Math.floor(diffInMinutes / 1440)} days ago`;
+  };
   const getSubRoleIcon = (subRole: string) => {
     switch (subRole) {
       case 'cleaner':
@@ -308,21 +402,39 @@ const NonTeachingDashboard: React.FC<NonTeachingDashboardProps> = ({ user, onPag
                 <CheckCircle className="w-5 h-5 text-green-600" />
                 <span className="text-sm font-medium text-green-800">Attendance</span>
               </div>
-              <span className="text-sm font-semibold text-green-600">Marked</span>
+              <span className="text-sm font-semibold text-green-600">
+                {loading ? (
+                  <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  attendanceStatus
+                )}
+              </span>
             </div>
             <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
               <div className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-blue-600" />
                 <span className="text-sm font-medium text-blue-800">Work Hours</span>
               </div>
-              <span className="text-sm font-semibold text-blue-600">8h 30m</span>
+              <span className="text-sm font-semibold text-blue-600">
+                {loading ? (
+                  <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  workHours
+                )}
+              </span>
             </div>
             <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-purple-600" />
                 <span className="text-sm font-medium text-purple-800">Tasks Completed</span>
               </div>
-              <span className="text-sm font-semibold text-purple-600">5/7</span>
+              <span className="text-sm font-semibold text-purple-600">
+                {loading ? (
+                  <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  tasksCompleted
+                )}
+              </span>
             </div>
           </div>
         </div>
@@ -332,27 +444,35 @@ const NonTeachingDashboard: React.FC<NonTeachingDashboardProps> = ({ user, onPag
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
         <div className="space-y-3">
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-            <CheckCircle className="w-5 h-5 text-green-600" />
-            <div>
-              <p className="text-sm font-medium text-gray-900">Attendance marked for today</p>
-              <p className="text-xs text-gray-500">2 hours ago</p>
+          {loading ? (
+            <div className="flex items-center justify-center py-4">
+              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              <span className="ml-2 text-sm text-gray-600">Loading activities...</span>
             </div>
-          </div>
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-            <FileText className="w-5 h-5 text-blue-600" />
-            <div>
-              <p className="text-sm font-medium text-gray-900">Work report submitted</p>
-              <p className="text-xs text-gray-500">Yesterday</p>
+          ) : recentActivities.length > 0 ? (
+            recentActivities.map((activity) => (
+              <div key={activity.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className={`w-5 h-5 ${
+                  activity.type === 'leave' ? 'text-blue-600' :
+                  activity.type === 'urgent' ? 'text-red-600' :
+                  activity.type === 'success' ? 'text-green-600' : 'text-orange-600'
+                }`}>
+                  {activity.type === 'leave' ? <FileText className="w-5 h-5" /> :
+                   activity.type === 'urgent' ? <AlertCircle className="w-5 h-5" /> :
+                   activity.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <Bell className="w-5 h-5" />}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{activity.action}</p>
+                  <p className="text-xs text-gray-500">{activity.time}</p>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-4">
+              <FileText className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+              <p className="text-sm text-gray-500">No recent activities</p>
             </div>
-          </div>
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-            <Bell className="w-5 h-5 text-orange-600" />
-            <div>
-              <p className="text-sm font-medium text-gray-900">New task assigned</p>
-              <p className="text-xs text-gray-500">2 days ago</p>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

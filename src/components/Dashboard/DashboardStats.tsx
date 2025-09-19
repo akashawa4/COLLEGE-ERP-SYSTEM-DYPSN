@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, FileText, CheckCircle, AlertCircle, X, Calendar, TrendingUp, User, Users, GraduationCap, Building2, DollarSign } from 'lucide-react';
+import { Clock, FileText, CheckCircle, AlertCircle, X, Calendar, TrendingUp, User, Users, GraduationCap, Building2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { leaveService, userService, getBatchYear } from '../../firebase/firestore';
 import { getDepartmentCode } from '../../utils/departmentMapping';
@@ -87,7 +87,7 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ dashboardData, loading,
   // Load students for Teacher/HOD directly from batch structure
   useEffect(() => {
     const loadStudentsForStaff = async () => {
-      if (!user || (user.role !== 'teacher' && user.role !== 'hod')) return;
+      if (!user || (user.role as string !== 'teacher' && user.role as string !== 'hod')) return;
       try {
         // Determine batch/year/sem/div scope
         const dept = getDepartmentCode(user.department);
@@ -180,8 +180,8 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ dashboardData, loading,
         {
           id: 'students',
           title: 'Total Students',
-          value: '1,250',
-          change: '+5.2% from last month',
+          value: 'Loading...',
+          change: 'Real-time data',
           changeType: 'positive' as const,
           icon: Users,
           color: 'blue'
@@ -189,8 +189,8 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ dashboardData, loading,
         {
           id: 'teachers',
           title: 'Total Teachers',
-          value: '85',
-          change: '+2 new this month',
+          value: 'Loading...',
+          change: 'Real-time data',
           changeType: 'positive' as const,
           icon: GraduationCap,
           color: 'green'
@@ -198,26 +198,17 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ dashboardData, loading,
         {
           id: 'departments',
           title: 'Departments',
-          value: '8',
+          value: 'Loading...',
           change: 'All active',
           changeType: 'positive' as const,
           icon: Building2,
           color: 'purple'
-        },
-        {
-          id: 'revenue',
-          title: 'Total Revenue',
-          value: '₹2.5M',
-          change: '+12.5% this quarter',
-          changeType: 'positive' as const,
-          icon: DollarSign,
-          color: 'green'
         }
       ];
     }
 
     // HOD stats - only show for HOD role
-    if (user.role === 'hod') {
+    if (user.role as string === 'hod' || user.role as string === 'teacher') {
       return [
         {
           id: 'staff',
@@ -264,7 +255,7 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ dashboardData, loading,
     const effectiveTotalStudents = (studentData && studentData.length > 0)
       ? studentData.reduce((sum, d) => sum + (d.count || 0), 0)
       : localStudentData.reduce((sum, d) => sum + (d.count || 0), 0);
-    if ((user.role === 'teacher' || user.role === 'hod') && effectiveStudentData && effectiveStudentData.length >= 0) {
+    if ((user.role as string === 'teacher' || user.role as string === 'hod') && effectiveStudentData && effectiveStudentData.length >= 0) {
       
       const year2Count = effectiveStudentData.filter(d => {
         const year = d.year?.toString().toLowerCase();
@@ -323,7 +314,7 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ dashboardData, loading,
     }
 
     // Fallback Teacher/HOD stats - only show when no student data is available
-    if (user.role === 'teacher' || user.role === 'hod') {
+    if (user.role as string === 'teacher' || user.role as string === 'hod') {
       return [
         {
           id: 'students',

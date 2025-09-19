@@ -2,7 +2,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'student' | 'teacher' | 'hod' | 'admin' | 'non-teaching';
+  role: 'student' | 'teacher' | 'hod' | 'admin' | 'non-teaching' | 'visitor' | 'driver';
   department: string;
   accessLevel: 'basic' | 'approver' | 'full';
   isActive: boolean;
@@ -36,6 +36,16 @@ export interface User {
   supervisor?: string;
   contractType?: 'permanent' | 'temporary' | 'contract';
   workStatus?: 'active' | 'on-leave' | 'suspended' | 'terminated';
+}
+
+export interface VisitorProfile {
+  id: string;
+  deviceId: string;
+  name?: string;
+  phone?: string;
+  purpose?: string;
+  lastLogin?: string;
+  createdAt?: string;
 }
 
 export interface Department {
@@ -311,4 +321,108 @@ export interface ClubMember {
   year?: string;
   createdAt?: any; // Firestore timestamp
   updatedAt?: any; // Firestore timestamp
+}
+
+export interface Bus {
+  id: string;
+  busNumber: string;
+  busName: string;
+  capacity: number;
+  type: 'AC' | 'Non-AC' | 'Semi-AC';
+  status: 'active' | 'maintenance' | 'inactive';
+  driverId?: string;
+  driverName?: string;
+  driverPhone?: string;
+  routeId?: string;
+  routeName?: string;
+  registrationNumber: string;
+  model: string;
+  year: number;
+  insuranceExpiry: string;
+  lastServiceDate: string;
+  nextServiceDate: string;
+  fuelType: 'Diesel' | 'Petrol' | 'CNG' | 'Electric';
+  features: string[];
+  notes?: string;
+  createdAt?: any; // Firestore timestamp
+  updatedAt?: any; // Firestore timestamp
+}
+
+export interface BusRoute {
+  id: string;
+  routeName: string;
+  routeNumber: string;
+  startLocation: string;
+  endLocation: string;
+  stops: BusStop[];
+  distance: number; // in km
+  estimatedTime: number; // in minutes
+  status: 'active' | 'inactive' | 'suspended';
+  operatingDays: string[]; // ['Monday', 'Tuesday', ...]
+  startTime: string; // HH:mm format
+  endTime: string; // HH:mm format
+  description?: string;
+  createdAt?: any; // Firestore timestamp
+  updatedAt?: any; // Firestore timestamp
+}
+
+export interface BusStop {
+  id: string;
+  name: string;
+  address: string;
+  latitude?: number;
+  longitude?: number;
+  arrivalTime: string; // HH:mm format
+  sequence: number; // Order in the route
+  isMainStop: boolean;
+  notes?: string;
+}
+
+export interface LostFoundItem {
+  id: string;
+  itemName: string;
+  description: string;
+  category: 'electronics' | 'clothing' | 'books' | 'accessories' | 'documents' | 'other';
+  foundBy: string; // Name of person who found it
+  foundByPhone?: string; // Phone number of finder
+  foundByEmail?: string; // Email of finder
+  foundLocation: string; // Where it was found
+  foundDate: string; // Date when found (ISO string)
+  foundTime: string; // Time when found (HH:mm format)
+  currentHolder: string; // Who currently has the item
+  currentHolderPhone: string; // Phone number of current holder
+  currentHolderEmail?: string; // Email of current holder
+  currentHolderRole: string; // Role of current holder (admin, teacher, etc.)
+  status: 'found' | 'claimed' | 'disposed';
+  claimedBy?: string; // Name of person who claimed it
+  claimedDate?: string; // Date when claimed
+  claimedByPhone?: string; // Phone number of claimant
+  images?: string[]; // URLs of item images
+  notes?: string; // Additional notes
+  createdAt: any; // Firestore timestamp
+  updatedAt: any; // Firestore timestamp
+}
+
+export interface HostelRoom {
+  id: string;
+  roomNumber: string;
+  roomType: 'single' | 'double' | 'triple' | 'quad' | 'dormitory';
+  floor: number;
+  building: string;
+  capacity: number;
+  currentOccupancy: number;
+  rent: number; // Monthly rent in INR
+  amenities: string[]; // Available amenities
+  status: 'available' | 'occupied' | 'maintenance' | 'reserved';
+  description: string;
+  contactPerson: string; // Person to contact for booking
+  contactPhone: string; // Contact phone number
+  contactEmail?: string; // Contact email
+  externalWebsite: string; // URL to external room renting website
+  images?: string[]; // Room images
+  rules: string[]; // Hostel rules
+  location: string; // Hostel location/address
+  distanceFromCollege: number; // Distance in km
+  createdAt: any; // Firestore timestamp
+  updatedAt: any; // Firestore timestamp
 }

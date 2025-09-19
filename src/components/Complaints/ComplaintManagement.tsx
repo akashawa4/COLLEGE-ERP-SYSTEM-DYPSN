@@ -5,16 +5,10 @@ import {
   Edit, 
   Trash2, 
   Eye, 
-  CheckCircle, 
-  XCircle, 
-  Clock,
-  Filter,
   Search,
   User,
   Calendar,
-  MessageSquare,
   Flag,
-  Mail,
   Loader2,
   RefreshCw,
   AlertCircle,
@@ -217,16 +211,7 @@ const ComplaintManagement: React.FC = () => {
     }
   };
 
-  const getStatusIcon = (status: Complaint['status']) => {
-    switch (status) {
-      case 'Open': return <AlertTriangle className="w-4 h-4" />;
-      case 'In Progress': return <Clock className="w-4 h-4" />;
-      case 'Resolved': return <CheckCircle className="w-4 h-4" />;
-      case 'Closed': return <XCircle className="w-4 h-4" />;
-      case 'Rejected': return <XCircle className="w-4 h-4" />;
-      default: return <AlertTriangle className="w-4 h-4" />;
-    }
-  };
+  // icon helpers inlined where needed; unused helper removed
 
   return (
     <div className="max-w-7xl mx-auto p-6">
@@ -256,7 +241,7 @@ const ComplaintManagement: React.FC = () => {
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
           >
             <Plus className="w-5 h-5" />
-            <span>{user?.role === 'student' ? 'Submit Complaint' : 'New Complaint'}</span>
+            <span>Submit Complaint</span>
           </button>
         </div>
       </div>
@@ -388,7 +373,7 @@ const ComplaintManagement: React.FC = () => {
                 >
                   <Eye className="w-4 h-4" />
                 </button>
-                {user?.role !== 'student' && (
+                {user?.role !== 'student' && user?.role !== 'visitor' && (
                   <>
                     <button
                       onClick={() => handleEdit(complaint)}
@@ -433,7 +418,7 @@ const ComplaintManagement: React.FC = () => {
             )}
 
             <div className="flex justify-between items-center">
-              {user?.role !== 'student' && (
+              {user?.role !== 'student' && user?.role !== 'visitor' && (
                 <div className="flex space-x-2">
                   <select
                     value={complaint.status}
