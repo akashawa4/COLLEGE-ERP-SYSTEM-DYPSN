@@ -13,27 +13,23 @@ import {
   X,
   Loader2,
   Route,
-  Calendar
+  Calendar,
+  Mail
 } from 'lucide-react';
 import { Bus as BusType, BusRoute, BusStop } from '../../types';
-import { busService, busRouteService } from '../../firebase/firestore';
+import { busService } from '../../firebase/firestore';
 
 const BusManagement: React.FC<{ user: any }> = ({ user }) => {
   const [buses, setBuses] = useState<BusType[]>([]);
-  const [routes, setRoutes] = useState<BusRoute[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [showForm, setShowForm] = useState(false);
-  const [showRouteForm, setShowRouteForm] = useState(false);
   const [showStopForm, setShowStopForm] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [selectedBus, setSelectedBus] = useState<BusType | null>(null);
-  const [selectedRoute, setSelectedRoute] = useState<BusRoute | null>(null);
-  const [activeTab, setActiveTab] = useState<'buses' | 'routes'>('buses');
   const [editingBus, setEditingBus] = useState<BusType | null>(null);
-  const [editingRoute, setEditingRoute] = useState<BusRoute | null>(null);
   const [editingStop, setEditingStop] = useState<BusStop | null>(null);
   const [currentRouteId, setCurrentRouteId] = useState<string | null>(null);
 
@@ -46,7 +42,6 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
     status: 'active' as 'active' | 'maintenance' | 'inactive',
     driverName: '',
     driverPhone: '',
-    routeName: '',
     registrationNumber: '',
     model: '',
     year: new Date().getFullYear(),
@@ -55,22 +50,22 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
     nextServiceDate: '',
     fuelType: 'Diesel' as 'Diesel' | 'Petrol' | 'CNG' | 'Electric',
     features: [] as string[],
-    notes: ''
+    notes: '',
+    route: {
+      routeName: '',
+      routeNumber: '',
+      startLocation: '',
+      endLocation: '',
+      stops: [] as BusStop[],
+      distance: 0,
+      estimatedTime: 0,
+      operatingDays: [] as string[],
+      startTime: '',
+      endTime: '',
+      description: ''
+    }
   });
 
-  const [routeForm, setRouteForm] = useState({
-    routeName: '',
-    routeNumber: '',
-    startLocation: '',
-    endLocation: '',
-    distance: 0,
-    estimatedTime: 0,
-    status: 'active' as 'active' | 'inactive' | 'suspended',
-    operatingDays: [] as string[],
-    startTime: '',
-    endTime: '',
-    description: ''
-  });
 
   const [stopForm, setStopForm] = useState({
     name: '',
@@ -92,13 +87,10 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
         setLoading(true);
         setError(null);
         
-        const [busesData, routesData] = await Promise.all([
-          busService.getAllBuses(),
-          busRouteService.getAllBusRoutes()
-        ]);
+        const busesData = await busService.getAllBuses();
         
         setBuses(busesData);
-        setRoutes(routesData);
+        
       } catch (error) {
         console.error('Error loading data:', error);
         setError('Failed to load data. Please try again.');
@@ -114,15 +106,11 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
   useEffect(() => {
     const unsubscribeBuses = busService.listenBuses((buses) => {
       setBuses(buses);
-    });
-
-    const unsubscribeRoutes = busRouteService.listenBusRoutes((routes) => {
-      setRoutes(routes);
+      
     });
 
     return () => {
       unsubscribeBuses();
-      unsubscribeRoutes();
     };
   }, []);
 
@@ -131,25 +119,12 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
       bus.busNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       bus.busName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       bus.driverName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bus.routeName?.toLowerCase().includes(searchTerm.toLowerCase());
+      bus.route?.routeName?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || bus.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
 
-  const filteredRoutes = routes.filter(route => {
-    const matchesSearch = searchTerm === '' || 
-      route.routeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      route.routeNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      route.startLocation.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      route.endLocation.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || route.status === filterStatus;
-    return matchesSearch && matchesStatus;
-  });
 
-  const getStopsForRoute = (routeId: string) => {
-    const route = routes.find(r => r.id === routeId);
-    return route?.stops || [];
-  };
 
   const handleBusSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -174,7 +149,6 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
         status: 'active',
         driverName: '',
         driverPhone: '',
-        routeName: '',
         registrationNumber: '',
         model: '',
         year: new Date().getFullYear(),
@@ -183,7 +157,20 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
         nextServiceDate: '',
         fuelType: 'Diesel',
         features: [],
-        notes: ''
+        notes: '',
+        route: {
+          routeName: '',
+          routeNumber: '',
+          startLocation: '',
+          endLocation: '',
+          stops: [],
+          distance: 0,
+          estimatedTime: 0,
+          operatingDays: [],
+          startTime: '',
+          endTime: '',
+          description: ''
+        }
       });
     } catch (error) {
       console.error('Error saving bus:', error);
@@ -193,46 +180,7 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
     }
   };
 
-  const handleRouteSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isAdmin) return;
-    
-    try {
-      setLoading(true);
-      
-      const routeData = {
-        ...routeForm,
-        stops: editingRoute ? editingRoute.stops || [] : []
-      };
-      
-      if (editingRoute) {
-        await busRouteService.updateBusRoute(editingRoute.id, routeData);
-      } else {
-        await busRouteService.createBusRoute(routeData);
-      }
-      
-      setShowRouteForm(false);
-      setEditingRoute(null);
-      setRouteForm({
-        routeName: '',
-        routeNumber: '',
-        startLocation: '',
-        endLocation: '',
-        distance: 0,
-        estimatedTime: 0,
-        status: 'active',
-        operatingDays: [],
-        startTime: '',
-        endTime: '',
-        description: ''
-      });
-    } catch (error) {
-      console.error('Error saving route:', error);
-      setError('Failed to save route. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Route submission is now handled as part of bus creation/update
 
   const handleDeleteBus = async (id: string) => {
     if (!isAdmin) return;
@@ -249,20 +197,7 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
     }
   };
 
-  const handleDeleteRoute = async (id: string) => {
-    if (!isAdmin) return;
-    if (!confirm('Are you sure you want to delete this route?')) return;
-    
-    try {
-      setLoading(true);
-      await busRouteService.deleteBusRoute(id);
-    } catch (error) {
-      console.error('Error deleting route:', error);
-      setError('Failed to delete route. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Route deletion is now handled as part of bus deletion
 
   const handleStopSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -271,10 +206,10 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
     try {
       setLoading(true);
       
-      const route = routes.find(r => r.id === currentRouteId);
-      if (!route) return;
+      const bus = buses.find(b => b.id === currentRouteId);
+      if (!bus) return;
       
-      const updatedStops = [...(route.stops || [])];
+      const updatedStops = [...(bus.route.stops || [])];
       
       if (editingStop) {
         // Update existing stop
@@ -294,9 +229,12 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
       // Sort stops by sequence
       updatedStops.sort((a, b) => a.sequence - b.sequence);
       
-      // Update route with new stops
-      await busRouteService.updateBusRoute(currentRouteId, {
-        stops: updatedStops
+      // Update bus with new stops in route
+      await busService.updateBus(currentRouteId, {
+        route: {
+          ...bus.route,
+          stops: updatedStops
+        }
       });
       
       setShowStopForm(false);
@@ -320,6 +258,7 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
     }
   };
 
+
   const handleDeleteStop = async (routeId: string, stopId: string) => {
     if (!isAdmin) return;
     if (!confirm('Are you sure you want to delete this stop?')) return;
@@ -327,13 +266,16 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
     try {
       setLoading(true);
       
-      const route = routes.find(r => r.id === routeId);
-      if (!route) return;
+      const bus = buses.find(b => b.id === routeId);
+      if (!bus) return;
       
-      const updatedStops = (route.stops || []).filter(s => s.id !== stopId);
+      const updatedStops = (bus.route.stops || []).filter(s => s.id !== stopId);
       
-      await busRouteService.updateBusRoute(routeId, {
-        stops: updatedStops
+      await busService.updateBus(routeId, {
+        route: {
+          ...bus.route,
+          stops: updatedStops
+        }
       });
     } catch (error) {
       console.error('Error deleting stop:', error);
@@ -353,7 +295,6 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
       status: bus.status,
       driverName: bus.driverName || '',
       driverPhone: bus.driverPhone || '',
-      routeName: bus.routeName || '',
       registrationNumber: bus.registrationNumber,
       model: bus.model,
       year: bus.year,
@@ -362,28 +303,24 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
       nextServiceDate: bus.nextServiceDate,
       fuelType: bus.fuelType,
       features: bus.features || [],
-      notes: bus.notes || ''
+      notes: bus.notes || '',
+      route: bus.route || {
+        routeName: '',
+        routeNumber: '',
+        startLocation: '',
+        endLocation: '',
+        stops: [],
+        distance: 0,
+        estimatedTime: 0,
+        operatingDays: [],
+        startTime: '',
+        endTime: '',
+        description: ''
+      }
     });
     setShowForm(true);
   };
 
-  const handleEditRoute = (route: BusRoute) => {
-    setEditingRoute(route);
-    setRouteForm({
-      routeName: route.routeName,
-      routeNumber: route.routeNumber,
-      startLocation: route.startLocation,
-      endLocation: route.endLocation,
-      distance: route.distance,
-      estimatedTime: route.estimatedTime,
-      status: route.status,
-      operatingDays: route.operatingDays || [],
-      startTime: route.startTime,
-      endTime: route.endTime,
-      description: route.description || ''
-    });
-    setShowRouteForm(true);
-  };
 
   const handleEditStop = (stop: BusStop, routeId: string) => {
     setEditingStop(stop);
@@ -401,21 +338,6 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
     setShowStopForm(true);
   };
 
-  const handleAddStop = (routeId: string) => {
-    setCurrentRouteId(routeId);
-    setEditingStop(null);
-    setStopForm({
-      name: '',
-      address: '',
-      latitude: 0,
-      longitude: 0,
-      arrivalTime: '',
-      sequence: getStopsForRoute(routeId).length + 1,
-      isMainStop: false,
-      notes: ''
-    });
-    setShowStopForm(true);
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -444,17 +366,6 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
         </div>
         {isAdmin && (
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            <button
-              onClick={() => {
-                setEditingRoute(null);
-                setShowRouteForm(true);
-              }}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
-            >
-              <Plus className="w-5 h-5" />
-              <span className="hidden sm:inline">Add Route</span>
-              <span className="sm:hidden">Route</span>
-            </button>
             <button
               onClick={() => {
                 setEditingBus(null);
@@ -496,31 +407,6 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex space-x-1 mb-6">
-        <button
-          onClick={() => setActiveTab('buses')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === 'buses'
-              ? 'bg-blue-100 text-blue-700'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          <Bus className="w-4 h-4 inline mr-2" />
-          Buses ({buses.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('routes')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === 'routes'
-              ? 'bg-blue-100 text-blue-700'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          <Route className="w-4 h-4 inline mr-2" />
-          Routes ({routes.length})
-        </button>
-      </div>
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
@@ -530,14 +416,13 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder={`Search ${activeTab}...`}
+                placeholder="Search buses..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
           </div>
-          {activeTab === 'buses' && (
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
@@ -548,12 +433,10 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
               <option value="maintenance">Maintenance</option>
               <option value="inactive">Inactive</option>
             </select>
-          )}
         </div>
       </div>
 
-      {/* Buses Tab */}
-      {activeTab === 'buses' && (
+      {/* Buses Section */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900">Bus Fleet</h3>
@@ -645,25 +528,25 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
           {/* Desktop Table View */}
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Bus Details
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Driver
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Route
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Bus Details
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Driver
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Contact
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
                <tbody className="bg-white divide-y divide-gray-200">
                  {filteredBuses.map((bus) => (
                    <tr 
@@ -699,10 +582,20 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        <div className="font-medium">{bus.routeName || 'Not assigned'}</div>
+                        {bus.driverPhone ? (
+                          <a 
+                            href={`tel:${bus.driverPhone}`}
+                            className="font-medium text-blue-600 hover:text-blue-800 flex items-center"
+                          >
+                            <Phone className="w-3 h-3 mr-1" />
+                            {bus.driverPhone}
+                          </a>
+                        ) : (
+                          <div className="font-medium text-gray-500">No contact</div>
+                        )}
                         <div className="text-gray-500 flex items-center">
-                          <MapPin className="w-3 h-3 mr-1" />
-                          {bus.registrationNumber}
+                          <Mail className="w-3 h-3 mr-1" />
+                          {bus.driverEmail || 'No email'}
                         </div>
                       </div>
                     </td>
@@ -761,213 +654,7 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
             </div>
           )}
         </div>
-      )}
 
-      {/* Routes Tab */}
-      {activeTab === 'routes' && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Bus Routes</h3>
-          </div>
-          
-          {/* Mobile Card View */}
-          <div className="block sm:hidden">
-            {filteredRoutes.map((route) => {
-              const routeStops = getStopsForRoute(route.id);
-              return (
-                <div 
-                  key={route.id} 
-                  className="p-4 border-b border-gray-200 last:border-b-0 cursor-pointer hover:bg-gray-50 transition-colors"
-                  onClick={() => {
-                    setSelectedRoute(route);
-                    setShowDetails(true);
-                  }}
-                >
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <div className="text-sm font-medium text-gray-900">{route.routeName}</div>
-                    <div className="text-xs text-gray-500">{route.routeNumber}</div>
-                  </div>
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(route.status)}`}>
-                    {route.status}
-                  </span>
-                </div>
-                
-                 <div className="space-y-2 text-sm text-gray-600 mb-3">
-                   <div className="flex items-center">
-                     <MapPin className="w-4 h-4 mr-2" />
-                     {route.startLocation} → {route.endLocation}
-                   </div>
-                   <div className="flex items-center">
-                     <Clock className="w-4 h-4 mr-2" />
-                     {route.distance} km • {route.estimatedTime} min
-                   </div>
-                   <div className="flex items-center">
-                     <Calendar className="w-4 h-4 mr-2" />
-                     {route.startTime} - {route.endTime}
-                   </div>
-                   {routeStops.length > 0 && (
-                     <div className="flex items-start">
-                       <MapPin className="w-4 h-4 mr-2 mt-0.5" />
-                       <div className="text-xs">
-                         <div className="font-medium text-gray-700 mb-1">Stops ({routeStops.length}):</div>
-                         <div className="text-gray-500">
-                           {routeStops.slice(0, 3).map(stop => stop.name).join(' → ')}
-                           {routeStops.length > 3 && ' → ...'}
-                         </div>
-                       </div>
-                     </div>
-                   )}
-                 </div>
-                
-                 <div className="flex items-center justify-between">
-                   <div className="flex space-x-2">
-                     {isAdmin && (
-                       <>
-                         <button
-                           onClick={(e) => {
-                             e.stopPropagation();
-                             handleEditRoute(route);
-                           }}
-                           className="text-green-600 hover:text-green-900 p-1"
-                         >
-                           <Edit className="w-4 h-4" />
-                         </button>
-                         <button
-                           onClick={(e) => {
-                             e.stopPropagation();
-                             handleDeleteRoute(route.id);
-                           }}
-                           className="text-red-600 hover:text-red-900 p-1"
-                         >
-                           <Trash2 className="w-4 h-4" />
-                         </button>
-                       </>
-                     )}
-                   </div>
-                 </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Desktop Table View */}
-          <div className="hidden sm:block overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Route Details
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Distance & Time
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Schedule
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-               <tbody className="bg-white divide-y divide-gray-200">
-                 {filteredRoutes.map((route) => {
-                   const routeStops = getStopsForRoute(route.id);
-                   return (
-                     <tr 
-                       key={route.id} 
-                       className="hover:bg-gray-50 cursor-pointer"
-                       onClick={() => {
-                         setSelectedRoute(route);
-                         setShowDetails(true);
-                       }}
-                     >
-                     <td className="px-6 py-4 whitespace-nowrap">
-                       <div className="text-sm text-gray-900">
-                         <div className="font-medium">{route.routeName}</div>
-                         <div className="text-gray-500">{route.routeNumber}</div>
-                         <div className="text-xs text-gray-400">
-                           {route.startLocation} → {route.endLocation}
-                         </div>
-                         {routeStops.length > 0 && (
-                           <div className="text-xs text-blue-600 mt-1">
-                             {routeStops.length} stops
-                           </div>
-                         )}
-                       </div>
-                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        <div className="flex items-center">
-                          <MapPin className="w-3 h-3 mr-1" />
-                          {route.distance} km
-                        </div>
-                        <div className="flex items-center text-gray-500">
-                          <Clock className="w-3 h-3 mr-1" />
-                          {route.estimatedTime} min
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        <div className="text-gray-500">
-                          {route.startTime} - {route.endTime}
-                        </div>
-                        <div className="text-xs text-gray-400">
-                          {route.operatingDays.join(', ')}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(route.status)}`}>
-                        {route.status}
-                      </span>
-                    </td>
-                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                       <div className="flex items-center space-x-2">
-                         {isAdmin && (
-                           <>
-                             <button
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 handleEditRoute(route);
-                               }}
-                               className="text-green-600 hover:text-green-900"
-                             >
-                               <Edit className="w-4 h-4" />
-                             </button>
-                             <button
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 handleDeleteRoute(route.id);
-                               }}
-                               className="text-red-600 hover:text-red-900"
-                             >
-                               <Trash2 className="w-4 h-4" />
-                             </button>
-                           </>
-                         )}
-                       </div>
-                     </td>
-                   </tr>
-                   );
-                 })}
-              </tbody>
-            </table>
-          </div>
-
-          {filteredRoutes.length === 0 && (
-            <div className="text-center py-12">
-              <Route className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No routes found</h3>
-              <p className="text-gray-600">Try adding a new route</p>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Bus Form Modal */}
       {showForm && isAdmin && (
@@ -1070,6 +757,116 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
                     />
                   </div>
                 </div>
+
+
+                {/* Bus Stops Section */}
+                <div className="border-t pt-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Bus Stops</h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                        const newStop: BusStop = {
+                          id: Date.now().toString(),
+                          name: '',
+                          address: '',
+                          latitude: 0,
+                          longitude: 0,
+                          arrivalTime: '',
+                          sequence: busForm.route.stops.length + 1,
+                          isMainStop: false,
+                          notes: ''
+                        };
+                        setBusForm({
+                          ...busForm,
+                          route: {
+                            ...busForm.route,
+                            stops: [...busForm.route.stops, newStop]
+                          }
+                        });
+                      }}
+                      className="bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700 text-sm flex items-center space-x-1"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Stop</span>
+                  </button>
+                </div>
+                  
+                  {busForm.route.stops.map((stop, index) => (
+                    <div key={stop.id} className="bg-gray-50 p-4 rounded-lg mb-4">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center space-x-4">
+                          <h4 className="font-medium text-gray-900">Stop {index + 1}</h4>
+                  <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Stop Name</label>
+                    <input
+                      type="text"
+                              value={stop.name}
+                              onChange={(e) => {
+                                const updatedStops = busForm.route.stops.map(s => 
+                                  s.id === stop.id ? {...s, name: e.target.value} : s
+                                );
+                                setBusForm({
+                                  ...busForm,
+                                  route: {...busForm.route, stops: updatedStops}
+                                });
+                              }}
+                              className="w-48 border border-gray-300 rounded-lg px-3 py-2"
+                              placeholder={`Stop ${index + 1} Name`}
+                    />
+                  </div>
+                  <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Arrival Time</label>
+                    <input
+                              type="time"
+                              value={stop.arrivalTime}
+                              onChange={(e) => {
+                                const updatedStops = busForm.route.stops.map(s => 
+                                  s.id === stop.id ? {...s, arrivalTime: e.target.value} : s
+                                );
+                                setBusForm({
+                                  ...busForm,
+                                  route: {...busForm.route, stops: updatedStops}
+                                });
+                              }}
+                              className="w-32 border border-gray-300 rounded-lg px-3 py-2"
+                    />
+                  </div>
+                  </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updatedStops = busForm.route.stops.filter(s => s.id !== stop.id);
+                            // Reorder sequence numbers
+                            const reorderedStops = updatedStops.map((s, idx) => ({
+                              ...s,
+                              sequence: idx + 1
+                            }));
+                            setBusForm({
+                              ...busForm,
+                              route: {
+                                ...busForm.route,
+                                stops: reorderedStops
+                              }
+                            });
+                          }}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                  </div>
+                  </div>
+                  ))}
+                  
+
+                  {busForm.route.stops.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <MapPin className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                      <p>No stops added yet. Click "Add Stop" to add bus stops.</p>
+                  </div>
+                  )}
+                  </div>
+
                 <div className="flex justify-end space-x-3">
                   <button
                     type="button"
@@ -1095,139 +892,20 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
         </div>
       )}
 
-      {/* Route Form Modal */}
-      {showRouteForm && isAdmin && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  {editingRoute ? 'Edit Route' : 'Add Route'}
-                </h2>
-                <button
-                  onClick={() => {
-                    setShowRouteForm(false);
-                    setEditingRoute(null);
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-              <form onSubmit={handleRouteSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Route Name</label>
-                    <input
-                      type="text"
-                      value={routeForm.routeName}
-                      onChange={(e) => setRouteForm({...routeForm, routeName: e.target.value})}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Route Number</label>
-                    <input
-                      type="text"
-                      value={routeForm.routeNumber}
-                      onChange={(e) => setRouteForm({...routeForm, routeNumber: e.target.value})}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Location</label>
-                    <input
-                      type="text"
-                      value={routeForm.startLocation}
-                      onChange={(e) => setRouteForm({...routeForm, startLocation: e.target.value})}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">End Location</label>
-                    <input
-                      type="text"
-                      value={routeForm.endLocation}
-                      onChange={(e) => setRouteForm({...routeForm, endLocation: e.target.value})}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Distance (km)</label>
-                    <input
-                      type="number"
-                      value={routeForm.distance}
-                      onChange={(e) => setRouteForm({...routeForm, distance: parseFloat(e.target.value)})}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Time (min)</label>
-                    <input
-                      type="number"
-                      value={routeForm.estimatedTime}
-                      onChange={(e) => setRouteForm({...routeForm, estimatedTime: parseInt(e.target.value)})}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <select
-                      value={routeForm.status}
-                      onChange={(e) => setRouteForm({...routeForm, status: e.target.value as any})}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                    >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                      <option value="suspended">Suspended</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="flex justify-end space-x-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowRouteForm(false);
-                      setEditingRoute(null);
-                    }}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                  >
-                    {loading ? 'Saving...' : editingRoute ? 'Update Route' : 'Save Route'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Details Modal */}
-      {showDetails && (selectedBus || selectedRoute) && (
+      {showDetails && selectedBus && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">
-                  {selectedBus ? 'Bus Details' : 'Route Details'}
+                  Bus Details
                 </h2>
                 <button
                   onClick={() => {
                     setShowDetails(false);
                     setSelectedBus(null);
-                    setSelectedRoute(null);
                   }}
                   className="text-gray-400 hover:text-gray-600"
                 >
@@ -1236,130 +914,166 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
               </div>
               
               {selectedBus && (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h3 className="font-semibold text-gray-900 mb-3">Bus Information</h3>
-                      <div className="space-y-2">
-                        <p><span className="font-medium">Number:</span> {selectedBus.busNumber}</p>
-                        <p><span className="font-medium">Name:</span> {selectedBus.busName}</p>
-                        <p><span className="font-medium">Capacity:</span> {selectedBus.capacity} seats</p>
-                        <p><span className="font-medium">Type:</span> {selectedBus.type}</p>
-                        <p><span className="font-medium">Model:</span> {selectedBus.model}</p>
-                        <p><span className="font-medium">Year:</span> {selectedBus.year}</p>
-                        <p><span className="font-medium">Registration:</span> {selectedBus.registrationNumber}</p>
+                <div className="space-y-8">
+                  {/* Bus Information Card */}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
+                    <div className="flex items-center mb-4">
+                      <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mr-4">
+                        <Bus className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-900">Bus Information</h3>
+                        <p className="text-sm text-gray-600">Vehicle details and specifications</p>
                       </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900 mb-3">Driver Information</h3>
-                      <div className="space-y-2">
-                        <p><span className="font-medium">Driver:</span> {selectedBus.driverName || 'Not assigned'}</p>
-                        <p><span className="font-medium">Driver Phone:</span> 
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-3">
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                          <span className="font-medium text-gray-700">Number:</span>
+                          <span className="ml-2 text-gray-900 font-semibold">{selectedBus.busNumber}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                          <span className="font-medium text-gray-700">Name:</span>
+                          <span className="ml-2 text-gray-900 font-semibold">{selectedBus.busName}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                          <span className="font-medium text-gray-700">Capacity:</span>
+                          <span className="ml-2 text-gray-900 font-semibold">{selectedBus.capacity} seats</span>
+                        </div>
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                          <span className="font-medium text-gray-700">Type:</span>
+                          <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${
+                            selectedBus.type === 'AC' ? 'bg-green-100 text-green-800' :
+                            selectedBus.type === 'Semi-AC' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {selectedBus.type}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                          <span className="font-medium text-gray-700">Model:</span>
+                          <span className="ml-2 text-gray-900 font-semibold">{selectedBus.model}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                          <span className="font-medium text-gray-700">Year:</span>
+                          <span className="ml-2 text-gray-900 font-semibold">{selectedBus.year}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                          <span className="font-medium text-gray-700">Registration:</span>
+                          <span className="ml-2 text-gray-900 font-semibold">{selectedBus.registrationNumber}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                          <span className="font-medium text-gray-700">Status:</span>
+                          <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(selectedBus.status)}`}>
+                            {selectedBus.status}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Driver Information Card */}
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
+                    <div className="flex items-center mb-4">
+                      <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center mr-4">
+                        <Users className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-900">Driver Information</h3>
+                        <p className="text-sm text-gray-600">Assigned driver details</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-3">
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                          <span className="font-medium text-gray-700">Driver:</span>
+                          <span className="ml-2 text-gray-900 font-semibold">
+                            {selectedBus.driverName || 'Not assigned'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                          <span className="font-medium text-gray-700">Phone:</span>
                           {selectedBus.driverPhone ? (
-                            <a href={`tel:${selectedBus.driverPhone}`} className="text-blue-600 ml-1">
+                            <a 
+                              href={`tel:${selectedBus.driverPhone}`} 
+                              className="ml-2 text-blue-600 hover:text-blue-800 font-semibold flex items-center"
+                            >
+                              <Phone className="w-4 h-4 mr-1" />
                               {selectedBus.driverPhone}
                             </a>
-                          ) : 'Not assigned'}
-                        </p>
+                          ) : (
+                            <span className="ml-2 text-gray-500">Not assigned</span>
+                          )}
+                        </div>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Bus Stops Section */}
+                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200">
+                    <div className="flex items-center mb-6">
+                      <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center mr-4">
+                        <MapPin className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-900">Bus Stops</h3>
+                        <p className="text-sm text-gray-600">Route stops and arrival times</p>
+                      </div>
+                    </div>
+                    
+                    {selectedBus.route?.stops && selectedBus.route.stops.length > 0 ? (
+                      <div className="space-y-3">
+                        {selectedBus.route.stops.map((stop, index) => (
+                          <div key={stop.id} className="bg-white rounded-lg p-4 shadow-sm border border-purple-100 hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center">
+                                <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-sm font-bold mr-4">
+                                  {index + 1}
+                                </div>
+                                <div>
+                                  <div className="font-semibold text-gray-900">{stop.name || `Stop ${index + 1}`}</div>
+                                  {stop.arrivalTime && (
+                                    <div className="flex items-center text-sm text-gray-600 mt-1">
+                                      <Clock className="w-4 h-4 mr-1" />
+                                      Arrival: {stop.arrivalTime}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              {stop.isMainStop && (
+                                <span className="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
+                                  Main Stop
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <MapPin className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                        <h4 className="text-lg font-medium text-gray-900 mb-2">No stops added</h4>
+                        <p className="text-gray-600">This bus doesn't have any stops assigned yet.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
 
-               {selectedRoute && (
-                 <div className="space-y-6">
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     <div>
-                       <h3 className="font-semibold text-gray-900 mb-3">Route Information</h3>
-                       <div className="space-y-2">
-                         <p><span className="font-medium">Name:</span> {selectedRoute.routeName}</p>
-                         <p><span className="font-medium">Number:</span> {selectedRoute.routeNumber}</p>
-                         <p><span className="font-medium">From:</span> {selectedRoute.startLocation}</p>
-                         <p><span className="font-medium">To:</span> {selectedRoute.endLocation}</p>
-                         <p><span className="font-medium">Distance:</span> {selectedRoute.distance} km</p>
-                         <p><span className="font-medium">Time:</span> {selectedRoute.estimatedTime} minutes</p>
-                       </div>
-                     </div>
-                     <div>
-                       <h3 className="font-semibold text-gray-900 mb-3">Schedule</h3>
-                       <div className="space-y-2">
-                         <p><span className="font-medium">Start Time:</span> {selectedRoute.startTime}</p>
-                         <p><span className="font-medium">End Time:</span> {selectedRoute.endTime}</p>
-                         <p><span className="font-medium">Operating Days:</span> {selectedRoute.operatingDays.join(', ')}</p>
-                         <p><span className="font-medium">Status:</span> 
-                           <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(selectedRoute.status)}`}>
-                             {selectedRoute.status}
-                           </span>
-                         </p>
-                       </div>
-                     </div>
-                   </div>
-                   
-                   {/* Route Stops */}
-                   <div>
-                     <div className="flex items-center justify-between mb-4">
-                       <h3 className="font-semibold text-gray-900">Route Stops</h3>
-                       {isAdmin && (
-                         <button
-                           onClick={() => handleAddStop(selectedRoute.id)}
-                           className="bg-blue-600 text-white px-3 py-1 rounded-lg text-sm hover:bg-blue-700"
-                         >
-                           Add Stop
-                         </button>
-                       )}
-                     </div>
-                     <div className="space-y-2">
-                       {getStopsForRoute(selectedRoute.id).map((stop) => (
-                         <div key={stop.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                           <div className="flex items-center">
-                             <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium mr-3">
-                               {stop.sequence}
-                             </div>
-                             <div>
-                               <div className="font-medium text-gray-900">{stop.name}</div>
-                               <div className="text-sm text-gray-500">{stop.address}</div>
-                             </div>
-                           </div>
-                           <div className="flex items-center space-x-2">
-                             <div className="text-sm text-gray-600">
-                               <Clock className="w-4 h-4 inline mr-1" />
-                               {stop.arrivalTime}
-                             </div>
-                             {stop.isMainStop && (
-                               <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                                 Main
-                               </span>
-                             )}
-                             {isAdmin && (
-                               <div className="flex space-x-1">
-                                 <button
-                                   onClick={() => handleEditStop(stop, selectedRoute.id)}
-                                   className="text-green-600 hover:text-green-900 p-1"
-                                 >
-                                   <Edit className="w-4 h-4" />
-                                 </button>
-                                 <button
-                                   onClick={() => handleDeleteStop(selectedRoute.id, stop.id)}
-                                   className="text-red-600 hover:text-red-900 p-1"
-                                 >
-                                   <Trash2 className="w-4 h-4" />
-                                 </button>
-                               </div>
-                             )}
-                           </div>
-                         </div>
-                       ))}
-                       {getStopsForRoute(selectedRoute.id).length === 0 && (
-                         <div className="text-center py-8 text-gray-500">
-                           <MapPin className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                           <p>No stops added to this route yet</p>
-                         </div>
-                       )}
-                     </div>
-                   </div>
-                 </div>
-               )}
             </div>
           </div>
         </div>

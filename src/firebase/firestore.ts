@@ -136,6 +136,28 @@ export const buildBatchPath = {
   }
 };
 
+// Document and Course hierarchical paths
+// documents: /documents/batch/{batch}/{department}/year/{year}/sems/{sem}/files
+// courses:   /courses/batch/{batch}/{department}/year/{year}/sems/{sem}/courses
+// course docs: /courses/.../courses/{courseId}/documents
+export const buildAcademicPaths = {
+  documentsCollection: (batch: string, department: string, year: string, sem: string): string => {
+    return `documents/batch/${batch}/${department}/year/${year}/sems/${sem}/files`;
+  },
+  coursesCollection: (batch: string, department: string, year: string, sem: string): string => {
+    return `courses/batch/${batch}/${department}/year/${year}/sems/${sem}/courses`;
+  },
+  courseDocumentsCollection: (
+    batch: string,
+    department: string,
+    year: string,
+    sem: string,
+    courseId: string
+  ): string => {
+    return `courses/batch/${batch}/${department}/year/${year}/sems/${sem}/courses/${courseId}/documents`;
+  }
+};
+
 // Helper function to get batch year from student year
 export const getBatchYear = (studentYear: string): string => {
   const currentYear = new Date().getFullYear();
@@ -367,30 +389,40 @@ export const getDepartmentDisplayName = (department: string): string => {
 
 // User Management
 export const userService = {
-  // Create or update user with department support and roll number change handling
+  // Create or update user with role-based structure
   async createUser(userData: User): Promise<void> {
-    const userRef = doc(db, COLLECTIONS.USERS, userData.id);
-    
-    // Check if this is a roll number update for existing student
-    const existingUser = await getDoc(userRef);
-    let isRollNumberChange = false;
-    let oldRollNumber = '';
-    
-    if (existingUser.exists() && userData.role === 'student') {
-      const existingData = existingUser.data();
-      if (existingData.rollNumber && existingData.rollNumber !== userData.rollNumber) {
-        isRollNumberChange = true;
-        oldRollNumber = existingData.rollNumber;
-        // Roll number change detected
+    try {
+      // Validate user data
+      if (!userData.id || !userData.role) {
+        throw new Error('User ID and role are required');
       }
-    }
 
-    // Update main user document
-    await setDoc(userRef, {
-      ...userData,
-      updatedAt: serverTimestamp(),
-      createdAt: serverTimestamp()
-    }, { merge: true });
+      const userRef = doc(db, COLLECTIONS.USERS, userData.id);
+      
+      // Check if this is a roll number update for existing student
+      const existingUser = await getDoc(userRef);
+      let isRollNumberChange = false;
+      let oldRollNumber = '';
+      
+      if (existingUser.exists() && userData.role === 'student') {
+        const existingData = existingUser.data();
+        if (existingData.rollNumber && existingData.rollNumber !== userData.rollNumber) {
+          isRollNumberChange = true;
+          oldRollNumber = existingData.rollNumber;
+          // Roll number change detected
+        }
+      }
+
+      // Update main user document in role-based structure
+      await setDoc(userRef, {
+        ...userData,
+        updatedAt: serverTimestamp(),
+        createdAt: serverTimestamp()
+      }, { merge: true });
+    } catch (error) {
+      console.error('[userService] Error creating user:', error);
+      throw error;
+    }
 
     // If it's a student, handle department-based structure
     if (userData.role === 'student' && userData.year && userData.sem && userData.div) {
@@ -781,27 +813,56 @@ export const userService = {
     }, { merge: true });
   },
 
-  // Get user by ID
+  // Get user by ID (searches across all roles)
+  // Get user by ID (flat structure)
   async getUser(userId: string): Promise<User | null> {
-    const userRef = doc(db, COLLECTIONS.USERS, userId);
-    const userSnap = await getDoc(userRef);
-    
-    if (userSnap.exists()) {
-      return { id: userSnap.id, ...userSnap.data() } as User;
+    try {
+      const userRef = doc(db, COLLECTIONS.USERS, userId);
+      const userSnap = await getDoc(userRef);
+      
+      if (userSnap.exists()) {
+        return { id: userSnap.id, ...userSnap.data() } as User;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('[userService] Error getting user:', error);
+      return null;
     }
-    return null;
   },
 
-  // Get all users
+  // Get all users (flat structure)
   async getAllUsers(): Promise<User[]> {
-    const usersRef = collection(db, COLLECTIONS.USERS);
-    const q = query(usersRef, orderBy('name'));
-    const querySnapshot = await getDocs(q);
-    
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as User[];
+    try {
+      const usersRef = collection(db, COLLECTIONS.USERS);
+      const q = query(usersRef, orderBy('name'));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as User[];
+    } catch (error) {
+      console.error('[userService] Error getting all users:', error);
+      return [];
+    }
+  },
+
+  // Get users by role (flat structure)
+  async getUsersByRole(role: User['role']): Promise<User[]> {
+    try {
+      const usersRef = collection(db, COLLECTIONS.USERS);
+      const q = query(usersRef, where('role', '==', role), orderBy('name'));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as User));
+    } catch (error) {
+      console.error('[userService] Error getting users by role:', error);
+      throw error;
+    }
   },
 
   // TEACHERS: dedicated collection helpers
@@ -842,17 +903,15 @@ export const userService = {
   },
 
   async getAllTeachers(): Promise<User[]> {
-    // Prefer the teachers collection; fallback to users with role filter if empty
-    const teachersRef = collection(db, COLLECTIONS.TEACHERS);
-    const tq = query(teachersRef, orderBy('name'));
-    const tSnap = await getDocs(tq);
-    if (!tSnap.empty) {
-      return tSnap.docs.map(d => ({ id: d.id, ...d.data() })) as User[];
-    }
+    // Use flat structure with role filtering
     const usersRef = collection(db, COLLECTIONS.USERS);
-    const uq = query(usersRef, where('role', '==', 'teacher'), orderBy('name'));
-    const uSnap = await getDocs(uq);
-    return uSnap.docs.map(d => ({ id: d.id, ...d.data() })) as User[];
+    const q = query(usersRef, where('role', 'in', ['teacher', 'hod']), orderBy('name'));
+    const querySnapshot = await getDocs(q);
+    
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as User[];
   },
 
   // Bulk import teachers (writes to teachers and users collections)
@@ -878,19 +937,8 @@ export const userService = {
     await batch.commit();
   },
 
-  // Get users by role
-  async getUsersByRole(role: string): Promise<User[]> {
-    const usersRef = collection(db, COLLECTIONS.USERS);
-    const q = query(usersRef, where('role', '==', role), orderBy('name'));
-    const querySnapshot = await getDocs(q);
-    
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as User[];
-  },
 
-  // Update user
+  // Update user (flat structure)
   async updateUser(userId: string, updates: Partial<User>): Promise<void> {
     const userRef = doc(db, COLLECTIONS.USERS, userId);
     await setDoc(userRef, {
@@ -899,13 +947,13 @@ export const userService = {
     }, { merge: true });
   },
 
-  // Delete user
+  // Delete user (flat structure)
   async deleteUser(userId: string): Promise<void> {
     const userRef = doc(db, COLLECTIONS.USERS, userId);
     await deleteDoc(userRef);
   },
 
-  // Get students by year, semester, and division (from main users collection)
+  // Get students by year, semester, and division (flat structure)
   async getStudentsByYearSemDiv(year: string, sem: string, div: string): Promise<User[]> {
     const usersRef = collection(db, COLLECTIONS.USERS);
     const q = query(
@@ -947,7 +995,7 @@ export const userService = {
     }
   },
 
-  // Get all students
+  // Get all students (flat structure)
   async getAllStudents(): Promise<User[]> {
     const usersRef = collection(db, COLLECTIONS.USERS);
     const q = query(usersRef, where('role', '==', 'student'), orderBy('name'));
@@ -959,7 +1007,7 @@ export const userService = {
     })) as User[];
   },
 
-  // Check if student exists by email
+  // Check if student exists by email (flat structure)
   async checkStudentExists(email: string): Promise<boolean> {
     const usersRef = collection(db, COLLECTIONS.USERS);
     const q = query(usersRef, where('email', '==', email), where('role', '==', 'student'));
@@ -967,7 +1015,7 @@ export const userService = {
     return !querySnapshot.empty;
   },
 
-  // Check if student exists by roll number
+  // Check if student exists by roll number (flat structure)
   async checkStudentExistsByRollNumber(rollNumber: string): Promise<boolean> {
     const usersRef = collection(db, COLLECTIONS.USERS);
     const q = query(usersRef, where('rollNumber', '==', rollNumber), where('role', '==', 'student'));
@@ -1051,43 +1099,42 @@ export const userService = {
       
       console.log(`❌ Student not found in organized collections`);
       
-      // Fallback: Search in users collection
+      // Fallback: Search in flat users collection
+      console.log(`🔍 Checking flat users collection...`);
       const usersRef = collection(db, COLLECTIONS.USERS);
-      const q = query(
-        usersRef, 
-        where('email', '==', email), 
-        where('role', '==', 'student')
-      );
-      const querySnapshot = await getDocs(q);
+      const flatQuery = query(usersRef, where('email', '==', email), where('role', '==', 'student'));
+      const flatSnapshot = await getDocs(flatQuery);
       
-      if (querySnapshot.empty) {
-        console.log(`❌ Student not found in users collection either`);
+      if (!flatSnapshot.empty) {
+        console.log(`✅ Student found in flat collection`);
+        const student = flatSnapshot.docs[0].data() as User;
+        
+        // Check if phone number matches (with or without country code)
+        const studentPhone = student.phone || '';
+        
+        // Only proceed if student has a phone number
+        if (!studentPhone) {
+          console.log(`❌ Student ${student.email} has no phone number`);
+          return null;
+        }
+        
+        const normalizedStudentPhone = studentPhone.toString().replace(/\D/g, ''); // Remove non-digits
+        const normalizedInputPhone = phoneNumber.replace(/\D/g, ''); // Remove non-digits
+        
+        // Check if phone numbers match (allowing for different formats)
+        if (normalizedStudentPhone === normalizedInputPhone || 
+            studentPhone.toString() === phoneNumber ||
+            studentPhone.toString().endsWith(phoneNumber) ||
+            phoneNumber.endsWith(normalizedStudentPhone.slice(-10))) {
+          const { id: _ignoredFallbackId, ...studentRest } = student as any;
+          return { id: flatSnapshot.docs[0].id, ...studentRest };
+        }
+        
+        console.log(`❌ Phone number doesn't match for student: ${student.name}`);
         return null;
       }
       
-      const student = querySnapshot.docs[0].data() as User;
-      
-      // Check if phone number matches (with or without country code)
-      const studentPhone = student.phone || '';
-      
-      // Only proceed if student has a phone number
-      if (!studentPhone) {
-        console.log(`❌ Student ${student.email} has no phone number`);
-        return null;
-      }
-      
-      const normalizedStudentPhone = studentPhone.toString().replace(/\D/g, ''); // Remove non-digits
-      const normalizedInputPhone = phoneNumber.replace(/\D/g, ''); // Remove non-digits
-      
-      // Check if phone numbers match (allowing for different formats)
-      if (normalizedStudentPhone === normalizedInputPhone || 
-          studentPhone.toString() === phoneNumber ||
-          studentPhone.toString().endsWith(phoneNumber) ||
-          phoneNumber.endsWith(normalizedStudentPhone.slice(-10))) {
-        const { id: _ignoredFallbackId, ...studentRest } = student as any;
-        return { id: querySnapshot.docs[0].id, ...studentRest };
-      }
-      
+      console.log(`❌ Student not found in flat collection either`);
       return null;
     } catch (error) {
       console.error('❌ Error in validateStudentCredentials:', error);
@@ -1581,13 +1628,9 @@ export const userService = {
     try {
       console.log(`🔍 Validating driver credentials for email: ${email}, phone: ${phoneNumber}`);
       
-      // Search for driver by email or phone
-      const usersRef = collection(db, COLLECTIONS.USERS);
-      const q = query(
-        usersRef,
-        where('role', '==', 'driver'),
-        where('isActive', '==', true)
-      );
+      // Search for driver by email or phone in the driver role collection
+      const driversRef = collection(db, COLLECTIONS.USERS, 'driver');
+      const q = query(driversRef, where('isActive', '==', true));
       
       const querySnapshot = await getDocs(q);
       console.log(`📊 Found ${querySnapshot.docs.length} driver users`);
@@ -5141,7 +5184,7 @@ export const departmentService = {
   // Update department statistics (teachers and students count)
   async updateDepartmentStats(departmentId: string): Promise<void> {
     try {
-      // Get all users for this department
+      // Get all users for this department from flat collection
       const usersRef = collection(db, COLLECTIONS.USERS);
       const q = query(usersRef, where('department', '==', departmentId));
       const querySnapshot = await getDocs(q);
@@ -5238,21 +5281,22 @@ export const departmentService = {
     }
   },
 
-  // Get available teachers for HOD assignment
+  // Get available teachers for HOD assignment (flat structure)
   async getAvailableTeachersForHOD(): Promise<User[]> {
     try {
       const usersRef = collection(db, COLLECTIONS.USERS);
       const q = query(
         usersRef, 
         where('role', 'in', ['teacher', 'hod']),
-        where('isActive', '==', true)
+        where('isActive', '==', true),
+        orderBy('name')
       );
       const querySnapshot = await getDocs(q);
       
-      const teachers: User[] = [];
-      querySnapshot.forEach((doc) => {
-        teachers.push(doc.data() as User);
-      });
+      const teachers = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as User[];
       
       console.log('[departmentService] Retrieved available teachers for HOD:', teachers.length);
       return teachers;
@@ -5262,7 +5306,7 @@ export const departmentService = {
     }
   },
 
-  // Get teachers by department for HOD assignment
+  // Get teachers by department for HOD assignment (flat structure)
   async getTeachersByDepartment(departmentName: string): Promise<User[]> {
     try {
       const usersRef = collection(db, COLLECTIONS.USERS);
@@ -5270,14 +5314,15 @@ export const departmentService = {
         usersRef, 
         where('role', 'in', ['teacher', 'hod']),
         where('department', '==', departmentName),
-        where('isActive', '==', true)
+        where('isActive', '==', true),
+        orderBy('name')
       );
       const querySnapshot = await getDocs(q);
       
-      const teachers: User[] = [];
-      querySnapshot.forEach((doc) => {
-        teachers.push(doc.data() as User);
-      });
+      const teachers = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as User[];
       
       console.log('[departmentService] Retrieved teachers for department:', departmentName, teachers.length);
       return teachers;
@@ -5416,8 +5461,17 @@ export const institutionService = {
 
   async setActiveAcademicYear(yearId: string): Promise<void> {
     try {
-      // First, deactivate all years
+      // Get current active year to copy fee structure from
       const yearsRef = collection(db, COLLECTIONS.INSTITUTION_SETTINGS, 'academic-years', 'years');
+      const activeYearQuery = query(yearsRef, where('isActive', '==', true));
+      const activeYearSnapshot = await getDocs(activeYearQuery);
+      
+      let previousActiveYearId: string | null = null;
+      if (!activeYearSnapshot.empty) {
+        previousActiveYearId = activeYearSnapshot.docs[0].id;
+      }
+
+      // First, deactivate all years
       const allYearsQuery = query(yearsRef);
       const allYearsSnapshot = await getDocs(allYearsQuery);
       
@@ -5433,6 +5487,15 @@ export const institutionService = {
         isActive: true,
         updatedAt: serverTimestamp()
       });
+
+      // Check if the new academic year has fee structures
+      const newYearFees = await this.getFeeItemsByAcademicYear(yearId);
+      
+      // If no fee structures exist for the new year and there was a previous active year, copy them
+      if (newYearFees.length === 0 && previousActiveYearId && previousActiveYearId !== yearId) {
+        console.log('[institutionService] Copying fee structure from previous year to new active year');
+        await this.copyFeeStructureToAcademicYear(previousActiveYearId, yearId);
+      }
       
       console.log('[institutionService] Active academic year set:', yearId);
     } catch (error) {
@@ -5444,10 +5507,12 @@ export const institutionService = {
   // Fee Structure Management
   async createFeeItem(feeData: Omit<FeeStructureItem, 'id'>): Promise<string> {
     try {
-      const feeRef = doc(collection(db, COLLECTIONS.INSTITUTION_SETTINGS, 'fee-structure', 'items'));
-      const feeId = feeRef.id;
+      // Use subcollection structure for fee items
+      const feesRef = collection(db, COLLECTIONS.INSTITUTION_SETTINGS, 'fee-structure', 'items');
+      const docRef = doc(feesRef);
+      const feeId = docRef.id;
       
-      await setDoc(feeRef, {
+      await setDoc(docRef, {
         ...feeData,
         id: feeId,
         createdAt: serverTimestamp(),
@@ -5464,6 +5529,7 @@ export const institutionService = {
 
   async getAllFeeItems(): Promise<FeeStructureItem[]> {
     try {
+      // Use subcollection structure for fee items
       const feesRef = collection(db, COLLECTIONS.INSTITUTION_SETTINGS, 'fee-structure', 'items');
       const q = query(feesRef, orderBy('createdAt', 'desc'));
       const querySnapshot = await getDocs(q);
@@ -5471,15 +5537,51 @@ export const institutionService = {
       return querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      } as FeeStructureItem));
+      })) as FeeStructureItem[];
     } catch (error) {
       console.error('[institutionService] Error getting fee items:', error);
       throw error;
     }
   },
 
+  async getFeeItemsByAcademicYear(academicYearId: string): Promise<FeeStructureItem[]> {
+    try {
+      // Use subcollection structure for fee items with academic year filtering
+      const feesRef = collection(db, COLLECTIONS.INSTITUTION_SETTINGS, 'fee-structure', 'items');
+      const q = query(feesRef, where('academicYearId', '==', academicYearId), orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as FeeStructureItem[];
+    } catch (error) {
+      console.error('[institutionService] Error getting fee items by academic year:', error);
+      throw error;
+    }
+  },
+
+  async findFeeItemById(feeId: string): Promise<{ category: string; feeId: string } | null> {
+    try {
+      // Use subcollection structure for fee items
+      const feeRef = doc(db, COLLECTIONS.INSTITUTION_SETTINGS, 'fee-structure', 'items', feeId);
+      const feeSnapshot = await getDoc(feeRef);
+      
+      if (feeSnapshot.exists()) {
+        const feeData = feeSnapshot.data() as FeeStructureItem;
+        return { category: feeData.category, feeId };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('[institutionService] Error finding fee item:', error);
+      throw error;
+    }
+  },
+
   async updateFeeItem(feeId: string, updateData: Partial<FeeStructureItem>): Promise<void> {
     try {
+      // Use subcollection structure for fee items
       const feeRef = doc(db, COLLECTIONS.INSTITUTION_SETTINGS, 'fee-structure', 'items', feeId);
       await updateDoc(feeRef, {
         ...updateData,
@@ -5495,6 +5597,7 @@ export const institutionService = {
 
   async deleteFeeItem(feeId: string): Promise<void> {
     try {
+      // Use subcollection structure for fee items
       const feeRef = doc(db, COLLECTIONS.INSTITUTION_SETTINGS, 'fee-structure', 'items', feeId);
       await deleteDoc(feeRef);
       
@@ -5507,6 +5610,7 @@ export const institutionService = {
 
   async toggleFeeItemStatus(feeId: string): Promise<void> {
     try {
+      // Use subcollection structure for fee items
       const feeRef = doc(db, COLLECTIONS.INSTITUTION_SETTINGS, 'fee-structure', 'items', feeId);
       const feeSnap = await getDoc(feeRef);
       
@@ -5518,9 +5622,45 @@ export const institutionService = {
         });
         
         console.log('[institutionService] Fee item status toggled:', feeId, !currentStatus);
+      } else {
+        throw new Error('Fee item not found');
       }
     } catch (error) {
       console.error('[institutionService] Error toggling fee item status:', error);
+      throw error;
+    }
+  },
+
+  async copyFeeStructureToAcademicYear(fromAcademicYearId: string, toAcademicYearId: string): Promise<void> {
+    try {
+      // Get all fee items from the source academic year
+      const sourceFees = await this.getFeeItemsByAcademicYear(fromAcademicYearId);
+      
+      if (sourceFees.length === 0) {
+        console.log('[institutionService] No fee items to copy from academic year:', fromAcademicYearId);
+        return;
+      }
+
+      // Create new fee items for the target academic year
+      const copyPromises = sourceFees.map(async (fee) => {
+        const newFeeData = {
+          name: fee.name,
+          category: fee.category,
+          reservationCategory: fee.reservationCategory,
+          department: fee.department,
+          amount: fee.amount,
+          description: fee.description,
+          isActive: fee.isActive,
+          academicYearId: toAcademicYearId
+        };
+        
+        return this.createFeeItem(newFeeData);
+      });
+
+      await Promise.all(copyPromises);
+      console.log('[institutionService] Fee structure copied from', fromAcademicYearId, 'to', toAcademicYearId);
+    } catch (error) {
+      console.error('[institutionService] Error copying fee structure:', error);
       throw error;
     }
   },
@@ -5597,43 +5737,53 @@ export const institutionService = {
       }
       
       // Check if fee items exist
-      const feesRef = collection(db, COLLECTIONS.INSTITUTION_SETTINGS, 'fee-structure', 'items');
-      const feesSnapshot = await getDocs(feesRef);
+      const existingFees = await this.getAllFeeItems();
       
-      if (feesSnapshot.empty) {
-        // Create default fee items
-        const defaultFees = [
-          {
-            name: "Tuition Fee - CSE",
-            category: "Tuition",
-            reservationCategory: "Open",
-            department: "CSE",
-            amount: 50000,
-            description: "Annual tuition fee for Computer Science Engineering",
-            isActive: true
-          },
-          {
-            name: "Library Fee",
-            category: "Library",
-            reservationCategory: "Open",
-            department: "All",
-            amount: 2000,
-            description: "Annual library membership fee",
-            isActive: true
-          },
-          {
-            name: "Examination Fee",
-            category: "Examination",
-            reservationCategory: "Open",
-            department: "All",
-            amount: 1000,
-            description: "Per semester examination fee",
-            isActive: true
-          }
-        ];
+      if (existingFees.length === 0) {
+        // Get the active academic year to assign fees to
+        const activeYearQuery = query(yearsRef, where('isActive', '==', true));
+        const activeYearSnapshot = await getDocs(activeYearQuery);
         
-        for (const fee of defaultFees) {
-          await this.createFeeItem(fee);
+        if (!activeYearSnapshot.empty) {
+          const activeYearId = activeYearSnapshot.docs[0].id;
+          
+          // Create default fee items
+          const defaultFees = [
+            {
+              name: "Tuition Fee - CSE",
+              category: "Tuition",
+              reservationCategory: "Open",
+              department: "CSE",
+              amount: 50000,
+              description: "Annual tuition fee for Computer Science Engineering",
+              isActive: true,
+              academicYearId: activeYearId
+            },
+            {
+              name: "Library Fee",
+              category: "Library",
+              reservationCategory: "Open",
+              department: "All",
+              amount: 2000,
+              description: "Annual library membership fee",
+              isActive: true,
+              academicYearId: activeYearId
+            },
+            {
+              name: "Examination Fee",
+              category: "Examination",
+              reservationCategory: "Open",
+              department: "All",
+              amount: 1000,
+              description: "Per semester examination fee",
+              isActive: true,
+              academicYearId: activeYearId
+            }
+          ];
+          
+          for (const fee of defaultFees) {
+            await this.createFeeItem(fee);
+          }
         }
       }
       
@@ -5934,14 +6084,17 @@ export const visitorService = {
 
 // Bus Management Service
 export const busService = {
-  // Create a new bus
+  // Create a new bus with embedded route
   async createBus(busData: Omit<Bus, 'id'>): Promise<string> {
     try {
       const busRef = doc(collection(db, COLLECTIONS.BUSES));
       const busId = busRef.id;
       
+      // Clean data to avoid Firestore errors with undefined/null/empty values
+      const cleanBusData = cleanFirestoreData(busData);
+      
       await setDoc(busRef, {
-        ...busData,
+        ...cleanBusData,
         id: busId,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -5959,7 +6112,8 @@ export const busService = {
   async getAllBuses(): Promise<Bus[]> {
     try {
       const busesRef = collection(db, COLLECTIONS.BUSES);
-      const querySnapshot = await getDocs(busesRef);
+      const q = query(busesRef, orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
       
       return querySnapshot.docs.map(doc => ({
         id: doc.id,
@@ -5975,8 +6129,12 @@ export const busService = {
   async updateBus(busId: string, updateData: Partial<Bus>): Promise<void> {
     try {
       const busRef = doc(db, COLLECTIONS.BUSES, busId);
+      
+      // Clean data to avoid Firestore errors with undefined/null/empty values
+      const cleanUpdateData = cleanFirestoreData(updateData);
+      
       await updateDoc(busRef, {
-        ...updateData,
+        ...cleanUpdateData,
         updatedAt: serverTimestamp()
       });
       
@@ -6000,10 +6158,83 @@ export const busService = {
     }
   },
 
+  // Get buses by status
+  async getBusesByStatus(status: Bus['status']): Promise<Bus[]> {
+    try {
+      const busesRef = collection(db, COLLECTIONS.BUSES);
+      const q = query(busesRef, where('status', '==', status), orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Bus));
+    } catch (error) {
+      console.error('[busService] Error getting buses by status:', error);
+      throw error;
+    }
+  },
+
+  // Get buses by route
+  async getBusesByRoute(routeName: string): Promise<Bus[]> {
+    try {
+      const busesRef = collection(db, COLLECTIONS.BUSES);
+      const q = query(busesRef, where('route.routeName', '==', routeName), orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Bus));
+    } catch (error) {
+      console.error('[busService] Error getting buses by route:', error);
+      throw error;
+    }
+  },
+
+  // Get active buses
+  async getActiveBuses(): Promise<Bus[]> {
+    try {
+      return await this.getBusesByStatus('active');
+    } catch (error) {
+      console.error('[busService] Error getting active buses:', error);
+      throw error;
+    }
+  },
+
+  // Get bus statistics
+  async getBusStats(): Promise<{
+    total: number;
+    active: number;
+    maintenance: number;
+    inactive: number;
+    ac: number;
+    nonAc: number;
+    semiAc: number;
+  }> {
+    try {
+      const buses = await this.getAllBuses();
+      
+      return {
+        total: buses.length,
+        active: buses.filter(bus => bus.status === 'active').length,
+        maintenance: buses.filter(bus => bus.status === 'maintenance').length,
+        inactive: buses.filter(bus => bus.status === 'inactive').length,
+        ac: buses.filter(bus => bus.type === 'AC').length,
+        nonAc: buses.filter(bus => bus.type === 'Non-AC').length,
+        semiAc: buses.filter(bus => bus.type === 'Semi-AC').length,
+      };
+    } catch (error) {
+      console.error('[busService] Error getting bus statistics:', error);
+      throw error;
+    }
+  },
+
   // Listen to buses changes
   listenBuses(callback: (buses: Bus[]) => void): () => void {
     const busesRef = collection(db, COLLECTIONS.BUSES);
-    return onSnapshot(busesRef, (snapshot) => {
+    const q = query(busesRef, orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (snapshot) => {
       const buses = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -6013,86 +6244,8 @@ export const busService = {
   }
 };
 
-// Bus Route Service
-export const busRouteService = {
-  // Create a new bus route
-  async createBusRoute(routeData: Omit<BusRoute, 'id'>): Promise<string> {
-    try {
-      const routeRef = doc(collection(db, COLLECTIONS.BUS_ROUTES));
-      const routeId = routeRef.id;
-      
-      await setDoc(routeRef, {
-        ...routeData,
-        id: routeId,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-      
-      console.log('[busRouteService] Bus route created:', routeId);
-      return routeId;
-    } catch (error) {
-      console.error('[busRouteService] Error creating bus route:', error);
-      throw error;
-    }
-  },
-
-  // Get all bus routes
-  async getAllBusRoutes(): Promise<BusRoute[]> {
-    try {
-      const routesRef = collection(db, COLLECTIONS.BUS_ROUTES);
-      const querySnapshot = await getDocs(routesRef);
-      
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as BusRoute));
-    } catch (error) {
-      console.error('[busRouteService] Error getting bus routes:', error);
-      throw error;
-    }
-  },
-
-  // Update bus route
-  async updateBusRoute(routeId: string, updateData: Partial<BusRoute>): Promise<void> {
-    try {
-      const routeRef = doc(db, COLLECTIONS.BUS_ROUTES, routeId);
-      await updateDoc(routeRef, {
-        ...updateData,
-        updatedAt: serverTimestamp()
-      });
-      
-      console.log('[busRouteService] Bus route updated:', routeId);
-    } catch (error) {
-      console.error('[busRouteService] Error updating bus route:', error);
-      throw error;
-    }
-  },
-
-  // Delete bus route
-  async deleteBusRoute(routeId: string): Promise<void> {
-    try {
-      const routeRef = doc(db, COLLECTIONS.BUS_ROUTES, routeId);
-      await deleteDoc(routeRef);
-      
-      console.log('[busRouteService] Bus route deleted:', routeId);
-    } catch (error) {
-      console.error('[busRouteService] Error deleting bus route:', error);
-      throw error;
-    }
-  },
-
-  // Listen to bus routes changes
-  listenBusRoutes(callback: (routes: BusRoute[]) => void): () => void {
-    const routesRef = collection(db, COLLECTIONS.BUS_ROUTES);
-    return onSnapshot(routesRef, (snapshot) => {
-      const routes = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as BusRoute));
-      callback(routes);
-    });
-  }
-};
+// Note: Bus routes are now embedded in the Bus collection
+// The busRouteService has been removed as routes are managed as part of bus creation/updates
 
 // Lost and Found Service
 export const lostFoundService = {
@@ -6591,7 +6744,8 @@ export const clubService = {
   // Create a new club
   async createClub(clubData: Omit<Club, 'id'>): Promise<string> {
     try {
-      const clubRef = doc(collection(db, COLLECTIONS.CLUBS));
+      const department = clubData.department || 'All';
+      const clubRef = doc(collection(db, COLLECTIONS.CLUBS, department, 'clubs'));
       const clubId = clubRef.id;
       
       // Clean data to avoid Firestore errors with undefined/null/empty values
@@ -6615,13 +6769,27 @@ export const clubService = {
   // Get all clubs
   async getAllClubs(): Promise<Club[]> {
     try {
-      const clubsRef = collection(db, COLLECTIONS.CLUBS);
-      const querySnapshot = await getDocs(clubsRef);
+      // Get all department collections
+      const departmentsRef = collection(db, COLLECTIONS.CLUBS);
+      const departmentsSnapshot = await getDocs(departmentsRef);
       
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Club));
+      const allClubs: Club[] = [];
+      
+      // Fetch clubs from each department
+      for (const departmentDoc of departmentsSnapshot.docs) {
+        const departmentName = departmentDoc.id;
+        const clubsRef = collection(db, COLLECTIONS.CLUBS, departmentName, 'clubs');
+        const clubsSnapshot = await getDocs(clubsRef);
+        
+        const departmentClubs = clubsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Club));
+        
+        allClubs.push(...departmentClubs);
+      }
+      
+      return allClubs.sort((a, b) => new Date(b.createdAt?.toDate?.() || 0).getTime() - new Date(a.createdAt?.toDate?.() || 0).getTime());
     } catch (error) {
       console.error('[clubService] Error getting clubs:', error);
       throw error;
@@ -6631,14 +6799,28 @@ export const clubService = {
   // Get clubs by category
   async getClubsByCategory(category: Club['category']): Promise<Club[]> {
     try {
-      const clubsRef = collection(db, COLLECTIONS.CLUBS);
-      const q = query(clubsRef, where('category', '==', category));
-      const querySnapshot = await getDocs(q);
+      // Get all department collections
+      const departmentsRef = collection(db, COLLECTIONS.CLUBS);
+      const departmentsSnapshot = await getDocs(departmentsRef);
       
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Club));
+      const allClubs: Club[] = [];
+      
+      // Fetch clubs from each department with the specified category
+      for (const departmentDoc of departmentsSnapshot.docs) {
+        const departmentName = departmentDoc.id;
+        const clubsRef = collection(db, COLLECTIONS.CLUBS, departmentName, 'clubs');
+        const q = query(clubsRef, where('category', '==', category));
+        const clubsSnapshot = await getDocs(q);
+        
+        const departmentClubs = clubsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Club));
+        
+        allClubs.push(...departmentClubs);
+      }
+      
+      return allClubs.sort((a, b) => new Date(b.createdAt?.toDate?.() || 0).getTime() - new Date(a.createdAt?.toDate?.() || 0).getTime());
     } catch (error) {
       console.error('[clubService] Error getting clubs by category:', error);
       throw error;
@@ -6648,14 +6830,28 @@ export const clubService = {
   // Get clubs by status
   async getClubsByStatus(status: Club['status']): Promise<Club[]> {
     try {
-      const clubsRef = collection(db, COLLECTIONS.CLUBS);
-      const q = query(clubsRef, where('status', '==', status));
-      const querySnapshot = await getDocs(q);
+      // Get all department collections
+      const departmentsRef = collection(db, COLLECTIONS.CLUBS);
+      const departmentsSnapshot = await getDocs(departmentsRef);
       
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Club));
+      const allClubs: Club[] = [];
+      
+      // Fetch clubs from each department with the specified status
+      for (const departmentDoc of departmentsSnapshot.docs) {
+        const departmentName = departmentDoc.id;
+        const clubsRef = collection(db, COLLECTIONS.CLUBS, departmentName, 'clubs');
+        const q = query(clubsRef, where('status', '==', status));
+        const clubsSnapshot = await getDocs(q);
+        
+        const departmentClubs = clubsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Club));
+        
+        allClubs.push(...departmentClubs);
+      }
+      
+      return allClubs.sort((a, b) => new Date(b.createdAt?.toDate?.() || 0).getTime() - new Date(a.createdAt?.toDate?.() || 0).getTime());
     } catch (error) {
       console.error('[clubService] Error getting clubs by status:', error);
       throw error;
@@ -6665,14 +6861,33 @@ export const clubService = {
   // Get clubs by department
   async getClubsByDepartment(department: string): Promise<Club[]> {
     try {
-      const clubsRef = collection(db, COLLECTIONS.CLUBS);
-      const q = query(clubsRef, where('department', '==', department));
-      const querySnapshot = await getDocs(q);
+      const allClubs: Club[] = [];
       
-      return querySnapshot.docs.map(doc => ({
+      // Get clubs from the specific department
+      const departmentClubsRef = collection(db, COLLECTIONS.CLUBS, department, 'clubs');
+      const departmentClubsSnapshot = await getDocs(departmentClubsRef);
+      
+      const departmentClubs = departmentClubsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       } as Club));
+      
+      allClubs.push(...departmentClubs);
+      
+      // Also get clubs from "All" department if they're not department-specific
+      if (department !== 'All') {
+        const allClubsRef = collection(db, COLLECTIONS.CLUBS, 'All', 'clubs');
+        const allClubsSnapshot = await getDocs(allClubsRef);
+        
+        const generalClubs = allClubsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Club));
+        
+        allClubs.push(...generalClubs);
+      }
+      
+      return allClubs.sort((a, b) => new Date(b.createdAt?.toDate?.() || 0).getTime() - new Date(a.createdAt?.toDate?.() || 0).getTime());
     } catch (error) {
       console.error('[clubService] Error getting clubs by department:', error);
       throw error;
@@ -6682,16 +6897,33 @@ export const clubService = {
   // Get active clubs
   async getActiveClubs(): Promise<Club[]> {
     try {
-      const clubsRef = collection(db, COLLECTIONS.CLUBS);
-      const q = query(clubsRef, where('status', '==', 'active'));
-      const querySnapshot = await getDocs(q);
-      
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Club));
+      return await this.getClubsByStatus('active');
     } catch (error) {
       console.error('[clubService] Error getting active clubs:', error);
+      throw error;
+    }
+  },
+
+  // Find club by ID across all departments
+  async findClubById(clubId: string): Promise<{ department: string; clubId: string } | null> {
+    try {
+      const departmentsRef = collection(db, COLLECTIONS.CLUBS);
+      const departmentsSnapshot = await getDocs(departmentsRef);
+      
+      for (const departmentDoc of departmentsSnapshot.docs) {
+        const departmentName = departmentDoc.id;
+        const clubsRef = collection(db, COLLECTIONS.CLUBS, departmentName, 'clubs');
+        const clubDoc = doc(clubsRef, clubId);
+        const clubSnapshot = await getDoc(clubDoc);
+        
+        if (clubSnapshot.exists()) {
+          return { department: departmentName, clubId };
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('[clubService] Error finding club by ID:', error);
       throw error;
     }
   },
@@ -6699,7 +6931,12 @@ export const clubService = {
   // Update club
   async updateClub(clubId: string, updateData: Partial<Club>): Promise<void> {
     try {
-      const clubRef = doc(db, COLLECTIONS.CLUBS, clubId);
+      const clubLocation = await this.findClubById(clubId);
+      if (!clubLocation) {
+        throw new Error('Club not found');
+      }
+      
+      const clubRef = doc(db, COLLECTIONS.CLUBS, clubLocation.department, 'clubs', clubLocation.clubId);
       
       // Clean data to avoid Firestore errors with undefined/null/empty values
       const cleanUpdateData = cleanFirestoreData(updateData);
@@ -6719,7 +6956,12 @@ export const clubService = {
   // Update club status
   async updateClubStatus(clubId: string, status: Club['status']): Promise<void> {
     try {
-      const clubRef = doc(db, COLLECTIONS.CLUBS, clubId);
+      const clubLocation = await this.findClubById(clubId);
+      if (!clubLocation) {
+        throw new Error('Club not found');
+      }
+      
+      const clubRef = doc(db, COLLECTIONS.CLUBS, clubLocation.department, 'clubs', clubLocation.clubId);
       await updateDoc(clubRef, {
         status,
         updatedAt: serverTimestamp()
@@ -6735,7 +6977,12 @@ export const clubService = {
   // Update member count
   async updateMemberCount(clubId: string, totalMembers: number): Promise<void> {
     try {
-      const clubRef = doc(db, COLLECTIONS.CLUBS, clubId);
+      const clubLocation = await this.findClubById(clubId);
+      if (!clubLocation) {
+        throw new Error('Club not found');
+      }
+      
+      const clubRef = doc(db, COLLECTIONS.CLUBS, clubLocation.department, 'clubs', clubLocation.clubId);
       await updateDoc(clubRef, {
         totalMembers,
         updatedAt: serverTimestamp()
@@ -6751,7 +6998,12 @@ export const clubService = {
   // Delete club
   async deleteClub(clubId: string): Promise<void> {
     try {
-      const clubRef = doc(db, COLLECTIONS.CLUBS, clubId);
+      const clubLocation = await this.findClubById(clubId);
+      if (!clubLocation) {
+        throw new Error('Club not found');
+      }
+      
+      const clubRef = doc(db, COLLECTIONS.CLUBS, clubLocation.department, 'clubs', clubLocation.clubId);
       await deleteDoc(clubRef);
       
       // Also delete all members of this club

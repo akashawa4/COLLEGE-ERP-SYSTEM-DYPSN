@@ -197,6 +197,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onPageC
     if (user?.role === 'visitor') {
       return [
         { id: 'visitor-home', label: 'Visitor Home', icon: Home },
+        { id: 'visitor-about', label: 'About College', icon: Building2 },
         { id: 'profile', label: 'My Profile', icon: User },
         { id: 'canteen', label: 'Canteen', icon: Utensils },
         { id: 'stationary', label: 'Stationary / Xerox', icon: Package },

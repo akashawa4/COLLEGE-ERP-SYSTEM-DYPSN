@@ -45,6 +45,7 @@ import LostFoundManagement from './components/LostFound/LostFoundManagement';
 import HostelManagement from './components/Hostel/HostelManagement';
 import CourseManagementPanel from './components/CourseManagement/CourseManagementPanel';
 import DocumentManagementPanel from './components/DocumentManagement/DocumentManagementPanel';
+import AboutPage from './components/Visitor/AboutPage';
 // Visitor lightweight components
 const VisitorCard: React.FC<{ title: string; description: string; onClick: () => void }> = ({ title, description, onClick }) => (
   <button onClick={onClick} className="p-6 bg-white border rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-left group">
@@ -415,7 +416,7 @@ const AppContent: React.FC = () => {
   React.useEffect(() => {
     if (!user) return;
     if (user.role === 'visitor') {
-      const allowed = ['visitor-info', 'visitor-home', 'visitor-contact', 'canteen', 'stationary', 'clubs', 'events', 'complaints', 'profile'];
+      const allowed = ['visitor-info', 'visitor-home', 'visitor-contact', 'visitor-about', 'canteen', 'stationary', 'clubs', 'events', 'complaints', 'profile'];
       // If first-time visitor without details, force info form
       const v = (() => { try { return JSON.parse(localStorage.getItem('dypsn_visitor') || 'null'); } catch { return null; } })();
       const needsInfo = !(v?.name && v?.phone);
@@ -486,7 +487,7 @@ const AppContent: React.FC = () => {
   const renderPage = () => {
     // Visitor role restrictions - only allow specific pages
     if (user.role === 'visitor') {
-      const allowedPages = ['visitor-info', 'visitor-home', 'visitor-contact', 'canteen', 'stationary', 'clubs', 'events', 'complaints', 'profile'];
+      const allowedPages = ['visitor-info', 'visitor-home', 'visitor-contact', 'visitor-about', 'canteen', 'stationary', 'clubs', 'events', 'complaints', 'profile'];
       if (!allowedPages.includes(currentPage)) {
         return (
           <div className="max-w-2xl mx-auto p-6">
@@ -590,6 +591,11 @@ const AppContent: React.FC = () => {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <VisitorCard 
+                title="About College" 
+                description="Learn about our institution, history, and achievements"
+                onClick={() => handlePageChange('visitor-about')} 
+              />
+              <VisitorCard 
                 title="Canteen Menu" 
                 description="View available food items and prices"
                 onClick={() => handlePageChange('canteen')} 
@@ -617,6 +623,8 @@ const AppContent: React.FC = () => {
             </div>
           </div>
         );
+      case 'visitor-about':
+        return <AboutPage />;
       case 'visitor-contact':
         return (
           <div className="max-w-2xl mx-auto p-6">

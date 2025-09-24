@@ -217,6 +217,7 @@ export interface FeeStructureItem {
   amount: number;
   description: string;
   isActive: boolean;
+  academicYearId: string; // Link to academic year
   createdAt?: any; // Firestore timestamp
   updatedAt?: any; // Firestore timestamp
 }
@@ -333,8 +334,6 @@ export interface Bus {
   driverId?: string;
   driverName?: string;
   driverPhone?: string;
-  routeId?: string;
-  routeName?: string;
   registrationNumber: string;
   model: string;
   year: number;
@@ -344,6 +343,20 @@ export interface Bus {
   fuelType: 'Diesel' | 'Petrol' | 'CNG' | 'Electric';
   features: string[];
   notes?: string;
+  // Embedded route information
+  route: {
+    routeName: string;
+    routeNumber: string;
+    startLocation: string;
+    endLocation: string;
+    stops: BusStop[];
+    distance: number; // in km
+    estimatedTime: number; // in minutes
+    operatingDays: string[]; // ['Monday', 'Tuesday', ...]
+    startTime: string; // HH:mm format
+    endTime: string; // HH:mm format
+    description?: string;
+  };
   createdAt?: any; // Firestore timestamp
   updatedAt?: any; // Firestore timestamp
 }

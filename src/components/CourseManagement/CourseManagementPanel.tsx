@@ -20,6 +20,11 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { db, storage } from '../../firebase/firebase';
+import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { buildAcademicPaths, getBatchYear } from '../../firebase/firestore';
+import { getDepartmentCode } from '../../utils/departmentMapping';
 
 interface Course {
   id: string;
@@ -93,7 +98,6 @@ const CourseManagementPanel: React.FC = () => {
   const years = ['1st', '2nd', '3rd', '4th'];
   const semesters = ['1', '2', '3', '4', '5', '6', '7', '8'];
 
-  // Mock data - replace with actual Firebase integration
   useEffect(() => {
     loadCourses();
     loadDocuments();
@@ -101,111 +105,124 @@ const CourseManagementPanel: React.FC = () => {
 
   const loadCourses = async () => {
     setLoading(true);
-    // Mock data - replace with actual Firebase call
-    const mockCourses: Course[] = [
-      {
-        id: '1',
-        courseName: 'Data Structures and Algorithms',
-        courseCode: 'CS201',
-        department: 'CSE',
-        year: '2nd',
-        semester: '3',
-        credits: 4,
-        description: 'Introduction to fundamental data structures and algorithms',
-        instructor: 'Dr. John Smith',
-        instructorId: 'instructor1',
-        maxStudents: 60,
-        enrolledStudents: 45,
-        status: 'active',
-        startDate: '2024-01-15',
-        endDate: '2024-05-15',
-        createdAt: new Date('2024-01-01'),
-        updatedAt: new Date('2024-01-01')
-      },
-      {
-        id: '2',
-        courseName: 'Database Management Systems',
-        courseCode: 'CS301',
-        department: 'CSE',
-        year: '3rd',
-        semester: '5',
-        credits: 3,
-        description: 'Database design, implementation and management',
-        instructor: 'Dr. Jane Doe',
-        instructorId: 'instructor2',
-        maxStudents: 50,
-        enrolledStudents: 38,
-        status: 'active',
-        startDate: '2024-01-15',
-        endDate: '2024-05-15',
-        createdAt: new Date('2024-01-01'),
-        updatedAt: new Date('2024-01-01')
-      }
-    ];
-    setCourses(mockCourses);
+    try {
+      const department = getDepartmentCode((courseForm.department || 'CSE').trim());
+      const year = (courseForm.year || '2nd').trim();
+      const sem = (courseForm.semester || '3').trim();
+      const batch = getBatchYear(year);
+      const path = buildAcademicPaths.coursesCollection(batch, department, year, sem);
+      const snap = await getDocs(collection(db, path));
+      const courseItems: Course[] = snap.docs.map((d) => {
+        const data: any = d.data();
+        return {
+          id: d.id,
+          courseName: data.courseName,
+          courseCode: data.courseCode,
+          department: data.department,
+          year: data.year,
+          semester: data.semester,
+          credits: data.credits || 0,
+          description: data.description || '',
+          instructor: data.instructor || '',
+          instructorId: data.instructorId || '',
+          maxStudents: data.maxStudents || 0,
+          enrolledStudents: data.enrolledStudents || 0,
+          status: data.status || 'active',
+          startDate: data.startDate || '',
+          endDate: data.endDate || '',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        } as Course;
+      });
+      setCourses(courseItems);
+    } catch (err) {
+      console.error('Failed to load courses', err);
+    }
     setLoading(false);
   };
 
   const loadDocuments = async () => {
-    // Mock data - replace with actual Firebase call
-    const mockDocuments: Document[] = [
-      {
-        id: '1',
-        fileName: 'DSA_Syllabus_2024.pdf',
-        fileType: 'pdf',
-        fileSize: 1024000,
-        uploadedBy: 'Dr. John Smith',
-        uploadedAt: new Date('2024-01-15'),
-        courseId: '1',
-        category: 'syllabus',
-        description: 'Complete syllabus for Data Structures and Algorithms',
-        downloadUrl: '#'
-      },
-      {
-        id: '2',
-        fileName: 'DBMS_Assignment_1.pdf',
-        fileType: 'pdf',
-        fileSize: 512000,
-        uploadedBy: 'Dr. Jane Doe',
-        uploadedAt: new Date('2024-01-20'),
-        courseId: '2',
-        category: 'assignment',
-        description: 'First assignment on database design',
-        downloadUrl: '#'
+    try {
+      if (!selectedCourse) {
+        setDocuments([]);
+        return;
       }
-    ];
-    setDocuments(mockDocuments);
+      const department = getDepartmentCode((selectedCourse.department || 'CSE').trim());
+      const year = (selectedCourse.year || '2nd').trim();
+      const sem = (selectedCourse.semester || '3').trim();
+      const batch = getBatchYear(year);
+      const path = buildAcademicPaths.courseDocumentsCollection(batch, department, year, sem, selectedCourse.id);
+      const snap = await getDocs(collection(db, path));
+      const docs: Document[] = snap.docs.map((d) => {
+        const data: any = d.data();
+        return {
+          id: d.id,
+          fileName: data.fileName,
+          fileType: data.fileType,
+          fileSize: data.fileSize || 0,
+          uploadedBy: data.uploadedBy || '',
+          uploadedAt: data.uploadedAt?.toDate ? data.uploadedAt.toDate() : new Date(),
+          courseId: selectedCourse.id,
+          category: data.category || 'other',
+          description: data.description || '',
+          downloadUrl: data.downloadUrl || ''
+        } as Document;
+      });
+      setDocuments(docs);
+    } catch (err) {
+      console.error('Failed to load course documents', err);
+    }
   };
 
   const handleCreateCourse = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
-    const newCourse: Course = {
-      id: Date.now().toString(),
-      ...courseForm,
-      instructor: user?.name || 'Unknown',
-      instructorId: user?.id || '',
-      enrolledStudents: 0,
-      status: 'active',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-
-    setCourses(prev => [...prev, newCourse]);
-    setShowCreateModal(false);
-    setCourseForm({
-      courseName: '',
-      courseCode: '',
-      department: user?.department || '',
-      year: '',
-      semester: '',
-      credits: 0,
-      description: '',
-      maxStudents: 0,
-      startDate: '',
-      endDate: ''
-    });
+    try {
+      const department = getDepartmentCode((courseForm.department || 'CSE').trim());
+      const year = (courseForm.year || '2nd').trim();
+      const sem = (courseForm.semester || '3').trim();
+      const batch = getBatchYear(year);
+      const path = buildAcademicPaths.coursesCollection(batch, department, year, sem);
+      const payload = {
+        ...courseForm,
+        department,
+        year,
+        semester: sem,
+        instructor: user?.name || 'Unknown',
+        instructorId: user?.id || '',
+        enrolledStudents: 0,
+        status: 'active',
+        startDate: courseForm.startDate,
+        endDate: courseForm.endDate,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+      const ref = await addDoc(collection(db, path), payload as any);
+      setCourses(prev => [
+        ...prev,
+        {
+          id: ref.id,
+          ...payload,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        } as unknown as Course
+      ]);
+      setShowCreateModal(false);
+      setCourseForm({
+        courseName: '',
+        courseCode: '',
+        department: user?.department || '',
+        year: '',
+        semester: '',
+        credits: 0,
+        description: '',
+        maxStudents: 0,
+        startDate: '',
+        endDate: ''
+      });
+    } catch (err) {
+      console.error('Failed to create course', err);
+    }
     setLoading(false);
   };
 
@@ -217,7 +234,45 @@ const CourseManagementPanel: React.FC = () => {
 
   const handleUploadDocument = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Implement document upload logic here
+    if (!selectedCourse) return;
+    try {
+      const input = (e.target as HTMLFormElement).querySelector('input[type="file"]') as HTMLInputElement;
+      const file = input?.files?.[0];
+      if (!file) return;
+      const safeName = file.name.replace(/\s+/g, '_');
+      const department = getDepartmentCode((selectedCourse.department || 'CSE').trim());
+      const year = (selectedCourse.year || '2nd').trim();
+      const sem = (selectedCourse.semester || '3').trim();
+      const batch = getBatchYear(year);
+      const storagePath = `course-documents/${batch}/${department}/year/${year}/sems/${sem}/${selectedCourse.id}/${Date.now()}_${safeName}`;
+      const sRef = storageRef(storage, storagePath);
+      const snap = await uploadBytes(sRef, file);
+      const url = await getDownloadURL(snap.ref);
+      const docsPath = buildAcademicPaths.courseDocumentsCollection(batch, department, year, sem, selectedCourse.id);
+      const payload = {
+        fileName: safeName,
+        fileType: safeName.split('.').pop() || 'unknown',
+        fileSize: file.size,
+        uploadedBy: user?.name || 'Unknown',
+        uploadedAt: serverTimestamp(),
+        category: documentForm.category,
+        description: documentForm.description,
+        downloadUrl: url,
+        storagePath
+      };
+      const ref = await addDoc(collection(db, docsPath), payload as any);
+      setDocuments(prev => [
+        ...prev,
+        {
+          id: ref.id,
+          ...payload,
+          uploadedAt: new Date(),
+          courseId: selectedCourse.id
+        } as unknown as Document
+      ]);
+    } catch (err) {
+      console.error('Failed to upload course document', err);
+    }
     setShowDocumentModal(false);
   };
 

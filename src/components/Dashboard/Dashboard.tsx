@@ -457,7 +457,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onPageChange }) => {
                   <p className="text-sm font-medium text-gray-600">Department Students</p>
                   <p className="text-2xl font-bold text-gray-900">
                     {loading ? (
-                      <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="inline-block w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
                     ) : (
                       departmentStats.totalStudents
                     )}
@@ -476,7 +476,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onPageChange }) => {
                   <p className="text-sm font-medium text-gray-600">Today's Attendance</p>
                   <p className="text-2xl font-bold text-gray-900">
                     {loading ? (
-                      <div className="w-8 h-8 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="inline-block w-8 h-8 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></span>
                     ) : (
                       `${attendanceOverview.todayPresent}/${attendanceOverview.todayPresent + attendanceOverview.todayAbsent}`
                     )}
@@ -497,7 +497,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onPageChange }) => {
                   <p className="text-sm font-medium text-gray-600">Pending Leaves</p>
                   <p className="text-2xl font-bold text-gray-900">
                     {loading ? (
-                      <div className="w-8 h-8 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="inline-block w-8 h-8 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></span>
                     ) : (
                       departmentStats.pendingLeaves
                     )}
@@ -516,7 +516,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onPageChange }) => {
                   <p className="text-sm font-medium text-gray-600">Low Attendance</p>
                   <p className="text-2xl font-bold text-gray-900">
                     {loading ? (
-                      <div className="w-8 h-8 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="inline-block w-8 h-8 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></span>
                     ) : (
                       departmentStats.lowAttendanceStudents
                     )}

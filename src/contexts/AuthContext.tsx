@@ -55,6 +55,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setFirebaseUser(firebaseUser);
       
+      // Ignore anonymous auth for app role/state to prevent role switches
+      if (firebaseUser && (firebaseUser as any).isAnonymous) {
+        setIsLoading(false);
+        return;
+      }
+
       if (firebaseUser) {
         // User is signed in with Firebase
         try {

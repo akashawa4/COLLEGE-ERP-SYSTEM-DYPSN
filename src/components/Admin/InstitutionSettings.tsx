@@ -101,6 +101,7 @@ const InstitutionSettings: React.FC = () => {
   // Data state
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
   const [feeItems, setFeeItems] = useState<FeeStructureItem[]>([]);
+  const [activeAcademicYear, setActiveAcademicYear] = useState<AcademicYear | null>(null);
   const [institutionInfo, setInstitutionInfo] = useState<InstitutionInfo>({
     name: "DYPSN College of Engineering",
     address: "123 Education Street, Pune, Maharashtra 411001",
@@ -129,6 +130,7 @@ const InstitutionSettings: React.FC = () => {
   const [feeCatFilter, setFeeCatFilter] = useState<string>("all");
   const [feeReservationFilter, setFeeReservationFilter] = useState<string>("all");
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [selectedAcademicYearForFees, setSelectedAcademicYearForFees] = useState<string>("");
 
   // Add/Edit fee modal state
   const [isEditingFee, setIsEditingFee] = useState(false);
@@ -152,27 +154,40 @@ const InstitutionSettings: React.FC = () => {
       setLoading(true);
       setError(null);
       
-      // Load all data in parallel
-      const [yearsData, feesData, infoData] = await Promise.all([
+      // Load academic years and institution info
+      const [yearsData, infoData] = await Promise.all([
         institutionService.getAllAcademicYears(),
-        institutionService.getAllFeeItems(),
         institutionService.getInstitutionInfo()
       ]);
       
       setAcademicYears(yearsData);
-      setFeeItems(feesData);
       setInstitutionInfo(infoData);
       
+      // Find active academic year
+      const activeYear = yearsData.find(year => year.isActive);
+      setActiveAcademicYear(activeYear || null);
+      
+      // Load fee items for active academic year
+      let feesData: FeeStructureItem[] = [];
+      if (activeYear) {
+        feesData = await institutionService.getFeeItemsByAcademicYear(activeYear.id);
+      }
+      setFeeItems(feesData);
+      
       // Initialize default data if none exists
-      if (yearsData.length === 0 && feesData.length === 0) {
+      if (yearsData.length === 0) {
         await institutionService.initializeDefaultData();
         // Reload data after initialization
-        const [newYearsData, newFeesData] = await Promise.all([
-          institutionService.getAllAcademicYears(),
-          institutionService.getAllFeeItems()
-        ]);
+        const newYearsData = await institutionService.getAllAcademicYears();
         setAcademicYears(newYearsData);
-        setFeeItems(newFeesData);
+        
+        const newActiveYear = newYearsData.find(year => year.isActive);
+        setActiveAcademicYear(newActiveYear || null);
+        
+        if (newActiveYear) {
+          const newFeesData = await institutionService.getFeeItemsByAcademicYear(newActiveYear.id);
+          setFeeItems(newFeesData);
+        }
       }
     } catch (error) {
       console.error('Error loading institution data:', error);
@@ -221,7 +236,20 @@ const InstitutionSettings: React.FC = () => {
     try {
       setSaving(true);
       await institutionService.setActiveAcademicYear(yearId);
-      await loadData(); // Reload data
+      
+      // Reload academic years and fee items for the new active year
+      const yearsData = await institutionService.getAllAcademicYears();
+      setAcademicYears(yearsData);
+      
+      const activeYear = yearsData.find(year => year.isActive);
+      setActiveAcademicYear(activeYear || null);
+      
+      if (activeYear) {
+        const feesData = await institutionService.getFeeItemsByAcademicYear(activeYear.id);
+        setFeeItems(feesData);
+      } else {
+        setFeeItems([]);
+      }
     } catch (error) {
       console.error('Error setting active year:', error);
       alert('Failed to set active year. Please try again.');
@@ -289,6 +317,11 @@ const InstitutionSettings: React.FC = () => {
           description: feeForm.description
         });
       } else {
+        if (!activeAcademicYear) {
+          alert('No active academic year selected. Please select an academic year first.');
+          return;
+        }
+        
         await institutionService.createFeeItem({
           name: feeForm.name,
           category: feeForm.category,
@@ -296,7 +329,8 @@ const InstitutionSettings: React.FC = () => {
           department: feeForm.department,
           amount: Number(feeForm.amount),
           description: feeForm.description,
-          isActive: true
+          isActive: true,
+          academicYearId: activeAcademicYear.id
         });
       }
       
@@ -354,6 +388,42 @@ const InstitutionSettings: React.FC = () => {
     } catch (error) {
       console.error('Error toggling fee status:', error);
       alert('Failed to update fee status. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleLoadFeesForAcademicYear = async (academicYearId: string) => {
+    try {
+      setLoading(true);
+      const feesData = await institutionService.getFeeItemsByAcademicYear(academicYearId);
+      setFeeItems(feesData);
+      setSelectedAcademicYearForFees(academicYearId);
+    } catch (error) {
+      console.error('Error loading fees for academic year:', error);
+      alert('Failed to load fees for selected academic year.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCopyFeeStructure = async (fromYearId: string, toYearId: string) => {
+    if (!confirm('This will copy all fee items from the source academic year to the target year. Continue?')) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await institutionService.copyFeeStructureToAcademicYear(fromYearId, toYearId);
+      
+      // Reload fees for the target year
+      const feesData = await institutionService.getFeeItemsByAcademicYear(toYearId);
+      setFeeItems(feesData);
+      
+      alert('Fee structure copied successfully!');
+    } catch (error) {
+      console.error('Error copying fee structure:', error);
+      alert('Failed to copy fee structure. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -571,15 +641,48 @@ const InstitutionSettings: React.FC = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900">Fee Structure</h2>
-                    <p className="text-sm text-gray-500">Manage fee items, departments and categories</p>
+                    <p className="text-sm text-gray-500">
+                      Manage fee items for {activeAcademicYear ? activeAcademicYear.name : 'selected academic year'}
+                    </p>
                   </div>
-                  <button
-                    onClick={handleOpenAddFee}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Fee
-                  </button>
+                  <div className="flex items-center gap-3">
+                    {academicYears.length > 0 && (
+                      <select
+                        value={selectedAcademicYearForFees || (activeAcademicYear?.id || "")}
+                        onChange={(e) => handleLoadFeesForAcademicYear(e.target.value)}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      >
+                        {academicYears.map(year => (
+                          <option key={year.id} value={year.id}>
+                            {year.name} {year.isActive ? '(Active)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {academicYears.length > 1 && (
+                      <button
+                        onClick={() => {
+                          const fromYear = academicYears.find(y => y.id !== (selectedAcademicYearForFees || activeAcademicYear?.id));
+                          const toYear = academicYears.find(y => y.id === (selectedAcademicYearForFees || activeAcademicYear?.id));
+                          if (fromYear && toYear) {
+                            handleCopyFeeStructure(fromYear.id, toYear.id);
+                          }
+                        }}
+                        className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-sm"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        Copy from Other Year
+                      </button>
+                    )}
+                    <button
+                      onClick={handleOpenAddFee}
+                      disabled={!activeAcademicYear}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Fee
+                    </button>
+                  </div>
                 </div>
 
                 {/* Search and filters */}
