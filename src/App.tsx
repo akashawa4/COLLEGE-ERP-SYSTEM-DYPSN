@@ -514,6 +514,7 @@ const AppContent: React.FC = () => {
             gender={user.gender || 'Not specified'}
             mobile={user.phone || 'Not specified'}
             email={user.email}
+            roll={user.rollNumber || '-'}
             div={user.div || 'A'}
             year={user.year || 'FE'}
             sem={user.sem || '1'}

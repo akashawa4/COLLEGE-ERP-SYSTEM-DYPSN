@@ -6,6 +6,7 @@ interface StudentProfileProps {
   gender: string;
   mobile: string;
   email: string;
+  roll: string;
   div: string;
   year: string;
   sem: string;
@@ -33,6 +34,10 @@ const StudentProfile: React.FC<StudentProfileProps> = (props) => {
         <div className="flex justify-between">
           <span className="font-semibold text-gray-700">E-Mail ID:</span>
           <span className="text-gray-900">{props.email}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="font-semibold text-gray-700">Roll Number:</span>
+          <span className="text-gray-900">{props.roll}</span>
         </div>
         <div className="flex justify-between">
           <span className="font-semibold text-gray-700">Division:</span>
