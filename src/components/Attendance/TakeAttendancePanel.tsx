@@ -350,8 +350,9 @@ const TakeAttendancePanel: React.FC<TakeAttendancePanelProps> = ({ addNotificati
           accessLevel: 'basic' as const,
           isActive: true
         }));
+      // Treat all unmarked as absent by default
       absentStudents = studentCards
-        .filter(card => card.status === 'absent')
+        .filter(card => card.status !== 'present')
         .map(card => ({
           id: card.rollNumber,
           rollNumber: card.rollNumber,
@@ -367,8 +368,17 @@ const TakeAttendancePanel: React.FC<TakeAttendancePanelProps> = ({ addNotificati
         }));
     } else {
       // For manual layout, use existing students data
-      presentStudents = students.filter(s => finalPresentList.includes(String(s.rollNumber || s.id)));
-      absentStudents = students.filter(s => finalAbsentList.includes(String(s.rollNumber || s.id)));
+      const rollOf = (s: User) => String(s.rollNumber || s.id);
+      const presentSetNorm = new Set(finalPresentList.map(String));
+      const absentSetNorm = new Set(finalAbsentList.map(String));
+
+      // Default: everyone not explicitly present is absent
+      presentStudents = students.filter(s => presentSetNorm.has(rollOf(s)));
+      if (absentSetNorm.size === 0) {
+        absentStudents = students.filter(s => !presentSetNorm.has(rollOf(s)));
+      } else {
+        absentStudents = students.filter(s => absentSetNorm.has(rollOf(s)) && !presentSetNorm.has(rollOf(s)));
+      }
     }
 
     setPresent(presentStudents);
@@ -1215,6 +1225,24 @@ const TakeAttendancePanel: React.FC<TakeAttendancePanelProps> = ({ addNotificati
         {/* Compact Results Section */}
       {submitted && (
           <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-4 lg:p-6">
+            {/* View Toggle for submitted summary */}
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-xs text-gray-500">View:</span>
+              <div className="inline-flex rounded-md border border-gray-200 overflow-hidden">
+                <button
+                  onClick={() => setAttendanceMode('both')}
+                  className={`px-3 py-1 text-xs ${attendanceMode==='both' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'}`}
+                >Both</button>
+                <button
+                  onClick={() => setAttendanceMode('present')}
+                  className={`px-3 py-1 text-xs border-l ${attendanceMode==='present' ? 'bg-green-600 text-white' : 'bg-white text-gray-700'}`}
+                >Present</button>
+                <button
+                  onClick={() => setAttendanceMode('absent')}
+                  className={`px-3 py-1 text-xs border-l ${attendanceMode==='absent' ? 'bg-red-600 text-white' : 'bg-white text-gray-700'}`}
+                >Absent</button>
+              </div>
+            </div>
             <div className="flex items-center space-x-2 mb-4">
               <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
                 <CheckCircle className="w-4 h-4 text-white" />
@@ -1225,27 +1253,34 @@ const TakeAttendancePanel: React.FC<TakeAttendancePanelProps> = ({ addNotificati
               </div>
             </div>
 
+            {(() => {
+              const showPresent = attendanceMode !== 'absent';
+              const showAbsent = attendanceMode !== 'present';
+              const presentList = present;
+              const absentList = absent;
+              return (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
               {/* Present Students */}
+              {showPresent && (
               <div className="bg-green-50 rounded-lg p-4 border border-green-200">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-sm font-semibold text-green-800 flex items-center">
                     <CheckCircle className="w-4 h-4 mr-1" />
-                    Present ({present.length})
+                    Present ({presentList.length})
                   </h4>
                   <button 
-                    onClick={() => handleCopy(present)} 
+                    onClick={() => handleCopy(presentList)} 
                     className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium hover:bg-green-200 transition-colors"
                   >
                     Copy
                   </button>
                 </div>
                 <div className="max-h-32 overflow-y-auto">
-                  {present.length === 0 ? (
+                  {presentList.length === 0 ? (
                     <p className="text-green-600 text-xs">None</p>
                   ) : (
                     <div className="space-y-1">
-                  {uniqueStudents(present).map((s, idx) => (
+                  {uniqueStudents(presentList).map((s, idx) => (
                         <div key={String(s.rollNumber || s.id)} className="flex items-center justify-between bg-white rounded p-2 border border-green-200">
                           <div className="flex items-center space-x-2">
                             <span className="w-4 h-4 bg-green-500 text-white rounded-full flex items-center justify-center text-xs font-semibold">
@@ -1262,28 +1297,29 @@ const TakeAttendancePanel: React.FC<TakeAttendancePanelProps> = ({ addNotificati
                     </div>
               )}
             </div>
-          </div>
+          </div>) }
 
               {/* Absent Students */}
+              {showAbsent && (
               <div className="bg-red-50 rounded-lg p-4 border border-red-200">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-sm font-semibold text-red-800 flex items-center">
                     <X className="w-4 h-4 mr-1" />
-                    Absent ({absent.length})
+                    Absent ({absentList.length})
                   </h4>
                   <button 
-                    onClick={() => handleCopy(absent)} 
+                    onClick={() => handleCopy(absentList)} 
                     className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors"
                   >
                     Copy
                   </button>
             </div>
                 <div className="max-h-32 overflow-y-auto">
-                  {absent.length === 0 ? (
+                  {absentList.length === 0 ? (
                     <p className="text-red-600 text-xs">None</p>
                   ) : (
                     <div className="space-y-1">
-                  {uniqueStudents(absent).map((s, idx) => (
+                  {uniqueStudents(absentList).map((s, idx) => (
                         <div key={String(s.rollNumber || s.id)} className="flex items-center justify-between bg-white rounded p-2 border border-red-200">
                           <div className="flex items-center space-x-2">
                             <span className="w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-semibold">
@@ -1300,8 +1336,8 @@ const TakeAttendancePanel: React.FC<TakeAttendancePanelProps> = ({ addNotificati
                     </div>
                   )}
                 </div>
-              </div>
-            </div>
+              </div>) }
+            </div>); })()}
 
             {/* Compact Summary Stats */}
             <div className="bg-gray-50 rounded-lg p-3">

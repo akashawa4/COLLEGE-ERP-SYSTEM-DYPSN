@@ -1735,6 +1735,29 @@ export const leaveService = {
             role: f.isDepartmentHead ? 'Department Head' : 'Faculty'
           }))
         });
+
+        // Approver inbox mirror for instant teacher visibility
+        if (assignedTo?.id) {
+          const approverInboxPath = `leaveApprovals/${assignedTo.id}`;
+          const approverRef = doc(collection(db, approverInboxPath));
+          await setDoc(approverRef, {
+            leaveId: docRef.id,
+            approverId: assignedTo.id,
+            createdAt: serverTimestamp(),
+            status: 'pending',
+            studentId: (leaveData as any).userId,
+            studentName: (leaveData as any).studentName,
+            rollNumber: (leaveData as any).rollNumber,
+            year,
+            sem,
+            div,
+            department: dept,
+            fromDate: (leaveData as any).fromDate,
+            toDate: (leaveData as any).toDate,
+            reason: (leaveData as any).reason,
+            subject
+          });
+        }
         
         console.log(`[createLeaveRequest] Leave request assigned to department ${dept}, faculty: ${assignedTo?.name || 'No faculty found'}`);
         console.log('[createLeaveRequest] Mirrored leave to department-based path:', hierPath, 'id:', docRef.id);
@@ -2166,44 +2189,25 @@ export const leaveService = {
         return [];
       }
 
-      const leaveRef = collection(db, COLLECTIONS.LEAVE_REQUESTS);
-      const q = query(
-        leaveRef,
-        where('status', '==', 'pending')
-      );
-      const querySnapshot = await getDocs(q);
-      
-      const allRequests = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as LeaveRequest[];
+      // Optimized path: approver inbox mirror
+      const inboxRef = collection(db, `leaveApprovals/${approverId}`);
+      const inboxSnap = await getDocs(inboxRef);
+      const inbox = inboxSnap.docs.map(d => ({ id: (d.data() as any).leaveId })) as { id: string }[];
 
-      // Sort in memory to avoid composite index requirement
-      allRequests.sort((a, b) => {
-        const aTime = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
-        const bTime = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
-        return bTime.getTime() - aTime.getTime();
-      });
+      if (inbox.length === 0) {
+        // Fallback to global pending
+        const leaveRef = collection(db, COLLECTIONS.LEAVE_REQUESTS);
+        const q = query(leaveRef, where('status', '==', 'pending'));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as LeaveRequest[];
+      }
 
-      // Map user roles to approval levels
-      const roleToLevel: { [key: string]: string } = {
-        'teacher': 'Teacher',
-        'hod': 'HOD'
-      };
-
-      const userLevel = roleToLevel[user.role.toLowerCase()];
-
-      // Filter based on user role and current approval level
-      const filteredRequests = allRequests.filter(request => {
-        // If no currentApprovalLevel, it's at the first level (Teacher)
-        const currentLevel = request.currentApprovalLevel || 'Teacher';
-        
-        // Return requests that match the user's approval level
-        return currentLevel === userLevel;
-      });
-
-
-      return filteredRequests;
+      const results: LeaveRequest[] = [];
+      for (const entry of inbox) {
+        const full = await leaveService.getLeaveRequest(entry.id);
+        if (full) results.push(full);
+      }
+      return results.sort((a, b) => (b.createdAt as any)?.seconds - (a.createdAt as any)?.seconds);
     } catch (error) {
       console.error('Error fetching leave requests by approver:', error);
       return [];

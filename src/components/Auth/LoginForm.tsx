@@ -298,21 +298,7 @@ const LoginForm: React.FC = () => {
           <p>© 2025 DYPSN. All rights reserved.</p>
           <p>
             Developed by{' '}
-            <span className="font-medium text-blue-600">
-              Akash.Solution
-            </span>
-            {' '}
-            <span className="text-gray-500">
-              (Akash Vijay Awachar)
-            </span>
-            {' & '}
-            <span className="font-medium text-purple-600">
-              CodeCatalyst
-            </span>
-            {' '}
-            <span className="text-gray-500">
-              (Prathamesh Dipak Jadhav)
-            </span>
+            <span className="font-semibold text-blue-600">Team Chaos</span>
           </p>
         </div>
       </div>
