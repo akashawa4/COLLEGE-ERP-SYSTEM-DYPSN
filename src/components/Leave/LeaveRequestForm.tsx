@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Calendar, FileText, Clock, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { leaveService } from '../../firebase/firestore';
+import { auth } from '../../firebase/firebase';
+import { signInAnonymously } from 'firebase/auth';
 
 const LeaveRequestForm: React.FC = () => {
   const { user } = useAuth();
@@ -55,6 +57,10 @@ const LeaveRequestForm: React.FC = () => {
     setToast(null);
 
     try {
+      // Ensure Firebase Auth so Firestore rules allow writes
+      if (!auth.currentUser) {
+        try { await signInAnonymously(auth); } catch {}
+      }
       if (!user) {
         throw new Error('User not authenticated');
       }

@@ -89,21 +89,22 @@ const LibraryManagement: React.FC = () => {
   const [filteredBooks, setFilteredBooks] = useState<LibraryBook[]>([]);
   const [showBookForm, setShowBookForm] = useState(false);
   const [editingBook, setEditingBook] = useState<LibraryBook | null>(null);
+  // Keep form values as strings during editing to avoid input lag/flicker
   const [bookForm, setBookForm] = useState({
     title: '',
     author: '',
     isbn: '',
     category: 'Academic' as LibraryBook['category'],
     publisher: '',
-    publicationYear: new Date().getFullYear(),
+    publicationYear: String(new Date().getFullYear()),
     edition: '',
-    pages: 0,
+    pages: '0',
     language: 'English',
     description: '',
-    totalCopies: 1,
+    totalCopies: '1',
     location: '',
     shelfNumber: '',
-    price: 0,
+    price: '0',
     purchaseDate: new Date().toISOString().split('T')[0],
     tags: ''
   });
@@ -242,23 +243,28 @@ const LibraryManagement: React.FC = () => {
       setSaving(true);
       setError(null);
 
+      const publicationYear = parseInt(bookForm.publicationYear || '0', 10) || new Date().getFullYear();
+      const pages = parseInt(bookForm.pages || '0', 10) || 0;
+      const totalCopies = Math.max(1, parseInt(bookForm.totalCopies || '1', 10) || 1);
+      const price = isNaN(parseFloat(bookForm.price || '0')) ? 0 : parseFloat(bookForm.price || '0');
+
       const bookData = {
         title: bookForm.title.trim(),
         author: bookForm.author.trim(),
         isbn: bookForm.isbn.trim(),
         category: bookForm.category as LibraryBook['category'],
         publisher: bookForm.publisher.trim(),
-        publicationYear: bookForm.publicationYear,
+        publicationYear,
         edition: bookForm.edition.trim(),
-        pages: bookForm.pages,
+        pages,
         language: bookForm.language.trim(),
         description: bookForm.description.trim(),
-        totalCopies: bookForm.totalCopies,
-        availableCopies: bookForm.totalCopies,
+        totalCopies,
+        availableCopies: totalCopies,
         location: bookForm.location.trim(),
         shelfNumber: bookForm.shelfNumber.trim(),
         status: 'Available' as LibraryBook['status'],
-        price: bookForm.price,
+        price,
         purchaseDate: bookForm.purchaseDate,
         tags: bookForm.tags ? bookForm.tags.split(",").map(t => t.trim()).filter(Boolean) : []
       };
@@ -494,15 +500,15 @@ const LibraryManagement: React.FC = () => {
                     isbn: book.isbn,
                     category: book.category,
                     publisher: book.publisher,
-                    publicationYear: book.publicationYear,
+                    publicationYear: String(book.publicationYear),
                     edition: book.edition,
-                    pages: book.pages,
+                    pages: String(book.pages),
                     language: book.language,
                     description: book.description,
-                    totalCopies: book.totalCopies,
+                    totalCopies: String(book.totalCopies),
                     location: book.location || '',
                     shelfNumber: book.shelfNumber || '',
-                    price: book.price ?? 0,
+                    price: String(book.price ?? 0),
                     purchaseDate: book.purchaseDate || new Date().toISOString().split('T')[0],
                     tags: (book.tags || []).join(', ')
                   });
@@ -1097,7 +1103,7 @@ const LibraryManagement: React.FC = () => {
       {/* Book Form Modal (responsive: full-screen on mobile, centered on desktop) */}
       {showBookForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0">
-          <div className="bg-white w-full h-full sm:h-auto sm:w-full sm:max-w-2xl overflow-y-auto sm:rounded-lg">
+          <div className="bg-white w-full h-full sm:h-auto sm:w-full sm:max-w-3xl sm:max-h-[85vh] overflow-y-auto sm:rounded-lg">
             <div className="p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">
@@ -1113,15 +1119,15 @@ const LibraryManagement: React.FC = () => {
                       isbn: '',
                       category: 'Academic',
                       publisher: '',
-                      publicationYear: new Date().getFullYear(),
+                      publicationYear: String(new Date().getFullYear()),
                       edition: '',
-                      pages: 0,
+                      pages: '0',
                       language: 'English',
                       description: '',
-                      totalCopies: 1,
+                      totalCopies: '1',
                       location: '',
                       shelfNumber: '',
-                      price: 0,
+                      price: '0',
                       purchaseDate: new Date().toISOString().split('T')[0],
                       tags: ''
                     });
@@ -1143,6 +1149,7 @@ const LibraryManagement: React.FC = () => {
                       onChange={(e) => setBookForm({...bookForm, title: e.target.value})}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
+                      autoFocus
                     />
                   </div>
                   <div>
@@ -1196,8 +1203,9 @@ const LibraryManagement: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Publication Year</label>
                     <input
                       type="number"
+                      inputMode="numeric"
                       value={bookForm.publicationYear}
-                      onChange={(e) => setBookForm({...bookForm, publicationYear: parseInt(e.target.value || '0')})}
+                      onChange={(e) => setBookForm({...bookForm, publicationYear: e.target.value})}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -1215,8 +1223,9 @@ const LibraryManagement: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Pages</label>
                     <input
                       type="number"
+                      inputMode="numeric"
                       value={bookForm.pages}
-                      onChange={(e) => setBookForm({...bookForm, pages: parseInt(e.target.value || '0')})}
+                      onChange={(e) => setBookForm({...bookForm, pages: e.target.value})}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -1234,8 +1243,9 @@ const LibraryManagement: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Total Copies *</label>
                     <input
                       type="number"
+                      inputMode="numeric"
                       value={bookForm.totalCopies}
-                      onChange={(e) => setBookForm({...bookForm, totalCopies: Math.max(1, parseInt(e.target.value || '1'))})}
+                      onChange={(e) => setBookForm({...bookForm, totalCopies: e.target.value})}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       min={1}
                       required
@@ -1266,8 +1276,9 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="number"
                       step="0.01"
+                      inputMode="decimal"
                       value={bookForm.price}
-                      onChange={(e) => setBookForm({...bookForm, price: parseFloat(e.target.value || '0')})}
+                      onChange={(e) => setBookForm({...bookForm, price: e.target.value})}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -1309,21 +1320,21 @@ const LibraryManagement: React.FC = () => {
                     onClick={() => {
                       setShowBookForm(false);
                       setEditingBook(null);
-                      setBookForm({
+                    setBookForm({
                         title: '',
                         author: '',
                         isbn: '',
                         category: 'Academic',
                         publisher: '',
-                        publicationYear: new Date().getFullYear(),
+                        publicationYear: String(new Date().getFullYear()),
                         edition: '',
-                        pages: 0,
+                        pages: '0',
                         language: 'English',
                         description: '',
-                        totalCopies: 1,
+                        totalCopies: '1',
                         location: '',
                         shelfNumber: '',
-                        price: 0,
+                        price: '0',
                         purchaseDate: new Date().toISOString().split('T')[0],
                         tags: ''
                       });

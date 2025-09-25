@@ -1723,7 +1723,7 @@ export const leaveService = {
         });
         
         // Mirror to department-based structure
-        const hierPath = buildBatchPath.leave(batch, dept, '2nd', sem, div, subject, dateObj);
+        const hierPath = buildBatchPath.leave(batch, dept, year, sem, div, subject, dateObj);
         const hierRef = doc(collection(db, hierPath), docRef.id);
         await setDoc(hierRef, {
           ...docData,
