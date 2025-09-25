@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { userService, attendanceService } from '../../firebase/firestore';
+import { auth } from '../../firebase/firebase';
+import { signInAnonymously } from 'firebase/auth';
 import { User, AttendanceLog } from '../../types';
 import { Upload, Download, Users, Plus, Trash2, Edit, Search, Filter, Calendar, FileText, BarChart3, Eye, X, CheckCircle } from 'lucide-react';
 import { getDepartmentCode } from '../../utils/departmentMapping';
@@ -284,6 +286,10 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
     }
 
     try {
+      // Ensure Firebase Auth so Firestore rules allow writes
+      if (!auth.currentUser) {
+        try { await signInAnonymously(auth); } catch {}
+      }
       const student: User = {
         id: `student_${safeRollNumber}_${Date.now()}_${Math.random()}`,
         name: newStudent.name!,
@@ -322,9 +328,8 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
         isActive: true
       });
       fetchStudents();
-    } catch (error) {
-      // Handle error silently
-      alert('Error adding student');
+    } catch (error: any) {
+      alert(error?.message || 'Error adding student');
     }
   };
 

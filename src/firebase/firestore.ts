@@ -391,6 +391,9 @@ export const getDepartmentDisplayName = (department: string): string => {
 export const userService = {
   // Create or update user with role-based structure
   async createUser(userData: User): Promise<void> {
+    // Track roll number change across the entire function scope
+    let isRollNumberChange = false;
+    let oldRollNumber = '';
     try {
       // Validate user data
       if (!userData.id || !userData.role) {
@@ -401,8 +404,6 @@ export const userService = {
       
       // Check if this is a roll number update for existing student
       const existingUser = await getDoc(userRef);
-      let isRollNumberChange = false;
-      let oldRollNumber = '';
       
       if (existingUser.exists() && userData.role === 'student') {
         const existingData = existingUser.data();
@@ -903,15 +904,22 @@ export const userService = {
   },
 
   async getAllTeachers(): Promise<User[]> {
-    // Use flat structure with role filtering
+    // Prefer dedicated teachers collection for performance and completeness
+    const teachersSnap = await getDocs(collection(db, COLLECTIONS.TEACHERS));
+    let teachers = teachersSnap.docs.map(d => ({ id: d.id, ...d.data() })) as User[];
+    if (teachers.length > 0) {
+      // Ensure role is set for UI filters
+      teachers = teachers.map(t => ({ ...t, role: (t as any).role || 'teacher' } as User));
+      // Sort by name if available
+      teachers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      return teachers;
+    }
+
+    // Fallback to users collection with role filter
     const usersRef = collection(db, COLLECTIONS.USERS);
     const q = query(usersRef, where('role', 'in', ['teacher', 'hod']), orderBy('name'));
-    const querySnapshot = await getDocs(q);
-    
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as User[];
+    const usersSnap = await getDocs(q);
+    return usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as User[];
   },
 
   // Bulk import teachers (writes to teachers and users collections)

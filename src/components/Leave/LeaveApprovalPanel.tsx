@@ -269,20 +269,22 @@ const LeaveApprovalPanel: React.FC = () => {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchLeaveRequests = async () => {
       try {
         const requests = await leaveService.getLeaveRequestsByApprover(user?.id || '');
-        setLeaveRequests(requests);
+        if (!cancelled) setLeaveRequests(requests);
       } catch (error) {
-        // Handle error silently
-        setBanner({ type: 'reject', message: 'Failed to fetch leave requests.' });
-        setTimeout(() => setBanner(null), 3000);
+        if (!cancelled) {
+          setBanner({ type: 'reject', message: 'Failed to fetch leave requests.' });
+          setTimeout(() => setBanner(null), 3000);
+        }
       }
     };
 
     fetchLeaveRequests();
-    const interval = setInterval(fetchLeaveRequests, 30000); // Poll every 30 seconds
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchLeaveRequests, 10000); // faster refresh 10s
+    return () => { cancelled = true; clearInterval(interval); };
   }, [user?.id]);
 
   const handleApprovalAction = async (action: 'approve' | 'reject' | 'return', remarks?: string) => {

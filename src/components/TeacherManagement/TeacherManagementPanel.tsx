@@ -105,18 +105,8 @@ const TeacherManagementPanel: React.FC = () => {
   const loadTeachers = async () => {
     try {
       setLoading(true);
-      
-      // Try to get teachers from the dedicated teachers collection first
       const teacherUsers = await userService.getAllTeachers();
-      
-      if (teacherUsers.length === 0) {
-        // Fallback: Get all users with role 'teacher' from users collection
-        const allUsers = await userService.getAllUsers();
-        const teacherUsersFromUsers = allUsers.filter(user => user.role === 'teacher');
-        setTeachers(teacherUsersFromUsers);
-      } else {
-        setTeachers(teacherUsers);
-      }
+      setTeachers(teacherUsers);
     } catch (error) {
       setTeachers([]);
     } finally {
