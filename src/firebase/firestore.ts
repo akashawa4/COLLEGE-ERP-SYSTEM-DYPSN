@@ -1701,8 +1701,9 @@ export const leaveService = {
         const departmentFaculty = await getDepartmentFaculty(dept);
         const departmentHead = await getDepartmentHead(dept);
         
-        // Assign to department head if available, otherwise to first faculty member
-        const assignedTo = departmentHead || (departmentFaculty.length > 0 ? departmentFaculty[0] : null);
+        // Prefer a regular faculty (teacher) for first stage; fallback to HOD
+        const firstTeacher = departmentFaculty.find(f => !f.isDepartmentHead) || null;
+        const assignedTo = firstTeacher || departmentHead || (departmentFaculty.length > 0 ? departmentFaculty[0] : null);
         
         // Update leave request with department and assigned faculty
         await updateDoc(docRef, {
@@ -1711,14 +1712,16 @@ export const leaveService = {
             id: assignedTo.id,
             name: assignedTo.name,
             email: assignedTo.email,
-            role: assignedTo.isDepartmentHead ? 'Department Head' : 'Faculty'
+            role: assignedTo.isDepartmentHead ? 'HOD' : 'Teacher'
           } : null,
           departmentFaculty: departmentFaculty.map(f => ({
             id: f.id,
             name: f.name,
             email: f.email,
-            role: f.isDepartmentHead ? 'Department Head' : 'Faculty'
+            role: f.isDepartmentHead ? 'HOD' : 'Teacher'
           })),
+          approvalFlow: ['Teacher', 'HOD'],
+          currentApprovalLevel: 'Teacher',
           updatedAt: serverTimestamp()
         });
         
@@ -1734,14 +1737,16 @@ export const leaveService = {
             id: assignedTo.id,
             name: assignedTo.name,
             email: assignedTo.email,
-            role: assignedTo.isDepartmentHead ? 'Department Head' : 'Faculty'
+            role: assignedTo.isDepartmentHead ? 'HOD' : 'Teacher'
           } : null,
           departmentFaculty: departmentFaculty.map(f => ({
             id: f.id,
             name: f.name,
             email: f.email,
-            role: f.isDepartmentHead ? 'Department Head' : 'Faculty'
-          }))
+            role: f.isDepartmentHead ? 'HOD' : 'Teacher'
+          })),
+          approvalFlow: ['Teacher', 'HOD'],
+          currentApprovalLevel: 'Teacher'
         });
 
         // Approver inbox mirror for instant teacher visibility
@@ -1933,7 +1938,8 @@ export const leaveService = {
     div: string,
     subject: string,
     month: string, // MM
-    yearForMonth: string // YYYY
+    yearForMonth: string, // YYYY
+    department?: string // optional department to read from batch/department structure
   ): Promise<LeaveRequest[]> {
     console.log(`🚀 Starting optimized leave fetch for ${year}/${sem}/${div}/${subject}/${yearForMonth}/${month}`);
     
@@ -1947,8 +1953,17 @@ export const leaveService = {
     
     for (let day = 1; day <= daysInMonth; day++) {
       const d = String(day).padStart(2, '0');
-      const path = `${COLLECTIONS.LEAVE}/${year}/sems/${sem}/divs/${div}/subjects/${subject}/${yearForMonth}/${month}/${d}`;
-      
+      // If department provided, use batch+department-aware path; otherwise, fall back to legacy path
+      let path: string;
+      if (department) {
+        const dateForDay = new Date(parseInt(yearForMonth), parseInt(month) - 1, day);
+        const batch = getBatchYear(year);
+        const dept = getDepartment({ department });
+        path = buildBatchPath.leave(batch, dept, year, sem, div, subject, dateForDay);
+      } else {
+        path = `${COLLECTIONS.LEAVE}/${year}/sems/${sem}/divs/${div}/subjects/${subject}/${yearForMonth}/${month}/${d}`;
+      }
+
       const dayPromise = (async () => {
         try {
           const colRef = collection(db, path);
@@ -2028,19 +2043,22 @@ export const leaveService = {
       const leaveData = leaveDoc.data() as LeaveRequest;
       console.log('[updateLeaveRequestStatus] Found leave data:', leaveData);
       
-      // Simplified update logic
+      // Two-step approval logic: Teacher -> HOD
       let newStatus = status;
-      let nextApprovalLevel = leaveData.currentApprovalLevel || 'HOD';
-      
+      let nextApprovalLevel = leaveData.currentApprovalLevel || 'Teacher';
+
+      const flow = leaveData.approvalFlow && leaveData.approvalFlow.length > 0
+        ? leaveData.approvalFlow
+        : ['Teacher', 'HOD'];
+
       if (status === 'approved') {
-        const approvalFlow = leaveData.approvalFlow || ['HOD', 'Principal', 'Registrar', 'HR Executive'];
-        const currentIndex = approvalFlow.indexOf(nextApprovalLevel);
-        
-        if (currentIndex === approvalFlow.length - 1) {
-          newStatus = 'approved';
-          nextApprovalLevel = 'HR Executive';
+        const currentIndex = Math.max(0, flow.indexOf(nextApprovalLevel));
+        const isLast = currentIndex >= flow.length - 1;
+        if (isLast) {
+          newStatus = 'approved'; // Final approval by HOD
+          nextApprovalLevel = 'HOD';
         } else {
-          nextApprovalLevel = approvalFlow[currentIndex + 1];
+          nextApprovalLevel = flow[currentIndex + 1]; // Move to HOD
           newStatus = 'pending';
         }
       }
@@ -2074,21 +2092,45 @@ export const leaveService = {
         const { year, sem, div } = (leaveData as any) || {};
         const subject = ((leaveData as any)?.subject as string) || 'General';
         const fromDateStr = (leaveData as any)?.fromDate as string | undefined;
+        const department = (leaveData as any)?.department as string | undefined;
         if (year && sem && div && fromDateStr) {
           const dateObj = new Date(fromDateStr);
-          const y = dateObj.getFullYear().toString();
-          const m = (dateObj.getMonth() + 1).toString().padStart(2, '0');
-          const d = dateObj.getDate().toString().padStart(2, '0');
-          const hierPath = `${COLLECTIONS.LEAVE}/${year}/sems/${sem}/divs/${div}/subjects/${subject}/${y}/${m}/${d}`;
-          const hierRef = doc(collection(db, hierPath), requestId);
-          await updateDoc(hierRef, updateData);
-          console.log('[updateLeaveRequestStatus] Mirrored update to hierarchical leave doc:', hierPath, requestId);
+          // Prefer department-based batch path
+          if (department) {
+            try {
+              const batch = getBatchYear(year);
+              const deptNorm = getDepartment({ department });
+              const deptPath = buildBatchPath.leave(batch, deptNorm, year, sem, div, subject, dateObj);
+              const deptRef = doc(collection(db, deptPath), requestId);
+              await updateDoc(deptRef, updateData);
+              console.log('[updateLeaveRequestStatus] Mirrored update to department leave doc:', deptPath, requestId);
+            } catch (deptErr) {
+              console.error('[updateLeaveRequestStatus] Department mirror failed, will try legacy path:', deptErr);
+              // Fallback to legacy path below
+              const y = dateObj.getFullYear().toString();
+              const m = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+              const d = dateObj.getDate().toString().padStart(2, '0');
+              const legacyPath = `${COLLECTIONS.LEAVE}/${year}/sems/${sem}/divs/${div}/subjects/${subject}/${y}/${m}/${d}`;
+              const legacyRef = doc(collection(db, legacyPath), requestId);
+              await updateDoc(legacyRef, updateData);
+              console.log('[updateLeaveRequestStatus] Mirrored update to legacy leave doc:', legacyPath, requestId);
+            }
+          } else {
+            // Only legacy path available
+            const y = dateObj.getFullYear().toString();
+            const m = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+            const d = dateObj.getDate().toString().padStart(2, '0');
+            const legacyPath = `${COLLECTIONS.LEAVE}/${year}/sems/${sem}/divs/${div}/subjects/${subject}/${y}/${m}/${d}`;
+            const legacyRef = doc(collection(db, legacyPath), requestId);
+            await updateDoc(legacyRef, updateData);
+            console.log('[updateLeaveRequestStatus] Mirrored update to legacy leave doc:', legacyPath, requestId);
+          }
         }
       } catch (mirrorErr) {
         console.error('[updateLeaveRequestStatus] Failed to mirror hierarchical leave update:', mirrorErr);
       }
 
-      // Create notification (optional - don't fail if this fails)
+      // Create notification to student and optionally next approver
       try {
         // Build details object without undefined fields
         const details: any = {
@@ -2120,6 +2162,36 @@ export const leaveService = {
         };
 
         await notificationService.createNotification(notificationData);
+
+        // If moved to HOD, add to HOD inbox
+        if (newStatus === 'pending' && nextApprovalLevel === 'HOD') {
+          try {
+            const hod = await getDepartmentHead(leaveData.department || DEPARTMENTS.CSE);
+            if (hod?.id) {
+              const approverInboxPath = `leaveApprovals/${hod.id}`;
+              const approverRef = doc(collection(db, approverInboxPath));
+              await setDoc(approverRef, {
+                leaveId: requestId,
+                approverId: hod.id,
+                createdAt: serverTimestamp(),
+                status: 'pending',
+                studentId: (leaveData as any).userId,
+                studentName: (leaveData as any).studentName,
+                rollNumber: (leaveData as any).rollNumber,
+                year: (leaveData as any).year,
+                sem: (leaveData as any).sem,
+                div: (leaveData as any).div,
+                department: leaveData.department,
+                fromDate: (leaveData as any).fromDate,
+                toDate: (leaveData as any).toDate,
+                reason: (leaveData as any).reason,
+                subject: (leaveData as any).subject || 'General'
+              });
+            }
+          } catch (err) {
+            console.error('[updateLeaveRequestStatus] Failed to enqueue HOD approval:', err);
+          }
+        }
         console.log('[updateLeaveRequestStatus] Notification created successfully');
       } catch (notificationError) {
         console.error('[updateLeaveRequestStatus] Failed to create notification:', notificationError);

@@ -258,13 +258,15 @@ const MyLeaves: React.FC = () => {
           const yearForMonth = String(now.getFullYear());
 
 
+          // Use full year label (e.g., '2nd') for department-aware hierarchical path
           const classLeaves = await leaveService.getClassLeavesByMonth(
-            numericYear,
+            year,
             sem,
             div,
             subject,
             month,
-            yearForMonth
+            yearForMonth,
+            user.department || undefined
           );
 
           // Restrict to teacher's department if present on records
@@ -874,6 +876,51 @@ const MyLeaves: React.FC = () => {
                         <span className="text-sm text-gray-900">{step}</span>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Inline approve/reject for teacher/HOD */}
+              {user?.role && selectedLeave.status === 'pending' && (
+                <div className="bg-white p-3 rounded-lg border border-gray-200">
+                  <label className="text-xs font-medium text-gray-500 block mb-2">Take Action</label>
+                  <div className="flex flex-wrap gap-2">
+                    {(user.role === 'teacher' && selectedLeave.currentApprovalLevel === 'Teacher') && (
+                      <>
+                        <button
+                          onClick={async () => {
+                            await leaveService.updateLeaveRequestStatus(selectedLeave.id!, 'approved', user.id);
+                            setSelectedLeave(null);
+                          }}
+                          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                        >Approve</button>
+                        <button
+                          onClick={async () => {
+                            await leaveService.updateLeaveRequestStatus(selectedLeave.id!, 'rejected', user.id);
+                            setSelectedLeave(null);
+                          }}
+                          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                        >Reject</button>
+                      </>
+                    )}
+                    {(user.role === 'hod' && selectedLeave.currentApprovalLevel === 'HOD') && (
+                      <>
+                        <button
+                          onClick={async () => {
+                            await leaveService.updateLeaveRequestStatus(selectedLeave.id!, 'approved', user.id);
+                            setSelectedLeave(null);
+                          }}
+                          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                        >Final Approve</button>
+                        <button
+                          onClick={async () => {
+                            await leaveService.updateLeaveRequestStatus(selectedLeave.id!, 'rejected', user.id);
+                            setSelectedLeave(null);
+                          }}
+                          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                        >Reject</button>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
