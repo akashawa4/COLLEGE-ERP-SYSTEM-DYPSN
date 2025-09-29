@@ -6,7 +6,6 @@ import {
   Eye, 
   Trash2, 
   Search, 
-  Filter, 
   File,
   FileImage,
   FileVideo,
@@ -23,13 +22,20 @@ import {
   Building2,
   BookOpen,
   Users,
-  UserCheck
+  FolderOpen,
+  ChevronDown,
+  ChevronRight,
+  Star,
+  Clock,
+  Shield,
+  CheckCircle,
+  MoreVertical
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { db, storage } from '../../firebase/firebase';
-import { collection, addDoc, serverTimestamp, getDocs, query, orderBy, where, deleteDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { buildAcademicPaths, getBatchYear, userService } from '../../firebase/firestore';
+import { getBatchYear, userService } from '../../firebase/firestore';
 import { getDepartmentCode } from '../../utils/departmentMapping';
 import { signInAnonymously } from 'firebase/auth';
 import { auth } from '../../firebase/firebase';
@@ -64,13 +70,32 @@ interface StudentDocument {
   storagePath: string;
 }
 
+interface StudentWithDocuments {
+  student: UserType;
+  documents: StudentDocument[];
+  totalDocuments: number;
+  categories: { [key: string]: number };
+  lastUploaded?: Date;
+}
+
+interface DocumentGroup {
+  studentName: string;
+  studentId: string;
+  studentEmail: string;
+  documents: StudentDocument[];
+  totalSize: number;
+  categories: { [key: string]: number };
+  lastUploaded?: Date;
+}
+
 const DocumentManagementPanel: React.FC = () => {
   const { user, firebaseUser } = useAuth();
   const [documents, setDocuments] = useState<StudentDocument[]>([]);
   const [students, setStudents] = useState<UserType[]>([]);
+  const [documentGroups, setDocumentGroups] = useState<DocumentGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
+  const [uploadModalStudent, setUploadModalStudent] = useState<UserType | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('');
@@ -79,7 +104,10 @@ const DocumentManagementPanel: React.FC = () => {
   const [filterDivision, setFilterDivision] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'size' | 'category'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'student'>('student');
+  const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
+  const [selectedStudentId, setSelectedStudentId] = useState<string>('');
+  const [showStudentList, setShowStudentList] = useState(true);
 
   // Form states
   const [uploadForm, setUploadForm] = useState({
@@ -110,14 +138,36 @@ const DocumentManagementPanel: React.FC = () => {
 
   const departments = ['CSE', 'IT', 'ECE', 'EEE', 'MECH', 'CIVIL', 'CHEM'];
   const years = ['1st', '2nd', '3rd', '4th'];
-  const semesters = ['1', '2', '3', '4', '5', '6', '7', '8'];
   const divisions = ['A', 'B', 'C', 'D'];
+
+  // Dynamic semester mapping based on year
+  const getSemestersForYear = (year: string) => {
+    switch (year) {
+      case '1st':
+        return ['1', '2'];
+      case '2nd':
+        return ['3', '4'];
+      case '3rd':
+        return ['5', '6'];
+      case '4th':
+        return ['7', '8'];
+      default:
+        return ['1', '2', '3', '4', '5', '6', '7', '8'];
+    }
+  };
+
+  const availableSemesters = getSemestersForYear(filterYear || uploadForm.year);
 
   // Load documents and students based on current filters
   useEffect(() => {
     loadDocuments();
     loadStudents();
   }, [filterDepartment, filterYear, filterSemester, filterDivision]);
+
+  // Organize documents by student when documents or students change
+  useEffect(() => {
+    organizeDocumentsByStudent();
+  }, [documents, students]);
 
   const inferMimeType = (file: File): string => {
     if (file.type) return file.type;
@@ -144,10 +194,26 @@ const DocumentManagementPanel: React.FC = () => {
       const batch = getBatchYear(year);
       const div = (filterDivision || uploadForm.division || 'A').trim();
       
-      // New path structure: /batch/2025/CSE/year/2nd/sems/3/divs/A/students
-      const path = `batch/${batch}/${department}/year/${year}/sems/${sem}/divs/${div}/students`;
+      // Correct path structure: /documents/{batch}/{department}_{year}_{sem}_{div}
+      const path = `documents/${batch}/${department}_${year}_${sem}_${div}`;
+      console.log('Loading documents from path:', path);
+      console.log('Department:', department, 'Year:', year, 'Sem:', sem, 'Batch:', batch, 'Div:', div);
+      
       const q = query(collection(db, path), orderBy('uploadedAt', 'desc'));
       const snap = await getDocs(q);
+      console.log('Found documents:', snap.docs.length);
+      
+      // Debug: Log all document data
+      snap.docs.forEach((doc, index) => {
+        const data = doc.data();
+        console.log(`Document ${index + 1}:`, {
+          id: doc.id,
+          studentId: data.studentId,
+          studentName: data.studentName,
+          fileName: data.fileName,
+          uploadedAt: data.uploadedAt
+        });
+      });
       const docs: StudentDocument[] = snap.docs.map((d) => {
         const data: any = d.data();
         return {
@@ -195,10 +261,78 @@ const DocumentManagementPanel: React.FC = () => {
       const division = filterDivision || uploadForm.division || 'A';
       
       const studentsData = await userService.getStudentsByBatchDeptYearSemDiv(batch, department, year, semester, division);
+      console.log('Loaded students:', studentsData.length);
+      console.log('Student IDs:', studentsData.map(s => s.id));
       setStudents(studentsData);
     } catch (err) {
       console.error('Failed to load students', err);
     }
+  };
+
+  const organizeDocumentsByStudent = () => {
+    const studentDocMap = new Map<string, StudentWithDocuments>();
+    
+    console.log('Organizing documents by student...');
+    console.log('Total students:', students.length);
+    console.log('Total documents:', documents.length);
+    
+    // Initialize student document groups
+    students.forEach(student => {
+      studentDocMap.set(student.id, {
+        student,
+        documents: [],
+        totalDocuments: 0,
+        categories: {},
+        lastUploaded: undefined
+      });
+    });
+
+    // Group documents by student
+    documents.forEach(doc => {
+      const studentId = doc.studentId;
+      console.log('Document studentId:', studentId, 'Student name:', doc.studentName);
+      console.log('Student ID exists in map:', studentDocMap.has(studentId));
+      
+      if (studentDocMap.has(studentId)) {
+        const studentGroup = studentDocMap.get(studentId)!;
+        studentGroup.documents.push(doc);
+        studentGroup.totalDocuments++;
+        
+        // Count categories
+        if (!studentGroup.categories[doc.category]) {
+          studentGroup.categories[doc.category] = 0;
+        }
+        studentGroup.categories[doc.category]++;
+        
+        // Track last uploaded date
+        if (!studentGroup.lastUploaded || doc.uploadedAt > studentGroup.lastUploaded) {
+          studentGroup.lastUploaded = doc.uploadedAt;
+        }
+      } else {
+        console.log('Student ID not found in student map:', studentId);
+        console.log('Available student IDs:', Array.from(studentDocMap.keys()));
+      }
+    });
+
+    // Convert to array and sort by student name
+    const organizedStudents = Array.from(studentDocMap.values())
+      .filter(group => group.documents.length > 0)
+      .sort((a, b) => a.student.name.localeCompare(b.student.name));
+
+    // setStudentDocuments(organizedStudents); // Not used in current implementation
+
+    // Create document groups for professional display
+    const documentGroups: DocumentGroup[] = organizedStudents.map(studentGroup => ({
+      studentName: studentGroup.student.name,
+      studentId: studentGroup.student.id,
+      studentEmail: studentGroup.student.email,
+      documents: studentGroup.documents,
+      totalSize: studentGroup.documents.reduce((sum, doc) => sum + doc.fileSize, 0),
+      categories: studentGroup.categories,
+      lastUploaded: studentGroup.lastUploaded
+    }));
+
+    setDocumentGroups(documentGroups);
   };
 
   const handleFileUpload = async (e: React.FormEvent) => {
@@ -206,20 +340,32 @@ const DocumentManagementPanel: React.FC = () => {
     setLoading(true);
     try {
       const createdDocs: StudentDocument[] = [];
+      
       // Ensure Firebase auth is available to satisfy storage rules
       let effectiveUid = firebaseUser?.uid;
+      console.log('Current user:', firebaseUser);
+      console.log('Effective UID:', effectiveUid);
+      
       if (!effectiveUid) {
         try {
+          console.log('Attempting anonymous auth...');
           const cred = await signInAnonymously(auth);
           effectiveUid = cred.user.uid;
+          console.log('Anonymous auth successful:', effectiveUid);
         } catch (e: any) {
           console.error('Anonymous auth failed:', e?.code || e);
           throw new Error('Firebase anonymous auth is disabled. Enable Anonymous sign-in or sign in with Firebase Auth.');
         }
       }
+      
+      // Refresh the auth token
       try {
+        console.log('Refreshing auth token...');
         await auth.currentUser?.getIdToken(true);
-      } catch {}
+        console.log('Auth token refreshed successfully');
+      } catch (error) {
+        console.error('Failed to refresh auth token:', error);
+      }
       
       for (const file of uploadForm.files) {
         const safeName = (file.name || 'file')
@@ -231,15 +377,21 @@ const DocumentManagementPanel: React.FC = () => {
         const sem = (uploadForm.semester || '3').trim();
         const batch = (uploadForm.batch || getBatchYear(year)).trim();
         const div = (uploadForm.division || 'A').trim();
-        const ownerUid = effectiveUid as string;
         
-        // New storage path: /batch/2025/CSE/year/2nd/sems/3/divs/A/students/{studentId}/{timestamp}_{filename}
-        const storagePath = `batch/${batch}/${department}/year/${year}/sems/${sem}/divs/${div}/students/${uploadForm.studentId}/${Date.now()}_${safeName}`;
+        // Correct storage path: /documents/{batch}/{department}_{year}_{sem}_{div}/{studentId}/{timestamp}_{filename}
+        const storagePath = `documents/${batch}/${department}_${year}_${sem}_${div}/${uploadForm.studentId}/${Date.now()}_${safeName}`;
+        console.log('Storage path:', storagePath);
+        console.log('File size:', file.size);
+        console.log('File type:', file.type);
+        
         const sRef = storageRef(storage, storagePath);
+        console.log('Storage ref created:', sRef);
+        
         const snap = await uploadBytes(sRef, file, {
           contentType: inferMimeType(file),
           customMetadata: { isPublic: uploadForm.isPublic ? 'true' : 'false' }
         });
+        console.log('Upload successful:', snap);
         const url = await getDownloadURL(snap.ref);
 
         const docMeta = {
@@ -270,9 +422,15 @@ const DocumentManagementPanel: React.FC = () => {
           storagePath
         };
 
-        // New Firestore path: /batch/2025/CSE/year/2nd/sems/3/divs/A/students
-        const docsPath = `batch/${batch}/${department}/year/${year}/sems/${sem}/divs/${div}/students`;
+        // Correct Firestore path: /documents/{batch}/{department}_{year}_{sem}_{div}
+        const docsPath = `documents/${batch}/${department}_${year}_${sem}_${div}`;
+        console.log('Saving document metadata to Firestore path:', docsPath);
+        console.log('Student ID in metadata:', uploadForm.studentId);
+        console.log('Student name in metadata:', uploadForm.studentName);
+        console.log('Document metadata:', docMeta);
+        
         const docRef = await addDoc(collection(db, docsPath), docMeta as any);
+        console.log('Document saved to Firestore with ID:', docRef.id);
 
         createdDocs.push({
           id: docRef.id,
@@ -283,23 +441,7 @@ const DocumentManagementPanel: React.FC = () => {
       }
 
       setDocuments(prev => [...createdDocs, ...prev]);
-    setUploadForm({
-      files: [],
-      category: 'other',
-        department: user?.department || 'CSE',
-        year: '2nd',
-        semester: '3',
-        batch: '2025',
-        division: 'A',
-      studentId: '',
-        studentName: '',
-        studentEmail: '',
-      feeYear: '',
-      description: '',
-      tags: '',
-      isPublic: false
-    });
-      setShowUploadModal(false);
+      closeUploadModal();
     } catch (error) {
       console.error('Upload error:', error);
     }
@@ -320,7 +462,7 @@ const DocumentManagementPanel: React.FC = () => {
       const sem = (filterSemester || uploadForm.semester || '3').trim();
       const batch = getBatchYear(year);
       const div = (filterDivision || uploadForm.division || 'A').trim();
-      const path = `batch/${batch}/${department}/year/${year}/sems/${sem}/divs/${div}/students`;
+      const path = `documents/${batch}/${department}_${year}_${sem}_${div}`;
       await deleteDoc(doc(db, path, docId));
       
       setDocuments(prev => prev.filter(doc => doc.id !== docId));
@@ -386,6 +528,112 @@ const DocumentManagementPanel: React.FC = () => {
     }));
   };
 
+  const toggleStudentExpansion = (studentId: string) => {
+    const newExpanded = new Set(expandedStudents);
+    if (newExpanded.has(studentId)) {
+      newExpanded.delete(studentId);
+    } else {
+      newExpanded.add(studentId);
+    }
+    setExpandedStudents(newExpanded);
+  };
+
+  const getDocumentStatus = (doc: StudentDocument) => {
+    const now = new Date();
+    const uploadDate = doc.uploadedAt;
+    const daysDiff = Math.floor((now.getTime() - uploadDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysDiff <= 1) return { status: 'new', color: 'text-green-600', icon: CheckCircle };
+    if (daysDiff <= 7) return { status: 'recent', color: 'text-blue-600', icon: Clock };
+    if (doc.isStarred) return { status: 'starred', color: 'text-yellow-600', icon: Star };
+    return { status: 'normal', color: 'text-gray-600', icon: File };
+  };
+
+  const handleStudentClick = (studentId: string) => {
+    setSelectedStudentId(studentId);
+    setShowStudentList(false);
+    // Auto-expand the selected student
+    setExpandedStudents(new Set([studentId]));
+  };
+
+  const handleBackToStudentList = () => {
+    setSelectedStudentId('');
+    setShowStudentList(true);
+    setExpandedStudents(new Set());
+  };
+
+  const handleYearChange = (year: string) => {
+    setFilterYear(year);
+    // Reset semester when year changes
+    const newSemesters = getSemestersForYear(year);
+    if (newSemesters.length > 0) {
+      setFilterSemester(newSemesters[0]); // Set to first available semester
+    }
+  };
+
+  const handleUploadFormYearChange = (year: string) => {
+    setUploadForm(prev => {
+      const newSemesters = getSemestersForYear(year);
+      return {
+        ...prev,
+        year,
+        semester: newSemesters.length > 0 ? newSemesters[0] : prev.semester
+      };
+    });
+  };
+
+  const getFilteredDocuments = () => {
+    if (selectedStudentId) {
+      return documents.filter(doc => doc.studentId === selectedStudentId);
+    }
+    return documents;
+  };
+
+  const getSelectedStudent = () => {
+    return students.find(student => student.id === selectedStudentId);
+  };
+
+  const openUploadModal = (student?: UserType) => {
+    if (student) {
+      setUploadModalStudent(student);
+      setUploadForm(prev => ({
+        ...prev,
+        studentId: student.id,
+        studentName: student.name,
+        studentEmail: student.email,
+        department: student.department || prev.department,
+        year: student.year || prev.year,
+        semester: student.sem || prev.semester,
+        division: student.div || prev.division
+      }));
+    } else {
+      setUploadModalStudent(null);
+    }
+    setShowUploadModal(true);
+  };
+
+  const closeUploadModal = () => {
+    setShowUploadModal(false);
+    setUploadModalStudent(null);
+    setUploadForm({
+      files: [],
+      category: 'other',
+      department: user?.department || 'CSE',
+      year: '2nd',
+      semester: '3',
+      batch: '2025',
+      division: 'A',
+      studentId: '',
+      studentName: '',
+      studentEmail: '',
+      feeYear: '',
+      description: '',
+      tags: '',
+      isPublic: false
+    });
+  };
+
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       {/* Header */}
@@ -394,14 +642,14 @@ const DocumentManagementPanel: React.FC = () => {
         <div>
             <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
               <GraduationCap className="w-8 h-8 text-blue-600" />
-              Student Document Management
+              Professional Document Management System
             </h1>
             <p className="text-gray-600 mt-2">
-              Manage student documents by batch, department, year, semester, and division
+              Organize and manage student documents with professional categorization and student-based organization
             </p>
         </div>
           <button
-            onClick={() => setShowUploadModal(true)}
+            onClick={() => openUploadModal()}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors"
           >
             <Upload className="w-5 h-5" />
@@ -438,7 +686,7 @@ const DocumentManagementPanel: React.FC = () => {
               </label>
           <select
                 value={filterYear}
-                onChange={(e) => setFilterYear(e.target.value)}
+                onChange={(e) => handleYearChange(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">All Years</option>
@@ -458,12 +706,16 @@ const DocumentManagementPanel: React.FC = () => {
                 value={filterSemester}
                 onChange={(e) => setFilterSemester(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={!filterYear}
               >
                 <option value="">All Semesters</option>
-                {semesters.map(sem => (
+                {availableSemesters.map(sem => (
                   <option key={sem} value={sem}>Semester {sem}</option>
                 ))}
               </select>
+              {!filterYear && (
+                <p className="text-xs text-gray-500 mt-1">Select a year first</p>
+              )}
             </div>
 
             {/* Division Filter */}
@@ -520,7 +772,7 @@ const DocumentManagementPanel: React.FC = () => {
                 </div>
                 </div>
 
-      {/* Stats */}
+      {/* Professional Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <div className="flex items-center">
@@ -540,8 +792,8 @@ const DocumentManagementPanel: React.FC = () => {
               <Users className="w-6 h-6 text-green-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Students</p>
-              <p className="text-2xl font-bold text-gray-900">{students.length}</p>
+              <p className="text-sm font-medium text-gray-600">Students with Documents</p>
+              <p className="text-2xl font-bold text-gray-900">{documentGroups.length}</p>
                   </div>
           </div>
         </div>
@@ -552,8 +804,8 @@ const DocumentManagementPanel: React.FC = () => {
               <Building2 className="w-6 h-6 text-purple-600" />
                     </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Filtered Results</p>
-              <p className="text-2xl font-bold text-gray-900">{filteredDocuments.length}</p>
+              <p className="text-sm font-medium text-gray-600">Total Students</p>
+              <p className="text-2xl font-bold text-gray-900">{students.length}</p>
             </div>
                     </div>
                   </div>
@@ -564,15 +816,15 @@ const DocumentManagementPanel: React.FC = () => {
               <Tag className="w-6 h-6 text-yellow-600" />
                     </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Categories</p>
+              <p className="text-sm font-medium text-gray-600">Document Categories</p>
               <p className="text-2xl font-bold text-gray-900">{categories.length}</p>
                     </div>
                     </div>
                   </div>
                   </div>
 
-      {/* Students List */}
-      {students.length > 0 && (
+      {/* Student List View */}
+      {showStudentList && students.length > 0 && (
         <div className="bg-white rounded-lg shadow-sm border mb-8">
           <div className="p-6 border-b border-gray-200">
             <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
@@ -582,29 +834,198 @@ const DocumentManagementPanel: React.FC = () => {
             <p className="text-gray-600 mt-1">
               {filterDepartment} • {filterYear} Year • Semester {filterSemester} • Division {filterDivision}
             </p>
+            <p className="text-sm text-gray-500 mt-2">
+              Click on a student to view their documents
+            </p>
                   </div>
           <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {students.map((student) => (
-                <div key={student.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {students.map((student) => {
+                const studentDocs = documents.filter(doc => doc.studentId === student.id);
+                const totalSize = studentDocs.reduce((sum, doc) => sum + doc.fileSize, 0);
+                const lastUploaded = studentDocs.length > 0 
+                  ? studentDocs.sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime())[0].uploadedAt
+                  : null;
+
+                return (
+                  <div 
+                    key={student.id} 
+                    className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow cursor-pointer hover:border-blue-300"
+                    onClick={() => handleStudentClick(student.id)}
+                  >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <User className="w-5 h-5 text-blue-600" />
+                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                        <User className="w-6 h-6 text-blue-600" />
                 </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-medium text-gray-900 truncate">{student.name}</h3>
-                      <p className="text-sm text-gray-600">{student.studentId || student.rollNumber}</p>
-                      <p className="text-xs text-gray-500">{student.email}</p>
+                        <p className="text-sm text-gray-600">{student.rollNumber || student.id}</p>
+                        <p className="text-xs text-gray-500 truncate">{student.email}</p>
             </div>
                       </div>
+                    
+                    {/* Document Stats */}
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <FileText className="w-3 h-3" />
+                          {studentDocs.length} docs
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {formatFileSize(totalSize)}
+                        </span>
                     </div>
-              ))}
+                      {lastUploaded && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          Last: {lastUploaded.toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
                   </div>
           </div>
         </div>
       )}
 
-      {/* Documents List */}
+      {/* Selected Student Documents View */}
+      {!showStudentList && selectedStudentId && (
+        <div className="bg-white rounded-lg shadow-sm border mb-8">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={handleBackToStudentList}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  title="Back to student list"
+                >
+                  <ChevronRight className="w-5 h-5 text-gray-500 rotate-180" />
+                </button>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <User className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">
+                      {getSelectedStudent()?.name || 'Student Documents'}
+                    </h2>
+                    <p className="text-sm text-gray-600">
+                      {getSelectedStudent()?.email || ''}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {getSelectedStudent()?.rollNumber || getSelectedStudent()?.id || ''}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="text-sm text-gray-500">
+                {getFilteredDocuments().length} documents
+              </div>
+            </div>
+          </div>
+          
+          <div className="p-6">
+            {getFilteredDocuments().length === 0 ? (
+              <div className="text-center py-12">
+                <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No documents found</h3>
+                <p className="text-gray-600 mb-4">
+                  This student doesn't have any documents uploaded yet.
+                </p>
+                <button
+                  onClick={() => openUploadModal(getSelectedStudent())}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                >
+                  Upload Documents
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {getFilteredDocuments().map((doc) => {
+                  const categoryInfo = getCategoryInfo(doc.category);
+                  const docStatus = getDocumentStatus(doc);
+                  const StatusIcon = docStatus.icon;
+                  
+                  return (
+                    <div
+                      key={doc.id}
+                      className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0">
+                          {getFileIcon(doc.mimeType)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-medium text-gray-900 truncate">{doc.originalName}</h4>
+                            <StatusIcon className={`w-4 h-4 ${docStatus.color}`} />
+                          </div>
+                          
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${categoryInfo.color}`}>
+                              {categoryInfo.icon} {categoryInfo.label}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {formatFileSize(doc.fileSize)}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
+                            <Clock className="w-3 h-3" />
+                            <span>{doc.uploadedAt.toLocaleDateString()}</span>
+                            {doc.isPublic && (
+                              <Shield className="w-3 h-3 text-green-500" />
+                            )}
+                          </div>
+                          
+                          {doc.description && (
+                            <p className="text-sm text-gray-600 mb-3 line-clamp-2">{doc.description}</p>
+                          )}
+                          
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => window.open(doc.downloadUrl, '_blank')}
+                              className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                              title="Download"
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => window.open(doc.downloadUrl, '_blank')}
+                              className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+                              title="View"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteDocument(doc.id, doc.storagePath)}
+                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded transition-colors"
+                              title="More options"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Documents List - Only show when not in student list mode */}
+      {!showStudentList && !selectedStudentId && (
       <div className="bg-white rounded-lg shadow-sm border">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
@@ -634,15 +1055,24 @@ const DocumentManagementPanel: React.FC = () => {
 
               {/* View Mode */}
               <div className="flex items-center gap-1 border border-gray-300 rounded-md">
+                  <button
+                    onClick={() => setViewMode('student')}
+                    className={`p-2 ${viewMode === 'student' ? 'bg-blue-100 text-blue-600' : 'text-gray-500'}`}
+                    title="Student View"
+                  >
+                    <Users className="w-4 h-4" />
+                  </button>
                 <button
                   onClick={() => setViewMode('grid')}
                   className={`p-2 ${viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-500'}`}
+                    title="Grid View"
                 >
                   <Grid className="w-4 h-4" />
                     </button>
                     <button 
                   onClick={() => setViewMode('list')}
                   className={`p-2 ${viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-500'}`}
+                    title="List View"
                     >
                   <List className="w-4 h-4" />
                     </button>
@@ -673,7 +1103,177 @@ const DocumentManagementPanel: React.FC = () => {
               Upload Documents
               </button>
             </div>
+        ) : viewMode === 'student' ? (
+          // Professional Student-Based Document View
+          <div className="p-6">
+            {documentGroups.length === 0 ? (
+              <div className="text-center py-12">
+                <FolderOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No student documents found</h3>
+            <p className="text-gray-600 mb-4">
+              Upload documents for students to see them organized by student name
+            </p>
+            <button
+              onClick={() => openUploadModal()}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+              >
+              Upload Documents
+              </button>
+            </div>
         ) : (
+              <div className="space-y-6">
+                {documentGroups.map((group) => {
+                  const isExpanded = expandedStudents.has(group.studentId);
+                  
+                  return (
+                    <div key={group.studentId} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                      {/* Student Header */}
+                      <div 
+                        className="p-6 border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
+                        onClick={() => toggleStudentExpansion(group.studentId)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                              <User className="w-6 h-6 text-blue-600" />
+                            </div>
+                            <div>
+                              <h3 className="text-lg font-semibold text-gray-900">{group.studentName}</h3>
+                              <p className="text-sm text-gray-600">{group.studentEmail}</p>
+                              <div className="flex items-center gap-4 mt-1">
+                                <span className="text-xs text-gray-500">
+                                  {group.documents.length} documents
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {formatFileSize(group.totalSize)}
+                                </span>
+                                {group.lastUploaded && (
+                                  <span className="text-xs text-gray-500">
+                                    Last updated: {group.lastUploaded.toLocaleDateString()}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-4">
+                            {/* Category Stats */}
+                            <div className="flex items-center gap-2">
+                              {Object.entries(group.categories).map(([category, count]) => {
+                                const categoryInfo = getCategoryInfo(category);
+                                return (
+                                  <span
+                                    key={category}
+                                    className={`px-2 py-1 rounded-full text-xs font-medium ${categoryInfo.color}`}
+                                  >
+                                    {categoryInfo.icon} {count}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                            
+                            {/* Expand/Collapse Button */}
+                            <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                              {isExpanded ? (
+                                <ChevronDown className="w-5 h-5 text-gray-500" />
+                              ) : (
+                                <ChevronRight className="w-5 h-5 text-gray-500" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Documents List */}
+                      {isExpanded && (
+                        <div className="p-6 bg-gray-50">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {group.documents.map((doc) => {
+                              const categoryInfo = getCategoryInfo(doc.category);
+                              const docStatus = getDocumentStatus(doc);
+                              const StatusIcon = docStatus.icon;
+                              
+                              return (
+                                <div
+                                  key={doc.id}
+                                  className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow"
+                                >
+                                  <div className="flex items-start gap-3">
+                                    <div className="flex-shrink-0">
+                                      {getFileIcon(doc.mimeType)}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <h4 className="font-medium text-gray-900 truncate">{doc.originalName}</h4>
+                                        <StatusIcon className={`w-4 h-4 ${docStatus.color}`} />
+                                      </div>
+                                      
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${categoryInfo.color}`}>
+                                          {categoryInfo.icon} {categoryInfo.label}
+                                        </span>
+                                        <span className="text-xs text-gray-500">
+                                          {formatFileSize(doc.fileSize)}
+                                        </span>
+                                      </div>
+                                      
+                                      <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
+                                        <Clock className="w-3 h-3" />
+                                        <span>{doc.uploadedAt.toLocaleDateString()}</span>
+                                        {doc.isPublic && (
+                                          <Shield className="w-3 h-3 text-green-500" />
+                                        )}
+                                      </div>
+                                      
+                                      {doc.description && (
+                                        <p className="text-sm text-gray-600 mb-3 line-clamp-2">{doc.description}</p>
+                                      )}
+                                      
+                                      <div className="flex items-center gap-1">
+                                        <button
+                                          onClick={() => window.open(doc.downloadUrl, '_blank')}
+                                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                          title="Download"
+                                        >
+                                          <Download className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                          onClick={() => window.open(doc.downloadUrl, '_blank')}
+                                          className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+                                          title="View"
+                                        >
+                                          <Eye className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteDocument(doc.id, doc.storagePath)}
+                                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                          title="Delete"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded transition-colors"
+                                          title="More options"
+                                        >
+                                          <MoreVertical className="w-4 h-4" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : (
+          // Original Grid/List View
           <div className={viewMode === 'grid' ? 'p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'divide-y divide-gray-200'}>
             {sortedDocuments.map((doc) => {
               const categoryInfo = getCategoryInfo(doc.category);
@@ -739,12 +1339,38 @@ const DocumentManagementPanel: React.FC = () => {
           </div>
         )}
               </div>
+      )}
 
       {/* Upload Modal */}
       {showUploadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-semibold mb-4">Upload Student Documents</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">
+                {uploadModalStudent ? `Upload Documents for ${uploadModalStudent.name}` : 'Upload Student Documents'}
+              </h2>
+              <button
+                onClick={closeUploadModal}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            
+            {uploadModalStudent && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                    <User className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-blue-900">{uploadModalStudent.name}</h3>
+                    <p className="text-sm text-blue-700">{uploadModalStudent.email}</p>
+                    <p className="text-xs text-blue-600">{uploadModalStudent.rollNumber || uploadModalStudent.id}</p>
+                  </div>
+                </div>
+              </div>
+            )}
             <form onSubmit={handleFileUpload}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
@@ -787,7 +1413,7 @@ const DocumentManagementPanel: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Year</label>
                     <select
                       value={uploadForm.year}
-                      onChange={(e) => setUploadForm(prev => ({ ...prev, year: e.target.value }))}
+                      onChange={(e) => handleUploadFormYearChange(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                     >
@@ -804,7 +1430,7 @@ const DocumentManagementPanel: React.FC = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                     >
-                      {semesters.map(sem => (
+                      {getSemestersForYear(uploadForm.year).map(sem => (
                       <option key={sem} value={sem}>Semester {sem}</option>
                       ))}
                     </select>
@@ -835,6 +1461,11 @@ const DocumentManagementPanel: React.FC = () => {
                 </div>
                   <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Student</label>
+                  {uploadModalStudent ? (
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                      {uploadModalStudent.name} ({uploadModalStudent.rollNumber || uploadModalStudent.id})
+                    </div>
+                  ) : (
                   <select
                       value={uploadForm.studentId}
                     onChange={(e) => {
@@ -849,10 +1480,11 @@ const DocumentManagementPanel: React.FC = () => {
                     <option value="">Select Student</option>
                     {students.map(student => (
                       <option key={student.id} value={student.id}>
-                        {student.name} ({student.studentId || student.rollNumber})
+                          {student.name} ({student.rollNumber || student.id})
                       </option>
                     ))}
                   </select>
+                  )}
                   </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
@@ -889,7 +1521,7 @@ const DocumentManagementPanel: React.FC = () => {
               <div className="flex justify-end gap-3">
                   <button
                     type="button"
-                  onClick={() => setShowUploadModal(false)}
+                  onClick={closeUploadModal}
                   className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                   >
                     Cancel

@@ -9,26 +9,32 @@ service firebase.storage {
       return request.resource.size < 20 * 1024 * 1024;
     }
     
-    // New path structure: /batch/{batch}/{dept}/year/{year}/sems/{sem}/divs/{div}/students/{studentId}/{fileName}
-    match /batch/{batch}/{dept}/year/{year}/sems/{sem}/divs/{div}/students/{studentId}/{fileName} {
+    // Allow all authenticated users to read and write to documents
+    match /documents/{allPaths=**} {
+      allow read: if isSignedIn();
       allow write: if isSignedIn() && validFile();
-      allow read: if true;
+    }
+    
+    // Legacy batch path structure for backward compatibility
+    match /batch/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && validFile();
     }
     
     // Legacy paths for backward compatibility
     match /student-documents/{allPaths=**} {
+      allow read: if isSignedIn();
       allow write: if isSignedIn() && validFile();
-      allow read: if true;
     }
     
     match /course-documents/{allPaths=**} {
+      allow read: if isSignedIn();
       allow write: if isSignedIn() && validFile();
-      allow read: if true;
     }
     
     match /public/{allPaths=**} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if isSignedIn() && validFile();
     }
   }
 }
