@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { departmentService } from '../../firebase/firestore';
 import { Department, User } from '../../types';
+import { injectDummyData, USE_DUMMY_DATA, getDummyData } from '../../utils/dummyData';
 
 const DepartmentManagement: React.FC = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -56,24 +57,45 @@ const DepartmentManagement: React.FC = () => {
       setLoading(true);
       
       // Load departments and teachers in parallel
-      const [departmentsData, teachersData] = await Promise.all([
+      let [departmentsData, teachersData] = await Promise.all([
         departmentService.getAllDepartments(),
         departmentService.getAvailableTeachersForHOD()
       ]);
+      
+      // Inject dummy data if enabled and real data is empty
+      if (USE_DUMMY_DATA) {
+        if (departmentsData.length === 0) {
+          departmentsData = getDummyData().departments();
+        } else {
+          departmentsData = injectDummyData.departments(departmentsData);
+        }
+        if (teachersData.length === 0) {
+          teachersData = getDummyData().teachers();
+        } else {
+          teachersData = injectDummyData.teachers(teachersData);
+        }
+      }
       
       setDepartments(departmentsData);
       setTeachers(teachersData);
       setFilteredTeachers(teachersData); // Initially show all teachers
       
       // Initialize default departments if none exist
-      if (departmentsData.length === 0) {
+      if (departmentsData.length === 0 && !USE_DUMMY_DATA) {
         await departmentService.initializeDefaultDepartments();
         const newDepartments = await departmentService.getAllDepartments();
         setDepartments(newDepartments);
       }
     } catch (error) {
       console.error('Error loading data:', error);
-      alert('Error loading data. Please try again.');
+      // Use dummy data on error
+      if (USE_DUMMY_DATA) {
+        setDepartments(getDummyData().departments());
+        setTeachers(getDummyData().teachers());
+        setFilteredTeachers(getDummyData().teachers());
+      } else {
+        alert('Error loading data. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

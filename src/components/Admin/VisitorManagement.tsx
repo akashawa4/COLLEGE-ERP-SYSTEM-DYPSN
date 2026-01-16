@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { visitorService } from '../../firebase/firestore';
 import { VisitorProfile } from '../../types';
+import { USE_DUMMY_DATA } from '../../utils/dummyData';
 
 const VisitorManagement: React.FC = () => {
   const [visitors, setVisitors] = useState<VisitorProfile[]>([]);
@@ -34,11 +35,87 @@ const VisitorManagement: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const visitorsData = await visitorService.getAllVisitors();
+      let visitorsData = await visitorService.getAllVisitors();
+      
+      // Add demo visitors if enabled and real data is empty
+      if (USE_DUMMY_DATA && visitorsData.length === 0) {
+        visitorsData = [
+          {
+            id: 'visitor_1',
+            deviceId: 'DEV001',
+            name: 'Rajesh Patel',
+            phone: '+91 98765 43210',
+            purpose: 'Admissions',
+            lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+            createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+          },
+          {
+            id: 'visitor_2',
+            deviceId: 'DEV002',
+            name: 'Priya Desai',
+            phone: '+91 98765 43211',
+            purpose: 'General Visit',
+            lastLogin: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
+            createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+          },
+          {
+            id: 'visitor_3',
+            deviceId: 'DEV003',
+            name: 'Amit Kumar',
+            phone: '+91 98765 43212',
+            purpose: 'Event',
+            lastLogin: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+            createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
+          },
+          {
+            id: 'visitor_4',
+            deviceId: 'DEV004',
+            name: 'Sneha Sharma',
+            phone: '+91 98765 43213',
+            purpose: 'Library',
+            lastLogin: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+            createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+          },
+          {
+            id: 'visitor_5',
+            deviceId: 'DEV005',
+            name: 'Vikram Singh',
+            phone: '+91 98765 43214',
+            purpose: 'Other',
+            lastLogin: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+            createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString()
+          }
+        ];
+      }
+      
       setVisitors(visitorsData);
     } catch (error) {
       console.error('Error loading visitors:', error);
-      setError('Failed to load visitors. Please try again.');
+      if (USE_DUMMY_DATA) {
+        // Use demo data on error
+        setVisitors([
+          {
+            id: 'visitor_1',
+            deviceId: 'DEV001',
+            name: 'Rajesh Patel',
+            phone: '+91 98765 43210',
+            purpose: 'Admissions',
+            lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+            createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+          },
+          {
+            id: 'visitor_2',
+            deviceId: 'DEV002',
+            name: 'Priya Desai',
+            phone: '+91 98765 43211',
+            purpose: 'General Visit',
+            lastLogin: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
+            createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+          }
+        ]);
+      } else {
+        setError('Failed to load visitors. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

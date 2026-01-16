@@ -76,12 +76,12 @@ const Header: React.FC<HeaderProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowProfileMenu(!showProfileMenu)}
-              className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded-xl transition-colors active:scale-95"
+              className="flex items-center space-x-1.5 p-1.5 hover:bg-gray-100 rounded-xl transition-colors active:scale-95"
             >
-              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold text-sm border-2 border-gray-200">
+              <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold text-xs border-2 border-gray-200 flex-shrink-0">
                 {user?.name?.charAt(0)?.toUpperCase() || 'U'}
               </div>
-              <span className="hidden md:block text-sm font-medium text-gray-700">{user?.name}</span>
+              <span className="hidden lg:block text-xs font-medium text-gray-700 max-w-[120px] truncate">{user?.name}</span>
             </button>
 
             {/* Profile Dropdown */}

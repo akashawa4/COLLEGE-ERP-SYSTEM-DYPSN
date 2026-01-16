@@ -615,20 +615,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onPageChange }) => {
           {/* Quick Actions for HOD and Teachers */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4">
               <button
                 onClick={() => onPageChange?.('take-attendance')}
                 className="flex flex-col items-center p-4 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors active:scale-95 border border-blue-100"
               >
                 <CheckCircle className="w-8 h-8 text-blue-600 mb-2" />
                 <span className="text-blue-700 font-medium text-sm text-center">Take Attendance</span>
-              </button>
-              <button
-                onClick={() => onPageChange?.('apply-leave')}
-                className="flex flex-col items-center p-4 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors active:scale-95 border border-indigo-100"
-              >
-                <Plus className="w-8 h-8 text-indigo-600 mb-2" />
-                <span className="text-indigo-700 font-medium text-sm text-center">Apply for Leave</span>
               </button>
               <button
                 onClick={() => onPageChange?.('leave-approval')}
@@ -643,13 +636,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onPageChange }) => {
               >
                 <Users className="w-8 h-8 text-green-600 mb-2" />
                 <span className="text-green-700 font-medium text-sm text-center">Manage Students</span>
-              </button>
-              <button
-                onClick={() => onPageChange?.('notifications')}
-                className="flex flex-col items-center p-4 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors active:scale-95 border border-purple-100"
-              >
-                <Bell className="w-8 h-8 text-purple-600 mb-2" />
-                <span className="text-purple-700 font-medium text-sm text-center">Notifications</span>
               </button>
             </div>
           </div>
@@ -690,40 +676,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onPageChange }) => {
       )}
 
       {/* Admin Section - Only show for HOD users */}
-      {user?.role === 'hod' ? (
+      {user?.role === 'hod' && (
         <>
           <div className="grid grid-cols-1 gap-6">
             <RecentActivity />
           </div>
         </>
-      ) : (
-        /* Student Quick Actions */
-        <div className="bg-white rounded-2xl shadow-mobile border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <button
-              onClick={() => onPageChange?.('apply-leave')}
-              className="flex flex-col items-center p-4 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors active:scale-95 border border-blue-100"
-            >
-              <Plus className="w-8 h-8 text-blue-600 mb-2" />
-              <span className="text-blue-700 font-medium text-sm text-center">Apply for Leave</span>
-            </button>
-            <button
-              onClick={() => onPageChange?.('my-attendance')}
-              className="flex flex-col items-center p-4 bg-green-50 hover:bg-green-100 rounded-xl transition-colors active:scale-95 border border-green-100"
-            >
-              <Eye className="w-8 h-8 text-green-600 mb-2" />
-              <span className="text-blue-700 font-medium text-sm text-center">View Attendance</span>
-            </button>
-            <button
-              onClick={() => onPageChange?.('notifications')}
-              className="flex flex-col items-center p-4 bg-amber-50 hover:bg-amber-100 rounded-xl transition-colors active:scale-95 border border-amber-100"
-            >
-              <Bell className="w-8 h-8 text-amber-600 mb-2" />
-              <span className="text-blue-700 font-medium text-sm text-center">Check Notifications</span>
-            </button>
-          </div>
-        </div>
       )}
 
       {/* Recent Activity for Students */}

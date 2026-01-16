@@ -17,6 +17,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { userService, leaveService, attendanceService, notificationService, eventService, clubService } from '../../firebase/firestore';
+import { injectDummyData, USE_DUMMY_DATA, getDummyData } from '../../utils/dummyData';
 
 const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState({
@@ -42,7 +43,7 @@ const AdminDashboard: React.FC = () => {
       }
 
       // Load all data in parallel for better performance
-      const [
+      let [
         allUsers,
         allLeaveRequests,
         todayAttendance,
@@ -53,6 +54,19 @@ const AdminDashboard: React.FC = () => {
         attendanceService.getTodayAttendance().catch(() => []),
         notificationService.getAllNotifications().catch(() => [])
       ]);
+
+      // Inject dummy data if enabled and real data is empty
+      if (USE_DUMMY_DATA) {
+        const dummyStudents = injectDummyData.students([]);
+        const dummyTeachers = injectDummyData.teachers([]);
+        const dummyAdmins = injectDummyData.admins([]);
+        allUsers = injectDummyData.students(allUsers).length === 0 
+          ? [...dummyStudents, ...dummyTeachers, ...dummyAdmins]
+          : allUsers;
+        allLeaveRequests = injectDummyData.leaveRequests(allLeaveRequests);
+        todayAttendance = injectDummyData.attendanceLogs(todayAttendance);
+        allNotifications = injectDummyData.notifications(allNotifications);
+      }
 
       // Filter users by role
       const students = allUsers.filter(user => user.role === 'student');
@@ -73,17 +87,70 @@ const AdminDashboard: React.FC = () => {
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, 5);
 
-      // Convert notifications to system alerts
-      const systemAlerts = recentNotifications.map(notif => ({
-        id: notif.id,
-        type: notif.category === 'urgent' ? 'warning' : notif.category === 'success' ? 'success' : 'info',
-        title: notif.title,
-        message: notif.message,
-        timestamp: formatTimeAgo(new Date(notif.createdAt)),
-        priority: notif.category === 'urgent' ? 'high' : notif.category === 'success' ? 'low' : 'medium'
-      }));
+      // Convert notifications to system alerts or use demo alerts
+      const demoAlerts = [
+        {
+          id: 1,
+          type: 'warning' as const,
+          title: 'Low Attendance Alert',
+          message: '15 students have attendance below 75%',
+          timestamp: '2 hours ago',
+          priority: 'high' as const
+        },
+        {
+          id: 2,
+          type: 'info' as const,
+          title: 'New Leave Requests',
+          message: `${pendingLeaves.length > 0 ? pendingLeaves.length : 8} new leave requests pending approval`,
+          timestamp: '4 hours ago',
+          priority: 'medium' as const
+        },
+        {
+          id: 3,
+          type: 'success' as const,
+          title: 'System Update',
+          message: 'Database backup completed successfully',
+          timestamp: '6 hours ago',
+          priority: 'low' as const
+        },
+        {
+          id: 4,
+          type: 'info' as const,
+          title: 'New Student Registrations',
+          message: '12 new students registered this week',
+          timestamp: '1 day ago',
+          priority: 'medium' as const
+        },
+        {
+          id: 5,
+          type: 'warning' as const,
+          title: 'Pending Fee Payments',
+          message: '23 students have pending fee payments',
+          timestamp: '2 days ago',
+          priority: 'high' as const
+        }
+      ];
 
-      // Generate recent activities from multiple sources
+      const systemAlerts = recentNotifications.length > 0
+        ? recentNotifications.map(notif => ({
+            id: notif.id,
+            type: (notif.category === 'urgent' ? 'warning' : notif.category === 'success' ? 'success' : 'info') as const,
+            title: notif.title,
+            message: notif.message,
+            timestamp: formatTimeAgo(new Date(notif.createdAt)),
+            priority: (notif.category === 'urgent' ? 'high' : notif.category === 'success' ? 'low' : 'medium') as const
+          }))
+        : demoAlerts;
+
+      // Generate recent activities from multiple sources or use demo data
+      const demoActivities = [
+        { id: 1, action: 'New student registered', user: 'Rajesh Kumar', timestamp: '10 minutes ago', type: 'student' },
+        { id: 2, action: 'Leave request approved', user: 'Dr. Anjali Verma', timestamp: '1 hour ago', type: 'leave' },
+        { id: 3, action: 'Teacher profile updated', user: 'Prof. Ramesh Iyer', timestamp: '2 hours ago', type: 'teacher' },
+        { id: 4, action: 'Department created', user: 'Admin', timestamp: '3 hours ago', type: 'admin' },
+        { id: 5, action: 'Attendance marked', user: 'System', timestamp: '4 hours ago', type: 'attendance' }
+      ];
+
       const activities = [
         // Recent leave requests
         ...allLeaveRequests.slice(0, 3).map(leave => ({
@@ -115,6 +182,8 @@ const AdminDashboard: React.FC = () => {
           }))
       ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 5);
 
+      const finalActivities = activities.length > 0 ? activities : demoActivities;
+
       // Update stats with real Firebase data
       setStats({
         totalStudents: students.length,
@@ -125,7 +194,7 @@ const AdminDashboard: React.FC = () => {
       });
 
       setAlerts(systemAlerts);
-      setRecentActivities(activities);
+      setRecentActivities(finalActivities);
 
     } catch (error) {
       console.error('Error loading admin dashboard data:', error);
@@ -418,32 +487,6 @@ const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Quick Actions</h2>
-        </div>
-        <div className="p-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <button className="flex flex-col items-center p-4 text-center hover:bg-gray-50 rounded-lg transition-colors">
-              <UserPlus className="w-8 h-8 text-blue-600 mb-2" />
-              <span className="text-sm font-medium text-gray-900">Add User</span>
-            </button>
-            <button className="flex flex-col items-center p-4 text-center hover:bg-gray-50 rounded-lg transition-colors">
-              <Building2 className="w-8 h-8 text-green-600 mb-2" />
-              <span className="text-sm font-medium text-gray-900">Manage Departments</span>
-            </button>
-            <button className="flex flex-col items-center p-4 text-center hover:bg-gray-50 rounded-lg transition-colors">
-              <Settings className="w-8 h-8 text-purple-600 mb-2" />
-              <span className="text-sm font-medium text-gray-900">Institution Settings</span>
-            </button>
-            <button className="flex flex-col items-center p-4 text-center hover:bg-gray-50 rounded-lg transition-colors">
-              <CreditCard className="w-8 h-8 text-red-600 mb-2" />
-              <span className="text-sm font-medium text-gray-900">Financial Admin</span>
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

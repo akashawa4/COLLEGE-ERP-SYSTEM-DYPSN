@@ -23,6 +23,7 @@ import { userService } from "../../firebase/firestore";
 import { User } from "../../types";
 import { auth } from "../../firebase/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
+import { injectDummyData, USE_DUMMY_DATA, getDummyData } from "../../utils/dummyData";
 
 const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -68,12 +69,27 @@ const UserManagement: React.FC = () => {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const usersData = await userService.getAllUsers();
+      let usersData = await userService.getAllUsers();
+      // Inject dummy data if enabled and real data is empty
+      if (USE_DUMMY_DATA && usersData.length === 0) {
+        usersData = [...getDummyData().teachers(), ...getDummyData().admins()];
+      } else {
+        usersData = injectDummyData.teachers(usersData.filter(u => u.role === 'teacher'));
+        const admins = injectDummyData.admins(usersData.filter(u => u.role === 'admin'));
+        usersData = [...usersData.filter(u => u.role !== 'teacher' && u.role !== 'admin'), ...usersData.filter(u => u.role === 'teacher'), ...admins];
+      }
       setUsers(usersData);
       setFilteredUsers(usersData);
     } catch (error) {
       console.error('Error loading users:', error);
-      alert('Error loading users. Please try again.');
+      // Use dummy data on error
+      if (USE_DUMMY_DATA) {
+        const dummyData = [...getDummyData().teachers(), ...getDummyData().admins()];
+        setUsers(dummyData);
+        setFilteredUsers(dummyData);
+      } else {
+        alert('Error loading users. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

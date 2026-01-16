@@ -333,13 +333,6 @@ const DriverDashboard: React.FC<{ user: any; onPageChange: (page: string) => voi
                 <Bus className="w-4 h-4 mr-2" />
                 View All Buses
               </button>
-              <button
-                onClick={() => onPageChange('my-attendance')}
-                className="w-full flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                <Calendar className="w-4 h-4 mr-2" />
-                My Attendance
-              </button>
               {assignedBus && (
                 <button
                   onClick={isLocationSharing ? handleStopLocationSharing : handleStartLocationSharing}

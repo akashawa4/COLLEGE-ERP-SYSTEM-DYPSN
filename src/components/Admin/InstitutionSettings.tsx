@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { institutionService } from '../../firebase/firestore';
 import { AcademicYear, FeeStructureItem, InstitutionInfo } from '../../types';
+import { USE_DUMMY_DATA } from '../../utils/dummyData';
 
 // Indian Reservation Categories
 const INDIAN_CATEGORIES = [
@@ -160,22 +161,97 @@ const InstitutionSettings: React.FC = () => {
         institutionService.getInstitutionInfo()
       ]);
       
-      setAcademicYears(yearsData);
-      setInstitutionInfo(infoData);
-      
-      // Find active academic year
-      const activeYear = yearsData.find(year => year.isActive);
-      setActiveAcademicYear(activeYear || null);
-      
-      // Load fee items for active academic year
-      let feesData: FeeStructureItem[] = [];
-      if (activeYear) {
-        feesData = await institutionService.getFeeItemsByAcademicYear(activeYear.id);
+      // Add demo data if enabled and real data is empty
+      let finalYearsData = yearsData;
+      if (USE_DUMMY_DATA && yearsData.length === 0) {
+        finalYearsData = [
+          {
+            id: 'year_1',
+            name: '2024-2025',
+            startDate: '2024-06-01',
+            endDate: '2025-05-31',
+            isActive: true
+          },
+          {
+            id: 'year_2',
+            name: '2023-2024',
+            startDate: '2023-06-01',
+            endDate: '2024-05-31',
+            isActive: false
+          },
+          {
+            id: 'year_3',
+            name: '2025-2026',
+            startDate: '2025-06-01',
+            endDate: '2026-05-31',
+            isActive: false
+          }
+        ];
       }
-      setFeeItems(feesData);
+
+      let finalFeeItems: FeeStructureItem[] = [];
+      const activeYear = finalYearsData.find(year => year.isActive);
       
-      // Initialize default data if none exists
-      if (yearsData.length === 0) {
+      if (activeYear) {
+        if (USE_DUMMY_DATA) {
+          finalFeeItems = [
+            {
+              id: 'fee_1',
+              name: 'Tuition Fee - Computer Science',
+              category: 'Tuition Fee',
+              reservationCategory: 'Open',
+              department: 'Computer Science Engineering',
+              amount: 50000,
+              description: 'Annual tuition fee for Computer Science Engineering',
+              isActive: true,
+              academicYearId: activeYear.id
+            },
+            {
+              id: 'fee_2',
+              name: 'Tuition Fee - IT',
+              category: 'Tuition Fee',
+              reservationCategory: 'Open',
+              department: 'Information Technology',
+              amount: 48000,
+              description: 'Annual tuition fee for Information Technology',
+              isActive: true,
+              academicYearId: activeYear.id
+            },
+            {
+              id: 'fee_3',
+              name: 'Library Fee',
+              category: 'Library Fee',
+              reservationCategory: 'Open',
+              department: 'All Departments',
+              amount: 2000,
+              description: 'Annual library membership fee',
+              isActive: true,
+              academicYearId: activeYear.id
+            },
+            {
+              id: 'fee_4',
+              name: 'Examination Fee',
+              category: 'Examination Fee',
+              reservationCategory: 'Open',
+              department: 'All Departments',
+              amount: 3000,
+              description: 'Semester examination fee',
+              isActive: true,
+              academicYearId: activeYear.id
+            }
+          ];
+        } else {
+          finalFeeItems = await institutionService.getFeeItemsByAcademicYear(activeYear.id);
+        }
+      }
+      
+      setAcademicYears(finalYearsData);
+      setInstitutionInfo(infoData);
+      setActiveAcademicYear(activeYear || null);
+      setFeeItems(finalFeeItems);
+      
+      // Initialize default data if none exists and dummy data is disabled
+      if (finalYearsData.length === 0 && !USE_DUMMY_DATA) {
         await institutionService.initializeDefaultData();
         // Reload data after initialization
         const newYearsData = await institutionService.getAllAcademicYears();

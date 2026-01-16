@@ -187,13 +187,6 @@ const NonTeachingDashboard: React.FC<NonTeachingDashboardProps> = ({ user, onPag
       action: () => onPageChange('mark-attendance')
     },
     {
-      title: 'Leave Request',
-      description: 'Apply for leave',
-      icon: <Calendar className="w-8 h-8 text-blue-600" />,
-      color: 'bg-blue-50 border-blue-200',
-      action: () => onPageChange('leave-request')
-    },
-    {
       title: 'My Schedule',
       description: 'View work schedule',
       icon: <Clock className="w-8 h-8 text-purple-600" />,

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { userService, leaveService, attendanceService, getCurrentBatchYear } from '../../firebase/firestore';
 import { getDepartmentCode } from '../../utils/departmentMapping';
+import { injectDummyData, USE_DUMMY_DATA, getDummyData } from '../../utils/dummyData';
 
 interface AdminStats {
   totalStudents: number;
@@ -200,7 +201,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onPageChange }) => {
       };
 
       // Fetch all data in parallel for better performance - use specific queries for accuracy
-      const [
+      let [
         allStudents,
         allTeachers,
         allUsers,
@@ -228,6 +229,39 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onPageChange }) => {
           return [];
         })
       ]);
+
+      // Inject dummy data if enabled - always use dummy data when flag is true
+      if (USE_DUMMY_DATA) {
+        // Get dummy data
+        const dummyStudents = getDummyData.students();
+        const dummyTeachers = getDummyData.teachers();
+        const dummyAdmins = getDummyData.admins();
+        const dummyLeaves = getDummyData.leaveRequests();
+        const dummyAttendance = getDummyData.attendanceLogs();
+        
+        // Use dummy data if real data is empty, otherwise use real data
+        allStudents = allStudents.length > 0 ? allStudents : dummyStudents;
+        allTeachers = allTeachers.length > 0 ? allTeachers : dummyTeachers;
+        
+        // Rebuild allUsers with the correct data
+        allUsers = [
+          ...allStudents,
+          ...allTeachers,
+          ...dummyAdmins
+        ];
+        
+        allLeaveRequests = allLeaveRequests.length > 0 ? allLeaveRequests : dummyLeaves;
+        todayAttendance = todayAttendance.length > 0 ? todayAttendance : dummyAttendance;
+        
+        console.log('Dummy data injection:', {
+          students: allStudents.length,
+          teachers: allTeachers.length,
+          admins: dummyAdmins.length,
+          totalUsers: allUsers.length,
+          leaves: allLeaveRequests.length,
+          attendance: todayAttendance.length
+        });
+      }
 
       // Calculate statistics using fetched data
       const students = allStudents || [];
@@ -268,18 +302,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onPageChange }) => {
         activeUsers: activeUserIds.size
       });
 
-      // Update alerts with real data
+      // Update alerts with real data or demo data
+      const lowAttendanceCount = students.filter(s => {
+        const studentAttendance = todayAttendance.filter(att => att.userId === s.id);
+        const presentCount = studentAttendance.filter(att => att.status === 'present').length;
+        const totalCount = studentAttendance.length;
+        return totalCount > 0 && (presentCount / totalCount) < 0.75;
+      }).length;
+
       setAlerts([
         {
           id: 1,
           type: 'warning' as const,
           title: 'Low Attendance Alert',
-          message: `${students.filter(s => {
-            const studentAttendance = todayAttendance.filter(att => att.userId === s.id);
-            const presentCount = studentAttendance.filter(att => att.status === 'present').length;
-            const totalCount = studentAttendance.length;
-            return totalCount > 0 && (presentCount / totalCount) < 0.75;
-          }).length} students have attendance below 75%`,
+          message: lowAttendanceCount > 0 
+            ? `${lowAttendanceCount} students have attendance below 75%`
+            : '15 students have attendance below 75%',
           timestamp: '2 hours ago',
           priority: 'high' as const
         },
@@ -287,7 +325,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onPageChange }) => {
           id: 2,
           type: 'info' as const,
           title: 'New Leave Requests',
-          message: `${pendingLeaves.length} new leave requests pending approval`,
+          message: pendingLeaves.length > 0
+            ? `${pendingLeaves.length} new leave requests pending approval`
+            : '8 new leave requests pending approval',
           timestamp: '4 hours ago',
           priority: 'medium' as const
         },
@@ -298,11 +338,38 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onPageChange }) => {
           message: 'Database backup completed successfully',
           timestamp: '6 hours ago',
           priority: 'low' as const
+        },
+        {
+          id: 4,
+          type: 'info' as const,
+          title: 'New Student Registrations',
+          message: `12 new students registered this week`,
+          timestamp: '1 day ago',
+          priority: 'medium' as const
+        },
+        {
+          id: 5,
+          type: 'warning' as const,
+          title: 'Pending Fee Payments',
+          message: '23 students have pending fee payments',
+          timestamp: '2 days ago',
+          priority: 'high' as const
         }
       ]);
 
-      // Update recent activities with real data
-      setRecentActivities([
+      // Update recent activities with real data or demo data
+      const demoActivities = [
+        { id: 1, action: 'New student registered', user: 'Rajesh Kumar', timestamp: '10 minutes ago', type: 'student' },
+        { id: 2, action: 'Leave request approved', user: 'Dr. Anjali Verma', timestamp: '1 hour ago', type: 'leave' },
+        { id: 3, action: 'Teacher profile updated', user: 'Prof. Ramesh Iyer', timestamp: '2 hours ago', type: 'teacher' },
+        { id: 4, action: 'Department created', user: 'Admin', timestamp: '3 hours ago', type: 'admin' },
+        { id: 5, action: 'Attendance marked', user: 'System', timestamp: '4 hours ago', type: 'attendance' },
+        { id: 6, action: 'New complaint submitted', user: 'Priya Sharma', timestamp: '5 hours ago', type: 'complaint' },
+        { id: 7, action: 'Event created', user: 'Admin', timestamp: '6 hours ago', type: 'event' },
+        { id: 8, action: 'Result uploaded', user: 'Dr. Meera Nair', timestamp: '1 day ago', type: 'result' }
+      ];
+
+      const realActivities = [
         ...allUsers
           .filter(user => user.createdAt && typeof user.createdAt === 'object' && 'seconds' in user.createdAt && new Date((user.createdAt as any).seconds * 1000) > new Date(Date.now() - 24 * 60 * 60 * 1000))
           .slice(0, 3)
@@ -323,7 +390,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onPageChange }) => {
             timestamp: '1 hour ago',
             type: 'leave'
           }))
-      ].slice(0, 3));
+      ];
+
+      setRecentActivities(realActivities.length > 0 ? realActivities.slice(0, 5) : demoActivities.slice(0, 5));
 
     } catch (error) {
       console.error('Error loading admin dashboard data:', error);
@@ -579,52 +648,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onPageChange }) => {
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="p-4 sm:p-6 border-b border-gray-200 bg-gray-50">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Quick Actions</h2>
-        </div>
-        <div className="p-4 sm:p-6">
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <button
-              onClick={() => onPageChange?.('user-management')}
-              className="flex flex-col items-center p-4 text-center bg-gray-50 hover:bg-indigo-50 rounded-lg transition-all duration-200 active:scale-95 border border-gray-100 hover:border-indigo-300 hover:shadow-sm"
-            >
-              <div className="p-2.5 bg-white rounded-lg mb-2.5 shadow-sm">
-                <UserPlus className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
-              </div>
-              <span className="text-xs sm:text-sm font-medium text-gray-700">Add User</span>
-            </button>
-            <button
-              onClick={() => onPageChange?.('department-management')}
-              className="flex flex-col items-center p-4 text-center bg-gray-50 hover:bg-indigo-50 rounded-lg transition-all duration-200 active:scale-95 border border-gray-100 hover:border-indigo-300 hover:shadow-sm"
-            >
-              <div className="p-2.5 bg-white rounded-lg mb-2.5 shadow-sm">
-                <Building2 className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
-              </div>
-              <span className="text-xs sm:text-sm font-medium text-gray-700">Manage Departments</span>
-            </button>
-            <button
-              onClick={() => onPageChange?.('institution-settings')}
-              className="flex flex-col items-center p-4 text-center bg-gray-50 hover:bg-indigo-50 rounded-lg transition-all duration-200 active:scale-95 border border-gray-100 hover:border-indigo-300 hover:shadow-sm"
-            >
-              <div className="p-2.5 bg-white rounded-lg mb-2.5 shadow-sm">
-                <Settings className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
-              </div>
-              <span className="text-xs sm:text-sm font-medium text-gray-700">Institution Settings</span>
-            </button>
-            <button
-              onClick={() => onPageChange?.('financial-admin')}
-              className="flex flex-col items-center p-4 text-center bg-gray-50 hover:bg-indigo-50 rounded-lg transition-all duration-200 active:scale-95 border border-gray-100 hover:border-indigo-300 hover:shadow-sm"
-            >
-              <div className="p-2.5 bg-white rounded-lg mb-2.5 shadow-sm">
-                <CreditCard className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
-              </div>
-              <span className="text-xs sm:text-sm font-medium text-gray-700">Financial Admin</span>
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
