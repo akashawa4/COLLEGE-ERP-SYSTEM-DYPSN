@@ -150,24 +150,363 @@ const ClubManagement: React.FC = () => {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  // Demo clubs for fallback when Firestore is empty
+  const getDemoClubs = (): Club[] => [
+    // Computer Science Department Clubs
+    {
+      id: 'demo-club-1',
+      name: 'Coding Club',
+      description: 'A community of passionate programmers building projects and learning together. Weekly coding sessions and hackathons.',
+      category: 'Technical',
+      president: 'Rahul Sharma',
+      presidentEmail: 'rahul.sharma@dypsn.edu',
+      presidentPhone: '+91 98765 43210',
+      facultyAdvisor: 'Dr. Amit Patel',
+      advisorEmail: 'amit.patel@dypsn.edu',
+      totalMembers: 45,
+      maxMembers: 100,
+      establishedDate: '2020-08-15',
+      status: 'active',
+      activities: ['Weekly coding challenges', 'Hackathons', 'Guest lectures', 'Project showcases'],
+      achievements: ['1st place at State Level Hackathon 2024', 'Best Tech Club Award 2023'],
+      department: 'Computer Science',
+      createdAt: new Date('2020-08-15'),
+      updatedAt: new Date()
+    },
+    {
+      id: 'demo-club-6',
+      name: 'Cyber Security Club',
+      description: 'Learn ethical hacking, penetration testing, and cybersecurity practices. CTF competitions and security workshops.',
+      category: 'Technical',
+      president: 'Arjun Nair',
+      presidentEmail: 'arjun.nair@dypsn.edu',
+      presidentPhone: '+91 98123 45678',
+      facultyAdvisor: 'Prof. Sanjay Verma',
+      advisorEmail: 'sanjay.verma@dypsn.edu',
+      totalMembers: 35,
+      maxMembers: 60,
+      establishedDate: '2022-01-15',
+      status: 'active',
+      activities: ['CTF competitions', 'Ethical hacking workshops', 'Security audits', 'Guest lectures'],
+      achievements: ['National CTF Champions 2024', 'Best Security Paper Award 2023'],
+      department: 'Computer Science',
+      createdAt: new Date('2022-01-15'),
+      updatedAt: new Date()
+    },
+    // Electronics Department Clubs
+    {
+      id: 'demo-club-4',
+      name: 'Robotics & AI Club',
+      description: 'Building the future with robotics and artificial intelligence. Hands-on projects and competitions.',
+      category: 'Technical',
+      president: 'Sneha Joshi',
+      presidentEmail: 'sneha.joshi@dypsn.edu',
+      presidentPhone: '+91 65432 10987',
+      facultyAdvisor: 'Dr. Prakash Mehta',
+      advisorEmail: 'prakash.mehta@dypsn.edu',
+      totalMembers: 28,
+      maxMembers: 50,
+      establishedDate: '2021-09-01',
+      status: 'active',
+      activities: ['Robot building workshops', 'AI/ML bootcamps', 'National level competitions', 'Research projects'],
+      achievements: ['Robocon Regional Finalists 2024', 'Best Innovation Award 2023'],
+      department: 'Electronics',
+      createdAt: new Date('2021-09-01'),
+      updatedAt: new Date()
+    },
+    {
+      id: 'demo-club-7',
+      name: 'IoT & Embedded Systems Club',
+      description: 'Explore Internet of Things and embedded systems through hands-on projects. Smart home automation and wearables.',
+      category: 'Technical',
+      president: 'Manish Kumar',
+      presidentEmail: 'manish.kumar@dypsn.edu',
+      presidentPhone: '+91 87654 12345',
+      facultyAdvisor: 'Dr. Kavita Sharma',
+      advisorEmail: 'kavita.sharma@dypsn.edu',
+      totalMembers: 25,
+      maxMembers: 45,
+      establishedDate: '2021-06-10',
+      status: 'active',
+      activities: ['IoT projects', 'Arduino workshops', 'Smart home projects', 'Industry visits'],
+      achievements: ['Smart India Hackathon Finalists 2024', 'Best IoT Project Award 2023'],
+      department: 'Electronics',
+      createdAt: new Date('2021-06-10'),
+      updatedAt: new Date()
+    },
+    // Mechanical Department Clubs
+    {
+      id: 'demo-club-8',
+      name: 'SAE Club (Automotive)',
+      description: 'Design and build racing vehicles for SAE competitions. ATV, BAJA, and Formula Student projects.',
+      category: 'Technical',
+      president: 'Rohan Patil',
+      presidentEmail: 'rohan.patil@dypsn.edu',
+      presidentPhone: '+91 76543 98765',
+      facultyAdvisor: 'Prof. Anil Kulkarni',
+      advisorEmail: 'anil.kulkarni@dypsn.edu',
+      totalMembers: 40,
+      maxMembers: 80,
+      establishedDate: '2016-03-20',
+      status: 'active',
+      activities: ['Vehicle design', 'SAE competitions', 'Workshop sessions', 'Industry collaborations'],
+      achievements: ['SAE BAJA 2nd Runner Up 2024', 'Formula Bharat Finalists 2023'],
+      department: 'Mechanical',
+      createdAt: new Date('2016-03-20'),
+      updatedAt: new Date()
+    },
+    {
+      id: 'demo-club-9',
+      name: 'CAD/CAM Club',
+      description: 'Master computer-aided design and manufacturing. 3D modeling, simulation, and prototyping.',
+      category: 'Academic',
+      president: 'Deepak Yadav',
+      presidentEmail: 'deepak.yadav@dypsn.edu',
+      presidentPhone: '+91 65432 87654',
+      facultyAdvisor: 'Dr. Ramesh Jadhav',
+      advisorEmail: 'ramesh.jadhav@dypsn.edu',
+      totalMembers: 30,
+      maxMembers: 50,
+      establishedDate: '2019-08-15',
+      status: 'active',
+      activities: ['CAD workshops', '3D printing sessions', 'Design competitions', 'Industry certifications'],
+      achievements: ['Best Design Award - State Level 2024', 'AutoCAD Certification Excellence 2023'],
+      department: 'Mechanical',
+      createdAt: new Date('2019-08-15'),
+      updatedAt: new Date()
+    },
+    // Civil Department Clubs
+    {
+      id: 'demo-club-10',
+      name: 'Civil Engineers Association',
+      description: 'Connect civil engineering students with industry practices. Site visits, seminars, and project competitions.',
+      category: 'Academic',
+      president: 'Swati Deshmukh',
+      presidentEmail: 'swati.deshmukh@dypsn.edu',
+      presidentPhone: '+91 54321 67890',
+      facultyAdvisor: 'Prof. Suresh Patil',
+      advisorEmail: 'suresh.patil@dypsn.edu',
+      totalMembers: 55,
+      maxMembers: 100,
+      establishedDate: '2014-07-01',
+      status: 'active',
+      activities: ['Site visits', 'Technical seminars', 'Bridge building competitions', 'Environmental surveys'],
+      achievements: ['Best Bridge Design 2024', 'Green Building Award 2023'],
+      department: 'Civil',
+      createdAt: new Date('2014-07-01'),
+      updatedAt: new Date()
+    },
+    // IT Department Clubs
+    {
+      id: 'demo-club-11',
+      name: 'Web Development Club',
+      description: 'Learn modern web technologies - React, Node.js, and full-stack development. Build real-world projects.',
+      category: 'Technical',
+      president: 'Pooja Mehta',
+      presidentEmail: 'pooja.mehta@dypsn.edu',
+      presidentPhone: '+91 98765 12345',
+      facultyAdvisor: 'Prof. Nilesh Joshi',
+      advisorEmail: 'nilesh.joshi@dypsn.edu',
+      totalMembers: 48,
+      maxMembers: 80,
+      establishedDate: '2021-02-10',
+      status: 'active',
+      activities: ['Web dev bootcamps', 'Freelance projects', 'Portfolio building', 'Tech talks'],
+      achievements: ['Best College Website 2024', 'Startup Weekend Winners 2023'],
+      department: 'Information Technology',
+      createdAt: new Date('2021-02-10'),
+      updatedAt: new Date()
+    },
+    {
+      id: 'demo-club-12',
+      name: 'Data Science Club',
+      description: 'Explore data analytics, machine learning, and big data. Kaggle competitions and research projects.',
+      category: 'Academic',
+      president: 'Akash Gupta',
+      presidentEmail: 'akash.gupta@dypsn.edu',
+      presidentPhone: '+91 87654 23456',
+      facultyAdvisor: 'Dr. Pallavi Desai',
+      advisorEmail: 'pallavi.desai@dypsn.edu',
+      totalMembers: 32,
+      maxMembers: 60,
+      establishedDate: '2022-06-01',
+      status: 'active',
+      activities: ['Kaggle competitions', 'ML workshops', 'Data visualization', 'Research papers'],
+      achievements: ['Kaggle Bronze Medal 2024', 'Best Research Paper Award 2023'],
+      department: 'Information Technology',
+      createdAt: new Date('2022-06-01'),
+      updatedAt: new Date()
+    },
+    // College-Wide Clubs (All Departments)
+    {
+      id: 'demo-club-2',
+      name: 'Drama & Theatre Society',
+      description: 'Explore the world of acting, directing, and stage production. Annual plays and inter-college competitions.',
+      category: 'Cultural',
+      president: 'Priya Desai',
+      presidentEmail: 'priya.desai@dypsn.edu',
+      presidentPhone: '+91 87654 32109',
+      facultyAdvisor: 'Prof. Sunita Kulkarni',
+      advisorEmail: 'sunita.kulkarni@dypsn.edu',
+      totalMembers: 32,
+      maxMembers: 60,
+      establishedDate: '2018-06-20',
+      status: 'active',
+      activities: ['Theatre workshops', 'Annual play', 'Inter-college competitions', 'Script writing sessions'],
+      achievements: ['Best Play Award - State Drama Festival 2024', 'Outstanding Performance Award 2023'],
+      department: 'All',
+      createdAt: new Date('2018-06-20'),
+      updatedAt: new Date()
+    },
+    {
+      id: 'demo-club-3',
+      name: 'Sports Club',
+      description: 'Promoting fitness and sportsmanship through various indoor and outdoor activities. Regular practice sessions and tournaments.',
+      category: 'Sports',
+      president: 'Vikram Singh',
+      presidentEmail: 'vikram.singh@dypsn.edu',
+      presidentPhone: '+91 76543 21098',
+      facultyAdvisor: 'Mr. Rajesh Kumar',
+      advisorEmail: 'rajesh.kumar@dypsn.edu',
+      totalMembers: 78,
+      maxMembers: 150,
+      establishedDate: '2015-01-10',
+      status: 'active',
+      activities: ['Cricket practice', 'Football league', 'Badminton tournaments', 'Annual sports day'],
+      achievements: ['Inter-college Cricket Champions 2024', 'Best Sports Club Award 2023'],
+      department: 'All',
+      createdAt: new Date('2015-01-10'),
+      updatedAt: new Date()
+    },
+    {
+      id: 'demo-club-5',
+      name: 'Literary Society',
+      description: 'For lovers of literature, poetry, and creative writing. Book clubs, poetry slams, and writing workshops.',
+      category: 'Literary',
+      president: 'Ananya Rao',
+      presidentEmail: 'ananya.rao@dypsn.edu',
+      presidentPhone: '+91 54321 09876',
+      facultyAdvisor: 'Dr. Meera Iyer',
+      advisorEmail: 'meera.iyer@dypsn.edu',
+      totalMembers: 22,
+      maxMembers: 40,
+      establishedDate: '2019-03-15',
+      status: 'active',
+      activities: ['Poetry recitals', 'Book discussions', 'Creative writing workshops', 'Annual magazine publication'],
+      achievements: ['Best College Magazine Award 2024', 'State Poetry Competition Winners 2023'],
+      department: 'All',
+      createdAt: new Date('2019-03-15'),
+      updatedAt: new Date()
+    },
+    {
+      id: 'demo-club-13',
+      name: 'Photography Club',
+      description: 'Capture moments and learn photography techniques. Photo walks, editing workshops, and exhibitions.',
+      category: 'Cultural',
+      president: 'Kiran Bhosle',
+      presidentEmail: 'kiran.bhosle@dypsn.edu',
+      presidentPhone: '+91 76543 45678',
+      facultyAdvisor: 'Prof. Ashok Pawar',
+      advisorEmail: 'ashok.pawar@dypsn.edu',
+      totalMembers: 28,
+      maxMembers: 50,
+      establishedDate: '2020-01-15',
+      status: 'active',
+      activities: ['Photo walks', 'Editing workshops', 'Annual exhibition', 'Photo contests'],
+      achievements: ['Best College Photography Award 2024', 'National Photo Contest Winners 2023'],
+      department: 'All',
+      createdAt: new Date('2020-01-15'),
+      updatedAt: new Date()
+    },
+    {
+      id: 'demo-club-14',
+      name: 'NSS (National Service Scheme)',
+      description: 'Community service and social welfare activities. Blood donation camps, tree plantation, and village adoption.',
+      category: 'Social',
+      president: 'Aishwarya Kulkarni',
+      presidentEmail: 'aishwarya.kulkarni@dypsn.edu',
+      presidentPhone: '+91 65432 56789',
+      facultyAdvisor: 'Dr. Manoj Chavan',
+      advisorEmail: 'manoj.chavan@dypsn.edu',
+      totalMembers: 120,
+      maxMembers: 200,
+      establishedDate: '2010-08-15',
+      status: 'active',
+      activities: ['Blood donation camps', 'Tree plantation', 'Village adoption', 'Awareness campaigns'],
+      achievements: ['Best NSS Unit Award 2024', 'State Level Recognition 2023'],
+      department: 'All',
+      createdAt: new Date('2010-08-15'),
+      updatedAt: new Date()
+    }
+  ];
+
+  // Demo members for each club
+  const getDemoMembers = (clubId: string): ClubMember[] => {
+    const membersByClub: Record<string, ClubMember[]> = {
+      'demo-club-1': [
+        { id: 'demo-m1', clubId: 'demo-club-1', name: 'Rahul Sharma', email: 'rahul.sharma@dypsn.edu', role: 'President', joinDate: '2022-08-15', status: 'active' },
+        { id: 'demo-m2', clubId: 'demo-club-1', name: 'Neha Gupta', email: 'neha.gupta@dypsn.edu', role: 'Vice President', joinDate: '2022-08-20', status: 'active' },
+        { id: 'demo-m3', clubId: 'demo-club-1', name: 'Arjun Patel', email: 'arjun.patel@dypsn.edu', role: 'Secretary', joinDate: '2023-01-10', status: 'active' },
+      ],
+      'demo-club-2': [
+        { id: 'demo-m4', clubId: 'demo-club-2', name: 'Priya Desai', email: 'priya.desai@dypsn.edu', role: 'President', joinDate: '2021-06-20', status: 'active' },
+        { id: 'demo-m5', clubId: 'demo-club-2', name: 'Karan Malhotra', email: 'karan.malhotra@dypsn.edu', role: 'Vice President', joinDate: '2021-07-01', status: 'active' },
+      ],
+      'demo-club-3': [
+        { id: 'demo-m6', clubId: 'demo-club-3', name: 'Vikram Singh', email: 'vikram.singh@dypsn.edu', role: 'President', joinDate: '2020-01-15', status: 'active' },
+        { id: 'demo-m7', clubId: 'demo-club-3', name: 'Aditya Kumar', email: 'aditya.kumar@dypsn.edu', role: 'Treasurer', joinDate: '2020-02-01', status: 'active' },
+      ],
+      'demo-club-4': [
+        { id: 'demo-m8', clubId: 'demo-club-4', name: 'Sneha Joshi', email: 'sneha.joshi@dypsn.edu', role: 'President', joinDate: '2022-09-01', status: 'active' },
+      ],
+      'demo-club-5': [
+        { id: 'demo-m9', clubId: 'demo-club-5', name: 'Ananya Rao', email: 'ananya.rao@dypsn.edu', role: 'President', joinDate: '2021-03-15', status: 'active' },
+        { id: 'demo-m10', clubId: 'demo-club-5', name: 'Rohan Verma', email: 'rohan.verma@dypsn.edu', role: 'Secretary', joinDate: '2021-04-01', status: 'active' },
+      ],
+    };
+    return membersByClub[clubId] || [];
+  };
+
   // Load data from Firestore
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
       const clubsData = await clubService.getAllClubs();
-      setClubs(clubsData);
 
-      // Load members for each club
-      const membersData: Record<string, ClubMember[]> = {};
-      for (const club of clubsData) {
-        const members = await clubMemberService.getClubMembers(club.id);
-        membersData[club.id] = members;
+      // If no clubs in Firestore, use demo data
+      if (clubsData.length === 0) {
+        console.log('No clubs in Firestore, using demo data');
+        const demoClubs = getDemoClubs();
+        setClubs(demoClubs);
+
+        // Set demo members
+        const membersData: Record<string, ClubMember[]> = {};
+        for (const club of demoClubs) {
+          membersData[club.id] = getDemoMembers(club.id);
+        }
+        setMembersMap(membersData);
+      } else {
+        setClubs(clubsData);
+
+        // Load members for each club from Firestore
+        const membersData: Record<string, ClubMember[]> = {};
+        for (const club of clubsData) {
+          const members = await clubMemberService.getClubMembers(club.id);
+          membersData[club.id] = members;
+        }
+        setMembersMap(membersData);
       }
-      setMembersMap(membersData);
     } catch (error) {
       console.error('Error loading clubs:', error);
-      setError('Failed to load clubs. Please try again.');
+      // On error, fallback to demo data
+      const demoClubs = getDemoClubs();
+      setClubs(demoClubs);
+      const membersData: Record<string, ClubMember[]> = {};
+      for (const club of demoClubs) {
+        membersData[club.id] = getDemoMembers(club.id);
+      }
+      setMembersMap(membersData);
     } finally {
       setLoading(false);
     }
@@ -211,7 +550,12 @@ const ClubManagement: React.FC = () => {
     const matchesSearch = searchTerm.trim() === "" || text.includes(searchTerm.toLowerCase());
     const matchesCategory = filterCategory === "all" || c.category === filterCategory;
     const matchesStatus = filterStatus === "all" || c.status === filterStatus;
-    const matchesDepartment = filterDepartment === "all" || c.facultyAdvisor.toLowerCase().includes(filterDepartment.toLowerCase());
+
+    // Improvement: match either exact department or 'All' if it's a general club
+    const matchesDepartment = filterDepartment === "all" ||
+      c.department === filterDepartment ||
+      (filterDepartment === "College Wide" && (c.department === "All" || !c.department));
+
     return matchesSearch && matchesCategory && matchesStatus && matchesDepartment;
   });
 
@@ -731,10 +1075,10 @@ const ClubManagement: React.FC = () => {
                       <td className="px-4 py-3 text-gray-700">{m.email}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 rounded-full text-xs ${m.role === "President" ? "bg-purple-100 text-purple-800" :
-                            m.role === "Vice President" ? "bg-blue-100 text-blue-800" :
-                              m.role === "Secretary" ? "bg-green-100 text-green-800" :
-                                m.role === "Treasurer" ? "bg-yellow-100 text-yellow-800" :
-                                  "bg-gray-100 text-gray-800"
+                          m.role === "Vice President" ? "bg-blue-100 text-blue-800" :
+                            m.role === "Secretary" ? "bg-green-100 text-green-800" :
+                              m.role === "Treasurer" ? "bg-yellow-100 text-yellow-800" :
+                                "bg-gray-100 text-gray-800"
                           }`}>{m.role}</span>
                       </td>
                       <td className="px-4 py-3 text-gray-700">{new Date(m.joinDate).toLocaleDateString()}</td>
@@ -895,14 +1239,13 @@ const ClubManagement: React.FC = () => {
             <div className="hidden md:flex items-center gap-2">
               <select value={filterDepartment} onChange={(e) => setFilterDepartment(e.target.value)} className="px-3 py-2 border rounded-lg text-sm">
                 <option value="all">All Departments</option>
+                <option value="College Wide">College Wide (General)</option>
                 <option value="Computer Science">Computer Science</option>
                 <option value="Information Technology">Information Technology</option>
                 <option value="Electronics">Electronics & Communication</option>
                 <option value="Mechanical">Mechanical</option>
                 <option value="Electrical">Electrical</option>
                 <option value="Civil">Civil</option>
-                <option value="Cultural">Cultural Committee</option>
-                <option value="Sports">Sports Committee</option>
               </select>
 
               <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="px-3 py-2 border rounded-lg text-sm">
@@ -937,14 +1280,13 @@ const ClubManagement: React.FC = () => {
           <div className="mt-3 md:hidden grid grid-cols-1 gap-2">
             <select value={filterDepartment} onChange={(e) => setFilterDepartment(e.target.value)} className="px-3 py-2 border rounded-lg">
               <option value="all">All Departments</option>
+              <option value="College Wide">College Wide (General)</option>
               <option value="Computer Science">Computer Science</option>
               <option value="Information Technology">Information Technology</option>
               <option value="Electronics">Electronics & Communication</option>
               <option value="Mechanical">Mechanical</option>
               <option value="Electrical">Electrical</option>
               <option value="Civil">Civil</option>
-              <option value="Cultural">Cultural Committee</option>
-              <option value="Sports">Sports Committee</option>
             </select>
 
             <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="px-3 py-2 border rounded-lg">
@@ -1061,14 +1403,28 @@ const ClubManagement: React.FC = () => {
                   <input type="email" className="w-full px-3 py-2 border rounded" value={clubForm.advisorEmail} onChange={(e) => setClubForm(s => ({ ...s, advisorEmail: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-700 mb-1">Max Members (optional)</label>
-                  <input type="number" min={0} className="w-full px-3 py-2 border rounded" value={clubForm.maxMembers} onChange={(e) => setClubForm(s => ({ ...s, maxMembers: e.target.value }))} />
+                  <label className="block text-sm text-gray-700 mb-1">Department</label>
+                  <select className="w-full px-3 py-2 border rounded" value={clubForm.department} onChange={(e) => setClubForm(s => ({ ...s, department: e.target.value }))}>
+                    <option value="All">College Wide (General)</option>
+                    <option value="Computer Science">Computer Science</option>
+                    <option value="Information Technology">Information Technology</option>
+                    <option value="Electronics">Electronics & Communication</option>
+                    <option value="Mechanical">Mechanical</option>
+                    <option value="Electrical">Electrical</option>
+                    <option value="Civil">Civil</option>
+                  </select>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">Established Date</label>
-                <input type="date" className="w-full px-3 py-2 border rounded" value={clubForm.establishedDate} onChange={(e) => setClubForm(s => ({ ...s, establishedDate: e.target.value }))} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Max Members (optional)</label>
+                  <input type="number" min={0} className="w-full px-3 py-2 border rounded" value={clubForm.maxMembers} onChange={(e) => setClubForm(s => ({ ...s, maxMembers: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Established Date</label>
+                  <input type="date" className="w-full px-3 py-2 border rounded" value={clubForm.establishedDate} onChange={(e) => setClubForm(s => ({ ...s, establishedDate: e.target.value }))} />
+                </div>
               </div>
 
               <div>

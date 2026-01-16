@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { userService, attendanceService, getCurrentBatchYear, getBatchYear } from '../../firebase/firestore';
+import { userService, attendanceService, getCurrentBatchYear } from '../../firebase/firestore';
 import { auth } from '../../firebase/firebase';
 import { signInAnonymously } from 'firebase/auth';
 import { User, AttendanceLog } from '../../types';
 import { Upload, Download, Users, Plus, Trash2, Edit, Search, Filter, Calendar, FileText, BarChart3, Eye, X, CheckCircle } from 'lucide-react';
-import { getDepartmentCode } from '../../utils/departmentMapping';
 import { getAvailableSemesters, isValidSemesterForYear, getDefaultSemesterForYear } from '../../utils/semesterMapping';
 
 interface StudentData {
@@ -18,6 +17,7 @@ interface StudentData {
   sem: string;
   div: string;
   department: string;
+  batchYear?: string;
 }
 
 interface StudentManagementPanelProps {
@@ -26,7 +26,6 @@ interface StudentManagementPanelProps {
 
 const YEARS = ['1st', '2nd', '3rd', '4th'];
 const DIVS = ['A', 'B', 'C', 'D'];
-const DEPARTMENTS = ['Computer Science', 'Information Technology', 'Mechanical', 'Electrical', 'Civil'];
 
 const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user }) => {
   const [students, setStudents] = useState<User[]>([]);
@@ -60,7 +59,11 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
     }
   };
   const [searchTerm, setSearchTerm] = useState('');
-  const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [departmentFilter, setDepartmentFilter] = useState(user?.role === 'admin' ? 'all' : (user?.department || 'all'));
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [scholarshipFilter, setScholarshipFilter] = useState('all');
+  const [genderFilter, setGenderFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [showImportModal, setShowImportModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -70,13 +73,19 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
   const [endDate, setEndDate] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState<{ current: number; total: number; message: string } | null>(null);
   const [editingStudent, setEditingStudent] = useState<User | null>(null);
   const [detailStudent, setDetailStudent] = useState<User | null>(null);
   // Export filter states
   const [exportYear, setExportYear] = useState(selectedYear);
   const [exportSem, setExportSem] = useState(selectedSem);
   const [exportDiv, setExportDiv] = useState(selectedDiv);
-  const [exportSubject, setExportSubject] = useState('');
+  const [exportBatch, setExportBatch] = useState(getCurrentBatchYear());
+  const [exportDepartment, setExportDepartment] = useState('all');
+  const [exportCategory, setExportCategory] = useState('all');
+  const [exportScholarship, setExportScholarship] = useState('all');
+  const [exportGender, setExportGender] = useState('all');
+  const [exportStatus, setExportStatus] = useState('all');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
@@ -106,7 +115,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
 
   useEffect(() => {
     filterStudents();
-  }, [students, searchTerm, departmentFilter, selectedBatch, selectedYear, selectedSem, selectedDiv]);
+  }, [students, searchTerm, departmentFilter, selectedBatch, selectedYear, selectedSem, selectedDiv, categoryFilter, scholarshipFilter, genderFilter, statusFilter]);
 
   const fetchStudents = async (retryCount = 0) => {
     setLoading(true);
@@ -170,6 +179,37 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
       // Department filter
       if (departmentFilter !== 'all' && student.department !== departmentFilter) return false;
 
+      // Category filter (student category like General, OBC, SC, ST, etc.)
+      if (categoryFilter !== 'all') {
+        const studentCategory = (student as any).category || 'General';
+        if (studentCategory !== categoryFilter) return false;
+      }
+
+      // Scholarship filter
+      if (scholarshipFilter !== 'all') {
+        const hasScholarship = (student as any).hasScholarship === true || (student as any).scholarshipType === scholarshipFilter;
+        if (scholarshipFilter === 'yes' && !hasScholarship) return false;
+        if (scholarshipFilter === 'no' && hasScholarship) return false;
+        if (scholarshipFilter !== 'yes' && scholarshipFilter !== 'no') {
+          // Specific scholarship type filter
+          const scholarshipType = (student as any).scholarshipType || '';
+          if (scholarshipType !== scholarshipFilter) return false;
+        }
+      }
+
+      // Gender filter
+      if (genderFilter !== 'all') {
+        const normalizedGender = (student.gender || '').toLowerCase();
+        if (genderFilter === 'male' && normalizedGender !== 'male' && normalizedGender !== 'm') return false;
+        if (genderFilter === 'female' && normalizedGender !== 'female' && normalizedGender !== 'f') return false;
+      }
+
+      // Status filter (Active/Inactive)
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'active' && !student.isActive) return false;
+        if (statusFilter === 'inactive' && student.isActive) return false;
+      }
+
       return true;
     });
     setFilteredStudents(filtered);
@@ -221,7 +261,8 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
                 year: row.year || row.Year || row.YEAR || '2nd',
                 sem: row.sem || row.Sem || row.SEM || '3',
                 div: row.div || row.Div || row.DIV || 'A',
-                department: row.department || row.Department || row.DEPARTMENT || 'Computer Science'
+                department: row.department || row.Department || row.DEPARTMENT || 'Computer Science',
+                batchYear: row.batchYear || row.batch || row.BatchYear || getCurrentBatchYear()
               };
             });
             // Check required columns
@@ -247,7 +288,8 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
               year: row.year || row.Year || row.YEAR || '2nd',
               sem: row.sem || row.Sem || row.SEM || '3',
               div: row.div || row.Div || row.DIV || 'A',
-              department: row.department || row.Department || row.DEPARTMENT || 'Computer Science'
+              department: row.department || row.Department || row.DEPARTMENT || 'Computer Science',
+              batchYear: row.batchYear || row.batch || row.BatchYear || getCurrentBatchYear()
             }));
             // Check required columns
             const missing = students.find(s => !s.name || !s.email || !s.rollNumber);
@@ -287,7 +329,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
         setUploadProgress(Math.round(((i + 1) / studentsData.length) * 100));
         continue;
       }
-      const student: User = {
+      const student: User & { batchYear?: string } = {
         id: `student_${safeRollNumber}_${Date.now()}_${Math.random()}`,
         name: studentData.name,
         email: studentData.email,
@@ -298,6 +340,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
         sem: studentData.sem,
         div: studentData.div,
         department: studentData.department,
+        batchYear: studentData.batchYear || getCurrentBatchYear(),
         role: 'student',
         accessLevel: 'basic',
         isActive: true,
@@ -414,6 +457,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
     }
   };
 
+
   const downloadTemplate = () => {
     const template = [
       {
@@ -436,9 +480,55 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
   };
 
   const exportStudents = () => {
-    // Filter students for export based on exportYear, exportSem, exportDiv
+    // Filter students for export based on all export filters
     const exportData = students
-      .filter(s => s.role === 'student' && s.year === exportYear && s.sem === exportSem && s.div === exportDiv)
+      .filter(s => {
+        if (s.role !== 'student') return false;
+        if (exportYear && s.year !== exportYear) return false;
+        if (exportSem && s.sem !== exportSem) return false;
+        if (exportDiv && s.div !== exportDiv) return false;
+        
+        // Batch filter
+        if (exportBatch) {
+          const studentBatchYear = (s as any).batchYear;
+          if (studentBatchYear && studentBatchYear !== exportBatch) return false;
+        }
+        
+        // Department filter
+        if (exportDepartment !== 'all' && s.department !== exportDepartment) return false;
+        
+        // Category filter
+        if (exportCategory !== 'all') {
+          const studentCategory = (s as any).category || 'General';
+          if (studentCategory !== exportCategory) return false;
+        }
+        
+        // Scholarship filter
+        if (exportScholarship !== 'all') {
+          const hasScholarship = (s as any).hasScholarship === true || (s as any).scholarshipType === exportScholarship;
+          if (exportScholarship === 'yes' && !hasScholarship) return false;
+          if (exportScholarship === 'no' && hasScholarship) return false;
+          if (exportScholarship !== 'yes' && exportScholarship !== 'no') {
+            const scholarshipType = (s as any).scholarshipType || '';
+            if (scholarshipType !== exportScholarship) return false;
+          }
+        }
+        
+        // Gender filter
+        if (exportGender !== 'all') {
+          const normalizedGender = (s.gender || '').toLowerCase();
+          if (exportGender === 'male' && normalizedGender !== 'male' && normalizedGender !== 'm') return false;
+          if (exportGender === 'female' && normalizedGender !== 'female' && normalizedGender !== 'f') return false;
+        }
+        
+        // Status filter
+        if (exportStatus !== 'all') {
+          if (exportStatus === 'active' && !s.isActive) return false;
+          if (exportStatus === 'inactive' && s.isActive) return false;
+        }
+        
+        return true;
+      })
       .map(student => ({
         name: student.name,
         email: student.email,
@@ -464,13 +554,13 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
       let startDateObj: Date;
       let endDateObj: Date;
       let fileName: string;
-      let subject = exportSubject;
+
       switch (type) {
         case 'monthly':
           const [year, month] = selectedMonth.split('-');
           startDateObj = new Date(parseInt(year), parseInt(month) - 1, 1);
           endDateObj = new Date(parseInt(year), parseInt(month), 0);
-          fileName = `student_attendance_${selectedMonth}_${exportYear}_${exportSem}_${exportDiv}.xlsx`;
+          fileName = `student_attendance_${selectedMonth}_all_subjects_${exportYear}_${exportSem}_${exportDiv}.csv`;
           break;
         case 'custom':
           if (!startDate || !endDate) {
@@ -479,95 +569,255 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
           }
           startDateObj = new Date(startDate);
           endDateObj = new Date(endDate);
-          fileName = `student_attendance_${startDate}_to_${endDate}_${exportYear}_${exportSem}_${exportDiv}.xlsx`;
+          fileName = `student_attendance_${startDate}_to_${endDate}_all_subjects_${exportYear}_${exportSem}_${exportDiv}.csv`;
           break;
         case 'subject':
-          if (!subject) {
+          if (!selectedSubject) {
             alert('Please select a subject');
             return;
           }
           startDateObj = new Date(new Date().getFullYear(), 0, 1); // Start of current year
           endDateObj = new Date();
-          fileName = `student_attendance_${subject}_${exportYear}_${exportSem}_${exportDiv}.xlsx`;
+          fileName = `student_attendance_${selectedSubject}_${exportYear}_${exportSem}_${exportDiv}.csv`;
           break;
         default:
           return;
       }
 
-      // Filter students for export based on exportYear, exportSem, exportDiv
-      const exportStudents = students.filter(s => s.role === 'student' && s.year === exportYear && s.sem === exportSem && s.div === exportDiv);
+      // Get attendance data for all students using optimized batch function
       const attendanceData: any[] = [];
-      for (const student of exportStudents) {
-        try {
-          let studentAttendance: AttendanceLog[] = [];
-          if (type === 'subject') {
-            const allAttendance = await attendanceService.getAttendanceByUserAndDateRange(
-              student.id,
-              startDateObj,
-              endDateObj
-            );
-            studentAttendance = allAttendance.filter(att => att.subject === subject);
-          } else {
-            studentAttendance = await attendanceService.getAttendanceByUserAndDateRange(
-              student.id,
-              startDateObj,
-              endDateObj
-            );
+      const exportStudentsList = students.filter(s => {
+        if (s.role !== 'student') return false;
+        if (exportYear && s.year !== exportYear) return false;
+        if (exportSem && s.sem !== exportSem) return false;
+        if (exportDiv && s.div !== exportDiv) return false;
+        
+        // Batch filter
+        if (exportBatch) {
+          const studentBatchYear = (s as any).batchYear;
+          if (studentBatchYear && studentBatchYear !== exportBatch) return false;
+        }
+        
+        // Department filter
+        if (exportDepartment !== 'all' && s.department !== exportDepartment) return false;
+        
+        // Category filter
+        if (exportCategory !== 'all') {
+          const studentCategory = (s as any).category || 'General';
+          if (studentCategory !== exportCategory) return false;
+        }
+        
+        // Scholarship filter
+        if (exportScholarship !== 'all') {
+          const hasScholarship = (s as any).hasScholarship === true || (s as any).scholarshipType === exportScholarship;
+          if (exportScholarship === 'yes' && !hasScholarship) return false;
+          if (exportScholarship === 'no' && hasScholarship) return false;
+          if (exportScholarship !== 'yes' && exportScholarship !== 'no') {
+            const scholarshipType = (s as any).scholarshipType || '';
+            if (scholarshipType !== exportScholarship) return false;
           }
-          const totalDays = studentAttendance.length;
-          const presentDays = studentAttendance.filter(att => att.status === 'present').length;
-          const absentDays = studentAttendance.filter(att => att.status === 'absent').length;
-          const lateDays = studentAttendance.filter(att => att.status === 'late').length;
-          const leaveDays = studentAttendance.filter(att => att.status === 'leave').length;
-          const attendancePercentage = totalDays > 0 ? ((presentDays + lateDays) / totalDays * 100).toFixed(2) : '0';
-          attendanceData.push({
-            name: student.name,
-            email: student.email,
-            rollNumber: student.rollNumber || '',
-            phone: student.phone || '',
-            gender: student.gender || '',
-            year: student.year || '',
-            sem: student.sem || '',
-            div: student.div || '',
-            department: student.department || '',
-            totalDays,
-            presentDays,
-            absentDays,
-            lateDays,
-            leaveDays,
-            attendancePercentage: `${attendancePercentage}%`,
-            status: student.isActive ? 'Active' : 'Inactive'
+        }
+        
+        // Gender filter
+        if (exportGender !== 'all') {
+          const normalizedGender = (s.gender || '').toLowerCase();
+          if (exportGender === 'male' && normalizedGender !== 'male' && normalizedGender !== 'm') return false;
+          if (exportGender === 'female' && normalizedGender !== 'female' && normalizedGender !== 'f') return false;
+        }
+        
+        // Status filter
+        if (exportStatus !== 'all') {
+          if (exportStatus === 'active' && !s.isActive) return false;
+          if (exportStatus === 'inactive' && s.isActive) return false;
+        }
+        
+        return true;
+      });
+      const studentRollNumbers = exportStudentsList.map(s => s.rollNumber || s.id).filter(Boolean);
+
+      if (type === 'subject') {
+        // For subject-wise export
+        setExportProgress({ current: 0, total: exportStudentsList.length, message: 'Processing students...' });
+        let processedCount = 0;
+        for (const student of exportStudentsList) {
+          try {
+            const studentAttendance = await attendanceService.getOrganizedAttendanceByUserAndDateRange(
+              student.rollNumber || student.id,
+              exportYear,
+              exportSem,
+              exportDiv,
+              selectedSubject,
+              startDateObj,
+              endDateObj
+            );
+
+            const totalDays = studentAttendance.length;
+            const presentDays = studentAttendance.filter(att => att.status === 'present').length;
+            const absentDays = studentAttendance.filter(att => att.status === 'absent').length;
+            const lateDays = studentAttendance.filter(att => att.status === 'late').length;
+            const leaveDays = studentAttendance.filter(att => att.status === 'leave').length;
+            const attendancePercentage = totalDays > 0 ? ((presentDays + lateDays) / totalDays * 100).toFixed(2) : '0';
+
+            attendanceData.push({
+              name: student.name,
+              email: student.email,
+              rollNumber: student.rollNumber || '',
+              phone: student.phone || '',
+              gender: student.gender || '',
+              year: student.year || '',
+              sem: student.sem || '',
+              div: student.div || '',
+              department: student.department || '',
+              subject: selectedSubject,
+              totalDays,
+              presentDays,
+              absentDays,
+              lateDays,
+              leaveDays,
+              attendancePercentage: `${attendancePercentage}%`,
+              status: student.isActive ? 'Active' : 'Inactive'
+            });
+          } catch (error) {
+            // Handle error silently
+          }
+          processedCount++;
+          setExportProgress({ current: processedCount, total: exportStudentsList.length, message: `Processing students: ${processedCount}/${exportStudentsList.length}` });
+        }
+      } else {
+        // For monthly and custom exports, use the optimized batch function
+        const allSubjects = [
+          'Mathematics', 'Physics', 'Chemistry', 'Computer Science', 'English',
+          'Engineering Drawing', 'Programming', 'Data Structures', 'Database Management',
+          'Web Development', 'Software Engineering'
+        ];
+
+        try {
+          const daysDiff = Math.ceil((endDateObj.getTime() - startDateObj.getTime()) / (1000 * 60 * 60 * 24));
+          const totalQueries = allSubjects.length * daysDiff;
+
+          setExportProgress({
+            current: 0,
+            total: totalQueries,
+            message: '🚀 Starting parallel queries...'
           });
-        } catch (error) {
-          attendanceData.push({
-            name: student.name,
-            email: student.email,
-            rollNumber: student.rollNumber || '',
-            phone: student.phone || '',
-            gender: student.gender || '',
-            year: student.year || '',
-            sem: student.sem || '',
-            div: student.div || '',
-            department: student.department || '',
-            totalDays: 0,
-            presentDays: 0,
-            absentDays: 0,
-            lateDays: 0,
-            leaveDays: 0,
-            attendancePercentage: '0%',
-            status: student.isActive ? 'Active' : 'Inactive'
-          });
+
+          const batchAttendance = await attendanceService.getBatchAttendanceForExport(
+            exportYear,
+            exportSem,
+            exportDiv,
+            allSubjects,
+            startDateObj,
+            endDateObj,
+            studentRollNumbers,
+            (progress) => {
+              setExportProgress({
+                current: Math.floor(totalQueries * progress),
+                total: totalQueries,
+                message: `⚡ Fast export: ${Math.floor(progress * 100)}% complete`
+              });
+            }
+          );
+
+          // Process the batch data for each student
+          for (const student of exportStudentsList) {
+            const rollNumber = student.rollNumber || student.id;
+            const studentAttendanceReport: AttendanceLog[] = [];
+
+            if (batchAttendance[rollNumber]) {
+              allSubjects.forEach(sub => {
+                if (batchAttendance[rollNumber][sub]) {
+                  studentAttendanceReport.push(...batchAttendance[rollNumber][sub]);
+                }
+              });
+            }
+
+            const totalDays = studentAttendanceReport.length;
+            const presentDays = studentAttendanceReport.filter(att => att.status === 'present').length;
+            const absentDays = studentAttendanceReport.filter(att => att.status === 'absent').length;
+            const lateDays = studentAttendanceReport.filter(att => att.status === 'late').length;
+            const leaveDays = studentAttendanceReport.filter(att => att.status === 'leave').length;
+            const attendancePercentage = totalDays > 0 ? ((presentDays + lateDays) / totalDays * 100).toFixed(2) : '0';
+
+            attendanceData.push({
+              name: student.name,
+              email: student.email,
+              rollNumber: student.rollNumber || '',
+              phone: student.phone || '',
+              gender: student.gender || '',
+              year: student.year || '',
+              sem: student.sem || '',
+              div: student.div || '',
+              department: student.department || '',
+              subject: 'All Subjects',
+              totalDays,
+              presentDays,
+              absentDays,
+              lateDays,
+              leaveDays,
+              attendancePercentage: `${attendancePercentage}%`,
+              status: student.isActive ? 'Active' : 'Inactive'
+            });
+          }
+        } catch (error: any) {
+          if (error?.message?.includes('Too many')) {
+            alert(`Export limit exceeded: ${error.message}. Please reduce the scope.`);
+            setExporting(false);
+            setExportProgress(null);
+            return;
+          }
+          // Fallback to simple export if batch fails
+          alert('Batch export failed. Falling back to simple student list.');
+          exportStudents();
+          return;
         }
       }
-      const ws = XLSX.utils.json_to_sheet(attendanceData);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Student Attendance');
-      XLSX.writeFile(wb, fileName);
+
+      // Create CSV content (Universal format)
+      const headers = [
+        'Name', 'Email', 'Roll Number', 'Phone', 'Gender', 'Year', 'Semester', 'Division', 'Department', 'Subject',
+        'Total Days', 'Present Days', 'Absent Days', 'Late Days', 'Leave Days', 'Attendance Percentage', 'Status'
+      ];
+
+      const csvContent = [
+        headers.join(','),
+        ...attendanceData.map(row => [
+          `"${row.name}"`,
+          row.email,
+          row.rollNumber,
+          row.phone,
+          row.gender,
+          row.year,
+          row.sem,
+          row.div,
+          `"${row.department}"`,
+          `"${row.subject}"`,
+          row.totalDays,
+          row.presentDays,
+          row.absentDays,
+          row.lateDays,
+          row.leaveDays,
+          row.attendancePercentage,
+          row.status
+        ].join(','))
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', fileName.replace('.xlsx', '.csv'));
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
       setShowExportModal(false);
+      setExportProgress(null);
     } catch (error) {
+      console.error('Error exporting attendance data:', error);
       alert('Error exporting attendance data. Please try again.');
     } finally {
       setExporting(false);
+      setExportProgress(null);
     }
   };
 
@@ -588,26 +838,40 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
             <h1 className="text-xl lg:text-2xl font-bold text-slate-900">Student Management</h1>
             <p className="text-sm text-slate-500">Manage students by year, semester, and division</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setShowImportModal(true)}
-              className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 font-medium transition-colors"
+              className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 font-medium transition-colors text-sm"
             >
               <Upload size={16} />
-              <span className="hidden sm:inline text-sm">Import</span>
+              <span className="hidden sm:inline">Import</span>
+            </button>
+            <button
+              onClick={downloadTemplate}
+              className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 font-medium transition-colors text-sm"
+            >
+              <Download size={16} />
+              <span className="hidden sm:inline">Template</span>
+            </button>
+            <button
+              onClick={() => setShowExportModal(true)}
+              className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 font-medium transition-colors text-sm"
+            >
+              <Download size={16} />
+              <span className="hidden sm:inline">Download Report</span>
             </button>
             <button
               onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 font-medium transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 font-medium transition-colors text-sm"
             >
               <Plus size={16} />
-              <span className="hidden sm:inline text-sm">Add Student</span>
+              <span className="hidden sm:inline">Add Student</span>
             </button>
           </div>
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <div className="bg-white p-4 rounded-xl border border-slate-200 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
@@ -627,6 +891,38 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
               </div>
               <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center">
                 <CheckCircle className="w-4 h-4 text-emerald-600" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-500 text-xs font-medium">Male Students</p>
+                <p className="text-xl font-bold text-blue-600">
+                  {filteredStudents.filter(s => {
+                    const g = String(s.gender || '').trim().toLowerCase();
+                    return g === 'male' || g === 'm' || g === 'boy';
+                  }).length}
+                </p>
+              </div>
+              <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
+                <Users className="w-4 h-4 text-blue-600" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-500 text-xs font-medium">Female Students</p>
+                <p className="text-xl font-bold text-pink-600">
+                  {filteredStudents.filter(s => {
+                    const g = String(s.gender || '').trim().toLowerCase();
+                    return g === 'female' || g === 'f' || g === 'girl';
+                  }).length}
+                </p>
+              </div>
+              <div className="w-9 h-9 bg-pink-50 rounded-xl flex items-center justify-center">
+                <Users className="w-4 h-4 text-pink-600" />
               </div>
             </div>
           </div>
@@ -755,7 +1051,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
             <div className="space-y-1">
               <label className="text-xs font-medium text-slate-600">Department</label>
               <select
@@ -771,21 +1067,62 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
                 <option value="Civil">Civil</option>
               </select>
             </div>
-            <div className="flex items-end gap-2">
-              <button
-                onClick={downloadTemplate}
-                className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 font-medium text-sm transition-colors"
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-600">Category</label>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent bg-white text-sm"
               >
-                <Download size={16} />
-                <span>Template</span>
-              </button>
-              <button
-                onClick={() => setShowExportModal(true)}
-                className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 font-medium text-sm transition-colors"
+                <option value="all">All Categories</option>
+                <option value="General">General</option>
+                <option value="OBC">OBC</option>
+                <option value="SC">SC</option>
+                <option value="ST">ST</option>
+                <option value="SEBC">SEBC</option>
+                <option value="EWS">EWS</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-600">Scholarship</label>
+              <select
+                value={scholarshipFilter}
+                onChange={(e) => setScholarshipFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent bg-white text-sm"
               >
-                <Download size={16} />
-                <span>Download Report</span>
-              </button>
+                <option value="all">All Students</option>
+                <option value="yes">With Scholarship</option>
+                <option value="no">Without Scholarship</option>
+                <option value="Merit">Merit Scholarship</option>
+                <option value="Need-Based">Need-Based</option>
+                <option value="Sports">Sports Scholarship</option>
+                <option value="Government">Government Scholarship</option>
+                <option value="Private">Private Scholarship</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-600">Gender</label>
+              <select
+                value={genderFilter}
+                onChange={(e) => setGenderFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent bg-white text-sm"
+              >
+                <option value="all">All Genders</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-600">Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent bg-white text-sm"
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
             </div>
           </div>
         </div>
@@ -907,8 +1244,8 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${student.isActive
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
                         }`}>
                         {student.isActive ? 'Active' : 'Inactive'}
                       </span>
@@ -1314,49 +1651,10 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
         {/* Export Modal */}
         {showExportModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
               <h3 className="text-lg font-semibold mb-4 sticky top-0 bg-white pb-2">Download Report</h3>
               <div className="space-y-4">
-                {/* Always show Year, Semester, Division dropdowns */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
-                    <select
-                      value={exportYear}
-                      onChange={e => setExportYear(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                    >
-                      {YEARS.map(year => (
-                        <option key={year} value={year}>{year}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Semester</label>
-                    <select
-                      value={exportSem}
-                      onChange={e => setExportSem(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                    >
-                      {availableSemesters.map(sem => (
-                        <option key={sem} value={sem}>{sem}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
-                    <select
-                      value={exportDiv}
-                      onChange={e => setExportDiv(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                    >
-                      {DIVS.map(div => (
-                        <option key={div} value={div}>{div}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                {/* Export Type and other filters remain below */}
+                {/* Report Type */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Report Type</label>
                   <select
@@ -1370,6 +1668,138 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
                     <option value="subject">Subject-wise Attendance Report</option>
                   </select>
                 </div>
+
+                {/* Basic Filters - Year, Semester, Division, Batch */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
+                    <select
+                      value={exportBatch}
+                      onChange={e => setExportBatch(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      {availableBatches.map(batch => (
+                        <option key={batch} value={batch}>Batch {batch}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                    <select
+                      value={exportYear}
+                      onChange={e => setExportYear(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      <option value="">All Years</option>
+                      {YEARS.map(year => (
+                        <option key={year} value={year}>{year}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Semester</label>
+                    <select
+                      value={exportSem}
+                      onChange={e => setExportSem(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      <option value="">All Semesters</option>
+                      {availableSemesters.map(sem => (
+                        <option key={sem} value={sem}>{sem}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
+                    <select
+                      value={exportDiv}
+                      onChange={e => setExportDiv(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      <option value="">All Divisions</option>
+                      {DIVS.map(div => (
+                        <option key={div} value={div}>{div}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Additional Filters - Department, Category, Scholarship, Gender, Status */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                    <select
+                      value={exportDepartment}
+                      onChange={e => setExportDepartment(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      <option value="all">All Departments</option>
+                      <option value="Computer Science">Computer Science</option>
+                      <option value="Information Technology">Information Technology</option>
+                      <option value="Mechanical">Mechanical</option>
+                      <option value="Electrical">Electrical</option>
+                      <option value="Civil">Civil</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                    <select
+                      value={exportCategory}
+                      onChange={e => setExportCategory(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      <option value="all">All Categories</option>
+                      <option value="General">General</option>
+                      <option value="OBC">OBC</option>
+                      <option value="SC">SC</option>
+                      <option value="ST">ST</option>
+                      <option value="SEBC">SEBC</option>
+                      <option value="EWS">EWS</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Scholarship</label>
+                    <select
+                      value={exportScholarship}
+                      onChange={e => setExportScholarship(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      <option value="all">All Students</option>
+                      <option value="yes">With Scholarship</option>
+                      <option value="no">Without Scholarship</option>
+                      <option value="Merit">Merit Scholarship</option>
+                      <option value="Need-Based">Need-Based</option>
+                      <option value="Sports">Sports Scholarship</option>
+                      <option value="Government">Government Scholarship</option>
+                      <option value="Private">Private Scholarship</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                    <select
+                      value={exportGender}
+                      onChange={e => setExportGender(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      <option value="all">All Genders</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select
+                      value={exportStatus}
+                      onChange={e => setExportStatus(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      <option value="all">All Status</option>
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
+                </div>
+                {/* Export Type specific options */}
                 {exportType === 'monthly' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Select Month</label>
@@ -1440,10 +1870,27 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
                     <p>Download student attendance data for the selected subject for the current academic year.</p>
                   )}
                 </div>
-                <div className="flex flex-col sm:flex-row gap-2 sticky bottom-0 bg-white pt-2">
+                {exporting && exportProgress && (
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                    <div className="flex justify-between text-xs font-medium text-blue-700 mb-1">
+                      <span>{exportProgress.message}</span>
+                      <span>{Math.round((exportProgress.current / exportProgress.total) * 100)}%</span>
+                    </div>
+                    <div className="w-full bg-blue-100 rounded-full h-1.5">
+                      <div
+                        className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
+                        style={{ width: `${(exportProgress.current / exportProgress.total) * 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+                <div className="flex gap-2 pt-2 sticky bottom-0 bg-white">
                   <button
-                    onClick={() => setShowExportModal(false)}
-                    className="flex-1 bg-gray-300 text-gray-700 px-4 py-2.5 sm:py-2 rounded-lg hover:bg-gray-400 touch-manipulation active:scale-95 transition-transform"
+                    onClick={() => {
+                      setShowExportModal(false);
+                      setExportProgress(null);
+                    }}
+                    className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200"
                     disabled={exporting}
                   >
                     Cancel
@@ -1451,9 +1898,19 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
                   <button
                     onClick={handleExport}
                     disabled={exporting}
-                    className="flex-1 bg-purple-600 text-white px-4 py-2.5 sm:py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 touch-manipulation active:scale-95 transition-transform"
+                    className="flex-1 bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-slate-700 disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {exporting ? 'Downloading...' : 'Download Report'}
+                    {exporting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Processing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Download size={16} />
+                        <span>Download</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -1525,6 +1982,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
             </div>
           </div>
         )}
+
       </div>
     </div>
   );

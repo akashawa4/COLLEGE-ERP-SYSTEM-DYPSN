@@ -1662,6 +1662,107 @@ export const userService = {
     await deleteDoc(studentRef);
   },
 
+  // Bulk delete all students from users collection only (excluding demo students)
+  async bulkDeleteAllStudentsFromUsersCollection(
+    onProgress?: (deleted: number, total: number, skipped: number) => void
+  ): Promise<{ deleted: number; errors: number; skipped: number }> {
+    try {
+      console.log('[userService] Starting bulk delete of all students from users collection...');
+      
+      // Import dummy students to identify demo students
+      const { dummyStudents } = await import('../utils/dummyData');
+      
+      // Create sets of demo student identifiers for fast lookup
+      const demoStudentIds = new Set(dummyStudents.map(s => s.id));
+      const demoStudentEmails = new Set(dummyStudents.map(s => s.email?.toLowerCase()));
+      const demoStudentRollNumbers = new Set(dummyStudents.map(s => s.rollNumber));
+      
+      console.log(`[userService] Loaded ${dummyStudents.length} demo students to protect`);
+      
+      // Fetch all students from users collection
+      const usersRef = collection(db, COLLECTIONS.USERS);
+      const q = query(usersRef, where('role', '==', 'student'));
+      const querySnapshot = await getDocs(q);
+      
+      const totalStudents = querySnapshot.docs.length;
+      console.log(`[userService] Found ${totalStudents} students in collection`);
+      
+      // Filter out demo students
+      const studentsToDelete = querySnapshot.docs.filter(doc => {
+        const studentData = doc.data() as User;
+        const studentId = doc.id;
+        const studentEmail = (studentData.email || '').toLowerCase();
+        const studentRollNumber = studentData.rollNumber || '';
+        
+        // Check if this is a demo student
+        const isDemoStudent = 
+          demoStudentIds.has(studentId) ||
+          demoStudentEmails.has(studentEmail) ||
+          demoStudentRollNumbers.has(studentRollNumber) ||
+          studentId.startsWith('student_'); // Also protect any student with ID pattern 'student_X'
+        
+        if (isDemoStudent) {
+          console.log(`[userService] Skipping demo student: ${studentId} (${studentData.name})`);
+          return false;
+        }
+        
+        return true;
+      });
+      
+      const skipped = totalStudents - studentsToDelete.length;
+      console.log(`[userService] Will delete ${studentsToDelete.length} students, skipping ${skipped} demo students`);
+      
+      if (studentsToDelete.length === 0) {
+        console.log('[userService] No students to delete (all are demo students)');
+        return { deleted: 0, errors: 0, skipped };
+      }
+
+      let deleted = 0;
+      let errors = 0;
+      const BATCH_SIZE = 500; // Firestore batch limit
+
+      // Process in batches
+      for (let i = 0; i < studentsToDelete.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db);
+        const batchStudents = studentsToDelete.slice(i, i + BATCH_SIZE);
+        
+        for (const studentDoc of batchStudents) {
+          try {
+            const studentRef = doc(db, COLLECTIONS.USERS, studentDoc.id);
+            batch.delete(studentRef);
+          } catch (error) {
+            console.error(`[userService] Error preparing delete for student ${studentDoc.id}:`, error);
+            errors++;
+          }
+        }
+
+        try {
+          await batch.commit();
+          deleted += batchStudents.length;
+          console.log(`[userService] Deleted batch: ${deleted}/${studentsToDelete.length} students`);
+          
+          if (onProgress) {
+            onProgress(deleted, studentsToDelete.length, skipped);
+          }
+
+          // Small delay to avoid overwhelming Firestore
+          if (i + BATCH_SIZE < studentsToDelete.length) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        } catch (error) {
+          console.error(`[userService] Error committing batch:`, error);
+          errors += batchStudents.length;
+        }
+      }
+
+      console.log(`[userService] Bulk delete completed: ${deleted} deleted, ${errors} errors, ${skipped} skipped (demo students)`);
+      return { deleted, errors, skipped };
+    } catch (error) {
+      console.error('[userService] Error in bulkDeleteAllStudentsFromUsersCollection:', error);
+      throw error;
+    }
+  },
+
   // Validate library staff credentials (email and phone number)
   async validateLibraryStaffCredentials(email: string, phoneNumber: string): Promise<User | null> {
     console.log(`🔍 Searching for library staff with email: ${email}, phone: ${phoneNumber}`);
@@ -4646,6 +4747,120 @@ export const dummyDataService = {
         success: false,
         added: 0,
         errors: [`Failed to populate dummy students: ${(error as any).message}`]
+      };
+    }
+  },
+  
+  // Populate all demo users to users collection
+  async populateAllDemoUsersToUsersCollection(): Promise<{ success: boolean; added: number; errors: string[] }> {
+    try {
+      console.log('[dummyDataService] Starting to populate all demo users to users collection...');
+      const errors: string[] = [];
+      let added = 0;
+      
+      // Import all dummy users
+      const { 
+        dummyStudents, 
+        dummyTeachers, 
+        dummyAdmins, 
+        dummyHODs, 
+        dummyNonTeachingStaff, 
+        dummyDrivers, 
+        dummyVisitors 
+      } = await import('../utils/dummyData');
+      
+      // Combine all users
+      const allDemoUsers = [
+        ...dummyStudents,
+        ...dummyTeachers,
+        ...dummyAdmins,
+        ...dummyHODs,
+        ...dummyNonTeachingStaff,
+        ...dummyDrivers,
+        ...dummyVisitors
+      ];
+      
+      console.log(`[dummyDataService] Found ${allDemoUsers.length} demo users to add`);
+      
+      // Process in batches (Firestore batch limit is 500)
+      const BATCH_SIZE = 500;
+      for (let i = 0; i < allDemoUsers.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db);
+        const batchUsers = allDemoUsers.slice(i, i + BATCH_SIZE);
+        
+        for (const user of batchUsers) {
+          try {
+            if (!user.id || !user.email) {
+              errors.push(`Skipping user: missing id or email`);
+              continue;
+            }
+            
+            const userRef = doc(db, COLLECTIONS.USERS, user.id);
+            
+            // Prepare user data with timestamps
+            const userData: any = {
+              ...user,
+              updatedAt: serverTimestamp()
+            };
+            
+            // Add createdAt if available
+            if (user.createdAt) {
+              try {
+                userData.createdAt = Timestamp.fromDate(new Date(user.createdAt));
+              } catch {
+                userData.createdAt = serverTimestamp();
+              }
+            } else {
+              userData.createdAt = serverTimestamp();
+            }
+            
+            // Add lastLogin if available
+            if (user.lastLogin) {
+              try {
+                userData.lastLogin = Timestamp.fromDate(new Date(user.lastLogin));
+              } catch {
+                // Skip lastLogin if invalid
+              }
+            }
+            
+            // Add batchYear for students if not present
+            if (user.role === 'student' && !userData.batchYear) {
+              userData.batchYear = getCurrentBatchYear();
+            }
+            
+            batch.set(userRef, userData, { merge: true });
+          } catch (error) {
+            errors.push(`Error processing user ${user.id}: ${(error as any).message}`);
+          }
+        }
+        
+        try {
+          await batch.commit();
+          added += batchUsers.length;
+          console.log(`[dummyDataService] Added batch: ${added}/${allDemoUsers.length} users`);
+          
+          // Small delay to avoid overwhelming Firestore
+          if (i + BATCH_SIZE < allDemoUsers.length) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        } catch (error) {
+          console.error(`[dummyDataService] Error committing batch:`, error);
+          errors.push(`Error committing batch: ${(error as any).message}`);
+        }
+      }
+      
+      console.log(`[dummyDataService] Populated ${added} demo users to users collection`);
+      return {
+        success: added > 0,
+        added,
+        errors
+      };
+    } catch (error) {
+      console.error('[dummyDataService] Error populating demo users:', error);
+      return {
+        success: false,
+        added: 0,
+        errors: [`Failed to populate demo users: ${(error as any).message}`]
       };
     }
   },

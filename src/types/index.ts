@@ -287,8 +287,9 @@ export interface Event {
   id: string;
   title: string;
   description: string;
-  date: string; // YYYY-MM-DD
-  time: string; // HH:mm
+  date: string; // YYYY-MM-DD (Event date)
+  time: string; // HH:mm (Event start time)
+  endTime?: string; // HH:mm (optional end time)
   location: string;
   organizer: string;
   category: "Academic" | "Cultural" | "Sports" | "Technical" | "Social" | "Other";
@@ -297,12 +298,42 @@ export interface Event {
   status: "upcoming" | "ongoing" | "completed" | "cancelled";
   registrationRequired: boolean;
   department?: string;
+  isCollegeWide?: boolean; // True if organized for full campus
   contactEmail?: string;
   contactPhone?: string;
-  registrationDeadline?: string;
+  // Registration timing fields
+  registrationStartDate?: string; // YYYY-MM-DD - When registration opens
+  registrationStartTime?: string; // HH:mm - Time when registration opens
+  registrationDeadline?: string; // YYYY-MM-DD - When registration closes
+  registrationDeadlineTime?: string; // HH:mm - Time when registration closes
   requirements?: string;
+  rules?: string[];
+  prizes?: string[];
+  eligibility?: string;
+  entryFee?: number;
+  allowExternalParticipants?: boolean; // True if other colleges can participate
+  participants?: EventParticipant[];
   createdAt?: any; // Firestore timestamp
   updatedAt?: any; // Firestore timestamp
+}
+
+export interface EventParticipant {
+  id: string;
+  eventId: string;
+  name: string;
+  email: string;
+  phone?: string;
+  rollNumber?: string;
+  department?: string;
+  year?: string;
+  div?: string;
+  isExternal: boolean; // True if from other college
+  collegeName?: string; // Required if isExternal is true
+  collegeCity?: string;
+  registeredAt: any; // Firestore timestamp
+  status: 'registered' | 'attended' | 'cancelled';
+  teamName?: string; // For team events
+  teamMembers?: string[]; // Team member names
 }
 
 export interface Club {

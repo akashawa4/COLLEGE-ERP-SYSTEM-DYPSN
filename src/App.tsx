@@ -18,7 +18,6 @@ const MyAttendance = lazy(() => import('./components/Attendance/MyAttendance'));
 const ESLBiometricIntegration = lazy(() => import('./components/Attendance/ESLBiometricIntegration'));
 const Notifications = lazy(() => import('./components/Notifications/Notifications'));
 const StudentManagementPanel = lazy(() => import('./components/StudentManagement/StudentManagementPanel'));
-const TeacherStudentPanel = lazy(() => import('./components/StudentManagement/TeacherStudentPanel'));
 const TeacherManagementPanel = lazy(() => import('./components/TeacherManagement/TeacherManagementPanel'));
 const SubjectManagementPanel = lazy(() => import('./components/SubjectManagement/SubjectManagementPanel'));
 const ResultEntryPanel = lazy(() => import('./components/Results/ResultEntryPanel'));
@@ -418,7 +417,7 @@ const AppContent: React.FC = () => {
   // Reset to dashboard when user logs in (user changes from null to a user object)
   const prevUserRef = React.useRef<UserType | null>(null);
   const isInitialMount = React.useRef(true);
-  
+
   React.useEffect(() => {
     // Skip on initial mount to avoid overriding login-set page
     if (isInitialMount.current) {
@@ -426,7 +425,7 @@ const AppContent: React.FC = () => {
       prevUserRef.current = user;
       return;
     }
-    
+
     // If user just logged in (was null, now has a user), reset to dashboard
     if (!prevUserRef.current && user) {
       // Clear any stale page state and reset to dashboard
@@ -790,11 +789,7 @@ const AppContent: React.FC = () => {
         }
         return <Dashboard onPageChange={handlePageChange} />;
       case 'student-management':
-        return user?.role === 'teacher' ? (
-          <TeacherStudentPanel user={user} />
-        ) : (
-          <StudentManagementPanel user={user} />
-        );
+        return <StudentManagementPanel user={user} />;
       case 'teacher-management':
         return <TeacherManagementPanel onPageChange={handlePageChange} />;
       case 'teacher-leave-attendance':

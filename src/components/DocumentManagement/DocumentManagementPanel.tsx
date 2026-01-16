@@ -296,6 +296,23 @@ const DocumentManagementPanel: React.FC = () => {
         // Must be a student
         if (s.role !== 'student') return false;
 
+        // Exclude students without essential fields (likely deleted or invalid)
+        if (!s.id || !s.name || !s.email) {
+          return false;
+        }
+
+        // Exclude students that might be demo/test data (optional - can be removed if not needed)
+        // Filter out students with obviously invalid emails or names
+        const email = (s.email || '').toLowerCase();
+        const name = (s.name || '').toLowerCase();
+        if (email.includes('test@') || email.includes('demo@') || name.includes('test student') || name.includes('demo student')) {
+          // Only exclude if they don't have a valid batchYear (demo students might not have proper batchYear)
+          const studentBatchYear = (s as any).batchYear;
+          if (!studentBatchYear || studentBatchYear !== batch) {
+            return false;
+          }
+        }
+
         // Filter by batch - require exact match when batch filter is selected
         if (batch) {
           const studentBatchYear = (s as any).batchYear;
@@ -353,13 +370,15 @@ const DocumentManagementPanel: React.FC = () => {
       const uniqueById = new Map<string, UserType>();
       for (const s of filtered) {
         // Use id as key to ensure uniqueness
-        if (!uniqueById.has(s.id)) {
+        // Also ensure student has valid data
+        if (s.id && s.name && s.email && !uniqueById.has(s.id)) {
           uniqueById.set(s.id, s);
         }
       }
       const uniqueStudents = Array.from(uniqueById.values());
 
       console.log('Loaded students (filters):', uniqueStudents.length, 'for batch:', batch, 'dept:', filterDepartment || 'all', 'div:', selectedDiv || 'all', 'search:', searchTerm || 'none');
+      console.log('Total students fetched:', allStudents.length, 'After filtering:', uniqueStudents.length);
       setStudents(uniqueStudents);
     } catch (err: any) {
       console.error('Failed to load students (filters):', err);
