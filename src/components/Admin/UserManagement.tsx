@@ -17,13 +17,15 @@ import {
   Loader2,
   RefreshCw,
   Save,
-  X
+  X,
+  Download
 } from "lucide-react";
 import { userService } from "../../firebase/firestore";
 import { User } from "../../types";
 import { auth } from "../../firebase/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { injectDummyData, USE_DUMMY_DATA, getDummyData } from "../../utils/dummyData";
+import * as XLSX from 'xlsx';
 
 const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -444,6 +446,53 @@ const UserManagement: React.FC = () => {
       .join("")
       .toUpperCase();
 
+  const exportUsers = () => {
+    try {
+      if (filteredUsers.length === 0) {
+        alert('No users to export. Please adjust your filters.');
+        return;
+      }
+
+      // Prepare data for export
+      const exportData = filteredUsers.map(user => ({
+        'Name': user.name || '',
+        'Email': user.email || '',
+        'Phone': user.phone || '',
+        'Role': user.role || '',
+        'Department': user.department || '',
+        'Designation': user.designation || '',
+        'Roll Number': user.rollNumber || '',
+        'Status': user.isActive ? 'Active' : 'Inactive',
+        'Access Level': user.accessLevel || '',
+        'Sub Role': user.subRole || '',
+        'Work Shift': user.workShift || '',
+        'Work Location': user.workLocation || '',
+        'Supervisor': user.supervisor || '',
+        'Contract Type': user.contractType || '',
+        'Work Status': user.workStatus || '',
+        'Joining Date': user.joiningDate || '',
+        'Created At': user.createdAt ? new Date(user.createdAt).toLocaleString() : '',
+        'Last Login': user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never'
+      }));
+
+      // Create worksheet
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Users');
+
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const filename = `users_export_${timestamp}.xlsx`;
+
+      // Download the file
+      XLSX.writeFile(workbook, filename);
+      alert(`Exported ${filteredUsers.length} users successfully!`);
+    } catch (error) {
+      console.error('Error exporting users:', error);
+      alert('Failed to export users. Please try again.');
+    }
+  };
+
   return (
     <div className="p-4 lg:p-6 space-y-4 max-w-7xl mx-auto">
       {/* Header */}
@@ -479,6 +528,13 @@ const UserManagement: React.FC = () => {
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline text-sm font-medium">Refresh</span>
+          </button>
+          <button
+            onClick={exportUsers}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline text-sm font-medium">Download Report</span>
           </button>
           <button
             onClick={() => setShowAddModal(true)}

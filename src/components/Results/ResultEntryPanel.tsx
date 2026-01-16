@@ -1,10 +1,11 @@
 import React from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { userService, subjectService, resultService, getBatchYear } from '../../firebase/firestore';
+import { userService, subjectService, resultService, getBatchYear, attendanceService } from '../../firebase/firestore';
 import { User } from '../../types';
-import { getDepartmentCode } from '../../utils/departmentMapping';
+import { getDepartmentCode, getDepartmentName } from '../../utils/departmentMapping';
 import { getAvailableSemesters, getDefaultSemesterForYear, isValidSemesterForYear } from '../../utils/semesterMapping';
 import StudentAutocomplete from './StudentAutocomplete';
+import { injectDummyData, USE_DUMMY_DATA } from '../../utils/dummyData';
 
 const YEARS = ['1st', '2nd', '3rd', '4th'];
 const DIVS = ['A', 'B', 'C'];
@@ -26,6 +27,9 @@ const ResultEntryPanel: React.FC = () => {
   const [students, setStudents] = React.useState<User[]>([]);
   const [loading, setLoading] = React.useState<boolean>(false);
   const [classResults, setClassResults] = React.useState<any[]>([]);
+  const [filteredResults, setFilteredResults] = React.useState<any[]>([]);
+  const [resultFilter, setResultFilter] = React.useState<string>('all'); // 'all', 'pass', 'fail'
+  const [attendanceFilter, setAttendanceFilter] = React.useState<string>('all'); // 'all', 'below75'
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [showAddModal, setShowAddModal] = React.useState<boolean>(false);
   const [newResult, setNewResult] = React.useState({
@@ -72,6 +76,25 @@ const ResultEntryPanel: React.FC = () => {
       try {
         setSubjectsLoading(true);
         const deptCode = getDepartmentCode(user?.department);
+        
+        // Use dummy subjects immediately if enabled for faster loading
+        if (USE_DUMMY_DATA) {
+          const dummySubjects = injectDummyData.subjects([]);
+          const filtered = dummySubjects.filter(s => 
+            s.year === year &&
+            s.sem === sem &&
+            (s.department === user?.department || getDepartmentCode(s.department) === deptCode)
+          );
+          const unique = Array.from(new Set(filtered.map(s => s.subjectName)));
+          const names = unique.sort();
+          setAvailableSubjects(names);
+          if (names.length > 0) setSubject(prev => (prev && names.includes(prev) ? prev : names[0]));
+          else setSubject('');
+          setSubjectsLoading(false);
+          return; // Exit early, don't wait for Firestore
+        }
+        
+        // Only query Firestore if dummy data is disabled
         console.log('Loading subjects with:', { deptCode, year, sem, userDepartment: user?.department });
         let subs = await subjectService.getSubjectsByDepartment(deptCode, year, sem);
         console.log('Found subjects:', subs);
@@ -91,8 +114,22 @@ const ResultEntryPanel: React.FC = () => {
         else setSubject('');
       } catch (error) {
         console.error('Error loading subjects:', error);
-        setAvailableSubjects([]);
-        setSubject('');
+        // Fallback to dummy data on error
+        if (USE_DUMMY_DATA) {
+          const dummySubjects = injectDummyData.subjects([]);
+          const filtered = dummySubjects.filter(s => 
+            s.year === year &&
+            s.sem === sem &&
+            (s.department === user?.department || getDepartmentCode(s.department) === getDepartmentCode(user?.department))
+          );
+          const unique = Array.from(new Set(filtered.map(s => s.subjectName)));
+          const names = unique.sort();
+          setAvailableSubjects(names);
+          if (names.length > 0) setSubject(prev => (prev && names.includes(prev) ? prev : names[0]));
+        } else {
+          setAvailableSubjects([]);
+          setSubject('');
+        }
       } finally {
         setSubjectsLoading(false);
       }
@@ -114,12 +151,114 @@ const ResultEntryPanel: React.FC = () => {
   const fetchClassResults = React.useCallback(async () => {
     const batch = computeBatch();
     const department = getDepartmentCodeSafe();
-    if (!subject || !examType) { setClassResults([]); return; }
-    const data = await resultService.getClassResults(batch, department, year, sem, div, subject, examType);
+    if (!subject || !examType) { 
+      setClassResults([]); 
+      setFilteredResults([]);
+      return; 
+    }
+    
+    let data = await resultService.getClassResults(batch, department, year, sem, div, subject, examType);
+    
+    // Inject dummy results if enabled and real data is empty
+    if (USE_DUMMY_DATA && data.length === 0) {
+      const dummyResults = injectDummyData.results([]);
+      // Get department name from code for matching
+      const departmentName = getDepartmentName(department);
+      
+      // Filter dummy results based on current filters
+      data = dummyResults.filter((r: any) => 
+        r.year === year &&
+        r.sem === sem &&
+        r.div === div &&
+        r.subject === subject &&
+        r.examType === examType &&
+        (r.department === departmentName || r.department === department)
+      );
+    }
+    
+    // Load attendance data for each student to calculate attendance percentage
+    // Use dummy attendance data if available for faster loading
+    let dummyAttendance: any[] = [];
+    if (USE_DUMMY_DATA) {
+      dummyAttendance = injectDummyData.attendanceLogs([], {
+        year,
+        sem,
+        div,
+        subject
+      });
+    }
+    
+    const resultsWithAttendance = await Promise.all(data.map(async (result: any) => {
+      try {
+        let attendanceData: any[] = [];
+        
+        // Try to use dummy attendance first if available
+        if (USE_DUMMY_DATA && dummyAttendance.length > 0) {
+          const studentDummyAttendance = dummyAttendance.filter((a: any) => 
+            (a.userId === result.userId || a.rollNumber === result.rollNumber) &&
+            a.subject === subject &&
+            a.year === year &&
+            a.sem === sem &&
+            a.div === div
+          );
+          attendanceData = studentDummyAttendance;
+        }
+        
+        // If no dummy data found, fetch from Firestore
+        if (attendanceData.length === 0) {
+          attendanceData = await attendanceService.getAttendanceByUser(result.userId);
+          attendanceData = attendanceData.filter((a: any) => 
+            a.subject === subject &&
+            a.year === year &&
+            a.sem === sem &&
+            a.div === div
+          );
+        }
+        
+        const presentCount = attendanceData.filter((a: any) => 
+          a.status === 'present' || a.status === 'late'
+        ).length;
+        const totalDays = attendanceData.length;
+        const attendancePercentage = totalDays > 0 ? (presentCount / totalDays) * 100 : 100;
+        
+        return {
+          ...result,
+          attendancePercentage: Math.round(attendancePercentage * 10) / 10,
+          isPass: (result.percentage || 0) >= 40,
+          isBelow75Attendance: attendancePercentage < 75
+        };
+      } catch (error) {
+        // If attendance fetch fails, assume 100% attendance
+        return {
+          ...result,
+          attendancePercentage: 100,
+          isPass: (result.percentage || 0) >= 40,
+          isBelow75Attendance: false
+        };
+      }
+    }));
+    
     // Sort by roll number numeric if possible
-    data.sort((a: any, b: any) => String(a.rollNumber).localeCompare(String(b.rollNumber), undefined, { numeric: true }));
-    setClassResults(data);
-  }, [computeBatch, getDepartmentCodeSafe, year, sem, div, subject, examType]);
+    resultsWithAttendance.sort((a: any, b: any) => String(a.rollNumber).localeCompare(String(b.rollNumber), undefined, { numeric: true }));
+    setClassResults(resultsWithAttendance);
+    
+    // Apply filters
+    let filtered = resultsWithAttendance;
+    
+    // Apply pass/fail filter
+    if (resultFilter === 'pass') {
+      filtered = filtered.filter((r: any) => r.isPass);
+    } else if (resultFilter === 'fail') {
+      filtered = filtered.filter((r: any) => !r.isPass);
+    }
+    
+    // Apply attendance filter
+    if (attendanceFilter === 'below75') {
+      filtered = filtered.filter((r: any) => r.isBelow75Attendance);
+    }
+    
+    setFilteredResults(filtered);
+  }, [computeBatch, getDepartmentCodeSafe, year, sem, div, subject, examType, user?.department, resultFilter, attendanceFilter]);
 
   React.useEffect(() => { fetchClassResults(); }, [fetchClassResults]);
 
@@ -315,8 +454,8 @@ const ResultEntryPanel: React.FC = () => {
   };
 
   const handleExport = () => {
-    const headers = ['name','rollNumber','year','sem','div','subject','examType','marksObtained','maxMarks','percentage'];
-    const rows = classResults.map((r: any) => [
+    const headers = ['name','rollNumber','year','sem','div','subject','examType','marksObtained','maxMarks','percentage','status','attendancePercentage'];
+    const rows = filteredResults.map((r: any) => [
       r.userName || '',
       r.rollNumber,
       year,
@@ -326,7 +465,9 @@ const ResultEntryPanel: React.FC = () => {
       examType,
       r.marksObtained,
       r.maxMarks,
-      typeof r.percentage === 'number' ? r.percentage.toFixed(1) : ''
+      typeof r.percentage === 'number' ? r.percentage.toFixed(1) : '',
+      r.isPass ? 'Pass' : 'Fail',
+      typeof r.attendancePercentage === 'number' ? r.attendancePercentage.toFixed(1) : ''
     ]);
     const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -541,12 +682,37 @@ const ResultEntryPanel: React.FC = () => {
           <input type="number" value={maxMarks} onChange={e => setMaxMarks(Number(e.target.value))} className="mt-1 block w-full border rounded p-2" />
         </div>
 
-        {/* Marks free-text input removed per requirement. Use Add Result modal instead. */}
+      </form>
 
-        <div className="md:col-span-3 flex items-center gap-4 mt-2 flex-wrap">
+      {/* Filters */}
+      <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Result Filter</label>
+          <select 
+            value={resultFilter} 
+            onChange={e => setResultFilter(e.target.value)} 
+            className="w-full border rounded p-2"
+          >
+            <option value="all">All Results</option>
+            <option value="pass">Pass (≥40%)</option>
+            <option value="fail">Fail (&lt;40%)</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Attendance Filter</label>
+          <select 
+            value={attendanceFilter} 
+            onChange={e => setAttendanceFilter(e.target.value)} 
+            className="w-full border rounded p-2"
+          >
+            <option value="all">All Students</option>
+            <option value="below75">Below 75% Attendance</option>
+          </select>
+        </div>
+        <div className="flex items-end">
           <span className="text-xs text-gray-500">Batch: {computeBatch()}, Department: {getDepartmentCodeSafe()}</span>
         </div>
-      </form>
+      </div>
 
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -645,7 +811,9 @@ const ResultEntryPanel: React.FC = () => {
       <div className="mt-6">
         <div className="flex items-center justify-between mb-2">
           <h3 className="font-semibold text-gray-800">Class Results</h3>
-          <span className="text-xs text-gray-500">{classResults.length} records</span>
+          <span className="text-xs text-gray-500">
+            Showing {filteredResults.length} of {classResults.length} records
+          </span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm border border-gray-200 rounded-lg">
@@ -655,20 +823,44 @@ const ResultEntryPanel: React.FC = () => {
                 <th className="px-3 py-2 text-left font-medium text-gray-600">Name</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600">Marks</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600">Percentage</th>
+                <th className="px-3 py-2 text-left font-medium text-gray-600">Status</th>
+                <th className="px-3 py-2 text-left font-medium text-gray-600">Attendance</th>
               </tr>
             </thead>
             <tbody>
-              {classResults.length === 0 ? (
+              {filteredResults.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-3 py-3 text-center text-gray-500">No results yet.</td>
+                  <td colSpan={6} className="px-3 py-3 text-center text-gray-500">
+                    {classResults.length === 0 ? 'No results yet.' : 'No results match the selected filters.'}
+                  </td>
                 </tr>
               ) : (
-                classResults.map((r: any) => (
+                filteredResults.map((r: any) => (
                   <tr key={r.id} className="border-t border-gray-100">
                     <td className="px-3 py-2 text-gray-800">{r.rollNumber}</td>
                     <td className="px-3 py-2 text-gray-800">{r.userName || '-'}</td>
                     <td className="px-3 py-2 text-gray-800">{r.marksObtained} / {r.maxMarks}</td>
                     <td className="px-3 py-2 text-gray-700">{typeof r.percentage === 'number' ? `${r.percentage.toFixed(1)}%` : '-'}</td>
+                    <td className="px-3 py-2">
+                      {r.isPass ? (
+                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">Pass</span>
+                      ) : (
+                        <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs font-medium">Fail</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {typeof r.attendancePercentage === 'number' ? (
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          r.attendancePercentage >= 75 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-orange-100 text-orange-800'
+                        }`}>
+                          {r.attendancePercentage.toFixed(1)}%
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}

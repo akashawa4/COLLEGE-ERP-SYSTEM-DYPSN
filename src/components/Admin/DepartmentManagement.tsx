@@ -14,11 +14,13 @@ import {
   Save,
   X,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Download
 } from 'lucide-react';
 import { departmentService } from '../../firebase/firestore';
 import { Department, User } from '../../types';
 import { injectDummyData, USE_DUMMY_DATA, getDummyData } from '../../utils/dummyData';
+import * as XLSX from 'xlsx';
 
 const DepartmentManagement: React.FC = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -320,6 +322,55 @@ const DepartmentManagement: React.FC = () => {
     return teachers.filter(teacher => teacher.department === departmentCode);
   };
 
+  const exportDepartments = () => {
+    try {
+      const filteredDepts = departments.filter(dept => {
+        const matchesSearch = !searchTerm || 
+          dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          dept.code.toLowerCase().includes(searchTerm.toLowerCase());
+        return matchesSearch;
+      });
+
+      if (filteredDepts.length === 0) {
+        alert('No departments to export.');
+        return;
+      }
+
+      // Prepare data for export
+      const exportData = filteredDepts.map(dept => {
+        const hod = dept.hodId ? teachers.find(t => t.id === dept.hodId) : null;
+        const deptTeachers = getTeachersForDepartment(dept.code || '');
+        
+        return {
+          'Department Name': dept.name || '',
+          'Department Code': dept.code || '',
+          'Description': dept.description || '',
+          'HOD Name': hod?.name || 'Not Assigned',
+          'HOD Email': hod?.email || '',
+          'Total Teachers': deptTeachers.length,
+          'Status': dept.isActive ? 'Active' : 'Inactive',
+          'Created At': dept.createdAt ? new Date(dept.createdAt).toLocaleString() : ''
+        };
+      });
+
+      // Create worksheet
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Departments');
+
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const filename = `departments_export_${timestamp}.xlsx`;
+
+      // Download the file
+      XLSX.writeFile(workbook, filename);
+      alert(`Exported ${filteredDepts.length} departments successfully!`);
+    } catch (error) {
+      console.error('Error exporting departments:', error);
+      alert('Failed to export departments. Please try again.');
+    }
+  };
+
   return (
     <div className="p-4 lg:p-6 space-y-4">
       {/* Header */}
@@ -347,6 +398,13 @@ const DepartmentManagement: React.FC = () => {
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline text-sm font-medium">Refresh</span>
+          </button>
+          <button
+            onClick={exportDepartments}
+            className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline text-sm font-medium">Download Report</span>
           </button>
           <button
             onClick={() => setShowAddModal(true)}

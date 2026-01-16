@@ -25,6 +25,7 @@ import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { buildAcademicPaths, getBatchYear } from '../../firebase/firestore';
 import { getDepartmentCode } from '../../utils/departmentMapping';
+import * as XLSX from 'xlsx';
 
 interface Course {
   id: string;
@@ -294,6 +295,50 @@ const CourseManagementPanel: React.FC = () => {
     }
   };
 
+  const exportCourses = () => {
+    try {
+      if (filteredCourses.length === 0) {
+        alert('No courses to export.');
+        return;
+      }
+
+      // Prepare data for export
+      const exportData = filteredCourses.map(course => ({
+        'Course Name': course.courseName || '',
+        'Course Code': course.courseCode || '',
+        'Department': course.department || '',
+        'Year': course.year || '',
+        'Semester': course.semester || '',
+        'Credits': course.credits || 0,
+        'Description': course.description || '',
+        'Instructor': course.instructor || '',
+        'Max Students': course.maxStudents || 0,
+        'Enrolled Students': course.enrolledStudents || 0,
+        'Status': course.status || '',
+        'Start Date': course.startDate || '',
+        'End Date': course.endDate || '',
+        'Created At': course.createdAt ? new Date(course.createdAt).toLocaleString() : '',
+        'Updated At': course.updatedAt ? new Date(course.updatedAt).toLocaleString() : ''
+      }));
+
+      // Create worksheet
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Courses');
+
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const filename = `courses_export_${timestamp}.xlsx`;
+
+      // Download the file
+      XLSX.writeFile(workbook, filename);
+      alert(`Exported ${filteredCourses.length} courses successfully!`);
+    } catch (error) {
+      console.error('Error exporting courses:', error);
+      alert('Failed to export courses. Please try again.');
+    }
+  };
+
   const getCategoryIcon = (category: Document['category']) => {
     switch (category) {
       case 'syllabus': return <BookOpen className="w-4 h-4" />;
@@ -321,6 +366,13 @@ const CourseManagementPanel: React.FC = () => {
           <p className="text-sm text-slate-500">Manage courses, curriculum, and academic documents</p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={exportCourses}
+            className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors text-sm font-medium"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">Download Report</span>
+          </button>
           <button
             onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors text-sm font-medium"

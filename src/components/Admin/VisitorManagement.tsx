@@ -15,11 +15,13 @@ import {
   Loader2,
   Users,
   Clock,
-  CheckCircle
+  CheckCircle,
+  Download
 } from 'lucide-react';
 import { visitorService } from '../../firebase/firestore';
 import { VisitorProfile } from '../../types';
 import { USE_DUMMY_DATA } from '../../utils/dummyData';
+import * as XLSX from 'xlsx';
 
 const VisitorManagement: React.FC = () => {
   const [visitors, setVisitors] = useState<VisitorProfile[]>([]);
@@ -166,6 +168,43 @@ const VisitorManagement: React.FC = () => {
     setShowDetails(false);
   };
 
+  const exportVisitors = () => {
+    try {
+      if (filteredVisitors.length === 0) {
+        alert('No visitors to export.');
+        return;
+      }
+
+      // Prepare data for export
+      const exportData = filteredVisitors.map(visitor => ({
+        'Name': visitor.name || '',
+        'Phone': visitor.phone || '',
+        'Device ID': visitor.deviceId || '',
+        'Purpose': visitor.purpose || '',
+        'Last Login': visitor.lastLogin ? formatDate(visitor.lastLogin) : 'Never',
+        'Created At': visitor.createdAt ? formatDate(visitor.createdAt) : '',
+        'Email': visitor.email || '',
+        'Address': visitor.address || ''
+      }));
+
+      // Create worksheet
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Visitors');
+
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const filename = `visitors_export_${timestamp}.xlsx`;
+
+      // Download the file
+      XLSX.writeFile(workbook, filename);
+      alert(`Exported ${filteredVisitors.length} visitors successfully!`);
+    } catch (error) {
+      console.error('Error exporting visitors:', error);
+      alert('Failed to export visitors. Please try again.');
+    }
+  };
+
   return (
     <div className="p-4 lg:p-6 space-y-4 max-w-7xl mx-auto">
       {/* Header */}
@@ -174,14 +213,23 @@ const VisitorManagement: React.FC = () => {
           <h1 className="text-xl lg:text-2xl font-bold text-slate-900">Visitor Management</h1>
           <p className="text-sm text-slate-500">Manage and track campus visitors</p>
         </div>
-        <button
-          onClick={loadVisitors}
-          disabled={loading}
-          className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 disabled:opacity-50 transition-colors"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          <span className="text-sm font-medium">Refresh</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={loadVisitors}
+            disabled={loading}
+            className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <span className="text-sm font-medium">Refresh</span>
+          </button>
+          <button
+            onClick={exportVisitors}
+            className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            <span className="text-sm font-medium">Download Report</span>
+          </button>
+        </div>
       </div>
 
       {/* Error Message */}

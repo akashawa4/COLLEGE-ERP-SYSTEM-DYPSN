@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Save, X, Users, Calendar, BookOpen } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, X, Users, Calendar, BookOpen, Download } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { batchService } from '../../firebase/firestore';
 import { getDepartmentCode } from '../../utils/departmentMapping';
 import { getAvailableSemesters, isValidSemesterForYear, getDefaultSemesterForYear } from '../../utils/semesterMapping';
+import * as XLSX from 'xlsx';
 
 interface BatchData {
   id?: string;
@@ -214,6 +215,46 @@ const BatchManagementPanel: React.FC = () => {
     return rollNumbers;
   };
 
+  const exportBatches = () => {
+    try {
+      if (filteredBatches.length === 0) {
+        alert('No batches to export.');
+        return;
+      }
+
+      // Prepare data for export
+      const exportData = filteredBatches.map(batch => ({
+        'Batch Name': batch.batchName || '',
+        'From Roll Number': batch.fromRollNo || '',
+        'To Roll Number': batch.toRollNo || '',
+        'Year': batch.year || '',
+        'Semester': batch.sem || '',
+        'Division': batch.div || '',
+        'Department': batch.department || '',
+        'Total Students': batch.toRollNo && batch.fromRollNo ? 
+          (parseInt(batch.toRollNo) - parseInt(batch.fromRollNo) + 1) : 0,
+        'Created At': batch.createdAt ? new Date(batch.createdAt).toLocaleString() : '',
+        'Updated At': batch.updatedAt ? new Date(batch.updatedAt).toLocaleString() : ''
+      }));
+
+      // Create worksheet
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Batches');
+
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const filename = `batches_export_${timestamp}.xlsx`;
+
+      // Download the file
+      XLSX.writeFile(workbook, filename);
+      alert(`Exported ${filteredBatches.length} batches successfully!`);
+    } catch (error) {
+      console.error('Error exporting batches:', error);
+      alert('Failed to export batches. Please try again.');
+    }
+  };
+
   return (
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -221,13 +262,22 @@ const BatchManagementPanel: React.FC = () => {
           <h2 className="text-xl lg:text-2xl font-bold text-slate-900">Batch Management</h2>
           <p className="text-sm text-slate-500">Create and manage student batches for attendance tracking</p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors text-sm font-medium"
-        >
-          <Plus className="w-4 h-4" />
-          Add Batch
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={exportBatches}
+            className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors text-sm font-medium"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">Download Report</span>
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors text-sm font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            Add Batch
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

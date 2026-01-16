@@ -612,27 +612,121 @@ export const dummySubjects: Subject[] = [
 // Generate comprehensive attendance data (must be after dummySubjects is defined)
 dummyAttendanceLogs = generateAttendanceForLast5Days();
 
-// ==================== DUMMY RESULTS ====================
-export const dummyResults: ResultRecord[] = [
-  { id: 'result_1', userId: 'student_1', userName: 'Rajesh Kumar', rollNumber: 'CS2024001', batch: '2024', department: 'Computer Science', year: '2nd', sem: '3', div: 'A', subject: 'Data Structures', examType: 'UT1', marksObtained: 85, maxMarks: 100, percentage: 85, grade: 'A' },
-  { id: 'result_2', userId: 'student_1', userName: 'Rajesh Kumar', rollNumber: 'CS2024001', batch: '2024', department: 'Computer Science', year: '2nd', sem: '3', div: 'A', subject: 'Data Structures', examType: 'Practical', marksObtained: 90, maxMarks: 100, percentage: 90, grade: 'A+' },
-  { id: 'result_3', userId: 'student_2', userName: 'Priya Sharma', rollNumber: 'CS2024002', batch: '2024', department: 'Computer Science', year: '2nd', sem: '3', div: 'A', subject: 'Data Structures', examType: 'UT1', marksObtained: 92, maxMarks: 100, percentage: 92, grade: 'A+' },
-  { id: 'result_4', userId: 'student_2', userName: 'Priya Sharma', rollNumber: 'CS2024002', batch: '2024', department: 'Computer Science', year: '2nd', sem: '3', div: 'A', subject: 'Data Structures', examType: 'Practical', marksObtained: 95, maxMarks: 100, percentage: 95, grade: 'A+' },
-  { id: 'result_5', userId: 'student_3', userName: 'Amit Patel', rollNumber: 'CS2023001', batch: '2023', department: 'Computer Science', year: '3rd', sem: '5', div: 'A', subject: 'Database Management', examType: 'UT1', marksObtained: 78, maxMarks: 100, percentage: 78, grade: 'B+' },
-  { id: 'result_6', userId: 'student_3', userName: 'Amit Patel', rollNumber: 'CS2023001', batch: '2023', department: 'Computer Science', year: '3rd', sem: '5', div: 'A', subject: 'Database Management', examType: 'Practical', marksObtained: 82, maxMarks: 100, percentage: 82, grade: 'A' },
-  { id: 'result_7', userId: 'student_4', userName: 'Sneha Desai', rollNumber: 'IT2024001', batch: '2024', department: 'Information Technology', year: '2nd', sem: '3', div: 'A', subject: 'Web Development', examType: 'UT1', marksObtained: 88, maxMarks: 100, percentage: 88, grade: 'A+' },
-  { id: 'result_8', userId: 'student_4', userName: 'Sneha Desai', rollNumber: 'IT2024001', batch: '2024', department: 'Information Technology', year: '2nd', sem: '3', div: 'A', subject: 'Web Development', examType: 'Practical', marksObtained: 91, maxMarks: 100, percentage: 91, grade: 'A+' },
-  { id: 'result_9', userId: 'student_6', userName: 'Arjun Mehta', rollNumber: 'CS2024003', batch: '2024', department: 'Computer Science', year: '2nd', sem: '3', div: 'A', subject: 'Data Structures', examType: 'UT1', marksObtained: 80, maxMarks: 100, percentage: 80, grade: 'A' },
-  { id: 'result_10', userId: 'student_7', userName: 'Kavya Reddy', rollNumber: 'CS2024004', batch: '2024', department: 'Computer Science', year: '2nd', sem: '3', div: 'A', subject: 'Data Structures', examType: 'UT1', marksObtained: 89, maxMarks: 100, percentage: 89, grade: 'A+' },
-  { id: 'result_11', userId: 'student_10', userName: 'Siddharth Nair', rollNumber: 'CS2023002', batch: '2023', department: 'Computer Science', year: '3rd', sem: '5', div: 'A', subject: 'Database Management', examType: 'UT1', marksObtained: 85, maxMarks: 100, percentage: 85, grade: 'A' },
-  { id: 'result_12', userId: 'student_15', userName: 'Rahul Verma', rollNumber: 'IT2024002', batch: '2024', department: 'Information Technology', year: '2nd', sem: '3', div: 'A', subject: 'Web Development', examType: 'UT1', marksObtained: 83, maxMarks: 100, percentage: 83, grade: 'A' },
-  { id: 'result_13', userId: 'student_18', userName: 'Shreya Bhatt', rollNumber: 'IT2023001', batch: '2023', department: 'Information Technology', year: '3rd', sem: '5', div: 'A', subject: 'Cloud Computing', examType: 'UT1', marksObtained: 87, maxMarks: 100, percentage: 87, grade: 'A+' },
-  { id: 'result_14', userId: 'student_20', userName: 'Ravi Kumar', rollNumber: 'ME2024002', batch: '2024', department: 'Mechanical', year: '2nd', sem: '3', div: 'A', subject: 'Thermodynamics', examType: 'UT1', marksObtained: 76, maxMarks: 100, percentage: 76, grade: 'B+' },
-  { id: 'result_15', userId: 'student_23', userName: 'Anjali Thakur', rollNumber: 'EE2024001', batch: '2024', department: 'Electronics', year: '2nd', sem: '3', div: 'A', subject: 'Embedded Systems', examType: 'UT1', marksObtained: 84, maxMarks: 100, percentage: 84, grade: 'A' },
-  { id: 'result_16', userId: 'student_25', userName: 'Isha Kapoor', rollNumber: 'EE2023001', batch: '2023', department: 'Electronics', year: '3rd', sem: '5', div: 'A', subject: 'VLSI Design', examType: 'UT1', marksObtained: 79, maxMarks: 100, percentage: 79, grade: 'B+' },
-  { id: 'result_17', userId: 'student_26', userName: 'Kunal Jain', rollNumber: 'CE2024001', batch: '2024', department: 'Civil', year: '2nd', sem: '3', div: 'A', subject: 'Structural Engineering', examType: 'UT1', marksObtained: 81, maxMarks: 100, percentage: 81, grade: 'A' },
-  { id: 'result_18', userId: 'student_28', userName: 'Nikhil Bansal', rollNumber: 'CE2023001', batch: '2023', department: 'Civil', year: '3rd', sem: '5', div: 'A', subject: 'Environmental Engineering', examType: 'UT1', marksObtained: 86, maxMarks: 100, percentage: 86, grade: 'A+' }
-];
+// Generate comprehensive demo result data for all students, years, semesters, divisions, and subjects
+const generateDemoResults = (): ResultRecord[] => {
+  const results: ResultRecord[] = [];
+  const examTypes = ['UT1', 'UT2', 'Practical', 'Viva', 'Midterm', 'Endsem'];
+  const maxMarksMap: Record<string, number> = {
+    'UT1': 20,
+    'UT2': 20,
+    'Practical': 50,
+    'Viva': 20,
+    'Midterm': 50,
+    'Endsem': 100
+  };
+
+  // Helper function to calculate grade
+  const calculateGrade = (percentage: number): string => {
+    if (percentage >= 90) return 'A+';
+    if (percentage >= 80) return 'A';
+    if (percentage >= 70) return 'B+';
+    if (percentage >= 60) return 'B';
+    if (percentage >= 50) return 'C+';
+    if (percentage >= 40) return 'C';
+    return 'F';
+  };
+
+  // Helper function to get batch from year
+  const getBatchFromYear = (year: string): string => {
+    const currentYear = new Date().getFullYear();
+    if (year === '1st') return String(currentYear + 1);
+    if (year === '2nd') return String(currentYear);
+    if (year === '3rd') return String(currentYear - 1);
+    if (year === '4th') return String(currentYear - 2);
+    return String(currentYear);
+  };
+
+  // Generate results for each student
+  dummyStudents.forEach((student, studentIndex) => {
+    if (student.role !== 'student' || !student.year || !student.sem || !student.div || !student.department) return;
+
+    // Get all subjects for this student's year, sem, div, and department
+    const studentSubjects = dummySubjects.filter(subj => 
+      subj.year === student.year &&
+      subj.sem === student.sem &&
+      (subj.div === student.div || subj.div === 'A') && // Match division or default to A
+      subj.department === student.department &&
+      subj.isActive
+    );
+
+    // If no subjects found, try without division filter
+    const subjectsToUse = studentSubjects.length > 0 
+      ? studentSubjects 
+      : dummySubjects.filter(subj => 
+          subj.year === student.year &&
+          subj.sem === student.sem &&
+          subj.department === student.department &&
+          subj.isActive
+        );
+
+    // Generate results for each subject and exam type
+    subjectsToUse.forEach(subject => {
+      examTypes.forEach(examType => {
+        // Skip certain exam types for certain subject types
+        if (subject.subjectType === 'Lab' && examType !== 'Practical' && examType !== 'Viva') return;
+        if (subject.subjectType === 'Practical' && examType !== 'Practical' && examType !== 'Viva') return;
+        if (subject.subjectType === 'Project' && examType !== 'Viva' && examType !== 'Endsem') return;
+
+        const maxMarks = maxMarksMap[examType] || 100;
+        
+        // Generate deterministic marks based on student index and subject index
+        // This ensures consistent results for the same student/subject combination
+        const hash = (studentIndex * 1000 + subject.id.charCodeAt(subject.id.length - 1) + examType.charCodeAt(0)) % 100;
+        let marksObtained: number;
+        
+        // Generate realistic marks distribution (60% get 70-95%, 30% get 50-69%, 10% get 40-49%)
+        if (hash < 60) {
+          marksObtained = Math.floor(maxMarks * (0.70 + (hash / 60) * 0.25));
+        } else if (hash < 90) {
+          marksObtained = Math.floor(maxMarks * (0.50 + ((hash - 60) / 30) * 0.19));
+        } else {
+          marksObtained = Math.floor(maxMarks * (0.40 + ((hash - 90) / 10) * 0.09));
+        }
+
+        // Ensure marks are within valid range
+        marksObtained = Math.max(0, Math.min(maxMarks, marksObtained));
+        const percentage = (marksObtained / maxMarks) * 100;
+        const grade = calculateGrade(percentage);
+
+        const batch = getBatchFromYear(student.year);
+        const department = student.department;
+
+        results.push({
+          id: `result_${student.id}_${subject.id}_${examType}`,
+          userId: student.id,
+          userName: student.name,
+          rollNumber: student.rollNumber || student.id,
+          batch,
+          department,
+          year: student.year,
+          sem: student.sem,
+          div: student.div,
+          subject: subject.subjectName,
+          examType,
+          marksObtained,
+          maxMarks,
+          percentage: Math.round(percentage * 10) / 10,
+          grade
+        });
+      });
+    });
+  });
+
+  return results;
+};
+
+// Generate comprehensive demo results (must be after dummySubjects and dummyStudents are defined)
+export const dummyResults: ResultRecord[] = generateDemoResults();
 
 // ==================== DUMMY COMPLAINTS ====================
 export const dummyComplaints: Complaint[] = [
