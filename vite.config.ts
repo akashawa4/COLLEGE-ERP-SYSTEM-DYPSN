@@ -19,18 +19,15 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           // React vendor chunk - ensure React and React-DOM are together and loaded first
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+          // IMPORTANT: Include lucide-react with React to avoid forwardRef errors
+          if (id.includes('node_modules/react') || 
+              id.includes('node_modules/react-dom') ||
+              id.includes('lucide-react')) {
             return 'react-vendor';
           }
           // Firebase core chunk
           if (id.includes('firebase/app') || id.includes('firebase/auth') || id.includes('firebase/firestore')) {
             return 'firebase-core';
-          }
-          // Icons chunk - keep with React dependencies to avoid forwardRef issues
-          // Note: lucide-react needs React, so we'll bundle it with vendor if it causes issues
-          if (id.includes('lucide-react')) {
-            // Try to keep it separate, but ensure React is available
-            return 'icons';
           }
           // XLSX library chunk (for Excel operations)
           if (id.includes('node_modules/xlsx')) {
