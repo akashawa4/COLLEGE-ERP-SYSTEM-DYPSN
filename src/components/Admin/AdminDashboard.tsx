@@ -10,14 +10,10 @@ import {
   CheckCircle,
   Clock,
   BarChart3,
-  Settings,
-  UserPlus,
-  BookOpen,
-  CreditCard,
   RefreshCw
 } from 'lucide-react';
-import { userService, leaveService, attendanceService, notificationService, eventService, clubService } from '../../firebase/firestore';
-import { injectDummyData, USE_DUMMY_DATA, getDummyData } from '../../utils/dummyData';
+import { userService, leaveService, attendanceService, notificationService } from '../../firebase/firestore';
+import { injectDummyData, USE_DUMMY_DATA, dummyAdmins } from '../../utils/dummyData';
 
 const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState({
@@ -57,11 +53,10 @@ const AdminDashboard: React.FC = () => {
 
       // Inject dummy data if enabled and real data is empty
       if (USE_DUMMY_DATA) {
-        const dummyStudents = injectDummyData.students([]);
-        const dummyTeachers = injectDummyData.teachers([]);
-        const dummyAdmins = injectDummyData.admins([]);
-        allUsers = injectDummyData.students(allUsers).length === 0 
-          ? [...dummyStudents, ...dummyTeachers, ...dummyAdmins]
+        const dummyStudentsData = injectDummyData.students([]);
+        const dummyTeachersData = injectDummyData.teachers([]);
+        allUsers = injectDummyData.students(allUsers).length === 0
+          ? [...dummyStudentsData, ...dummyTeachersData, ...dummyAdmins]
           : allUsers;
         allLeaveRequests = injectDummyData.leaveRequests(allLeaveRequests);
         todayAttendance = injectDummyData.attendanceLogs(todayAttendance);
@@ -71,7 +66,6 @@ const AdminDashboard: React.FC = () => {
       // Filter users by role
       const students = allUsers.filter(user => user.role === 'student');
       const teachers = allUsers.filter(user => user.role === 'teacher' || user.role === 'hod');
-      const nonTeaching = allUsers.filter(user => user.role === 'non-teaching');
 
       // Get unique departments from all users
       const departments = [...new Set(allUsers.map(user => user.department).filter(Boolean))];
@@ -132,14 +126,18 @@ const AdminDashboard: React.FC = () => {
       ];
 
       const systemAlerts = recentNotifications.length > 0
-        ? recentNotifications.map(notif => ({
+        ? recentNotifications.map(notif => {
+          const alertType = notif.type === 'warning' ? 'warning' : notif.type === 'success' ? 'success' : 'info';
+          const alertPriority = notif.priority === 'high' ? 'high' : notif.priority === 'low' ? 'low' : 'medium';
+          return {
             id: notif.id,
-            type: (notif.category === 'urgent' ? 'warning' : notif.category === 'success' ? 'success' : 'info') as const,
+            type: alertType as 'warning' | 'info' | 'success',
             title: notif.title,
             message: notif.message,
-            timestamp: formatTimeAgo(new Date(notif.createdAt)),
-            priority: (notif.category === 'urgent' ? 'high' : notif.category === 'success' ? 'low' : 'medium') as const
-          }))
+            timestamp: formatTimeAgo(new Date(notif.createdAt || notif.timestamp)),
+            priority: alertPriority as 'high' | 'medium' | 'low'
+          };
+        })
         : demoAlerts;
 
       // Generate recent activities from multiple sources or use demo data

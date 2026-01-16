@@ -69,22 +69,67 @@ const UserManagement: React.FC = () => {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      let usersData = await userService.getAllUsers();
-      // Inject dummy data if enabled and real data is empty
-      if (USE_DUMMY_DATA && usersData.length === 0) {
-        usersData = [...getDummyData().teachers(), ...getDummyData().admins()];
-      } else {
-        usersData = injectDummyData.teachers(usersData.filter(u => u.role === 'teacher'));
-        const admins = injectDummyData.admins(usersData.filter(u => u.role === 'admin'));
-        usersData = [...usersData.filter(u => u.role !== 'teacher' && u.role !== 'admin'), ...usersData.filter(u => u.role === 'teacher'), ...admins];
+      let usersData = await userService.getAllUsers().catch(() => []);
+      
+      // Inject dummy data if enabled - merge real and dummy data
+      if (USE_DUMMY_DATA) {
+        // Get all dummy data
+        const dummyStudents = getDummyData.students();
+        const dummyTeachers = getDummyData.teachers();
+        const dummyAdmins = getDummyData.admins();
+        const dummyHODs = getDummyData.hods();
+        const dummyNonTeaching = getDummyData.nonTeachingStaff();
+        const dummyDrivers = getDummyData.drivers();
+        const dummyVisitors = getDummyData.visitors();
+        
+        // Separate real data by role
+        const realStudents = usersData.filter(u => u.role === 'student');
+        const realTeachers = usersData.filter(u => u.role === 'teacher');
+        const realHODs = usersData.filter(u => u.role === 'hod');
+        const realAdmins = usersData.filter(u => u.role === 'admin');
+        const realNonTeaching = usersData.filter(u => u.role === 'non-teaching');
+        const realDrivers = usersData.filter(u => u.role === 'driver');
+        const realVisitors = usersData.filter(u => u.role === 'visitor');
+        
+        // Merge real and dummy data - use dummy if real is empty, otherwise use real
+        const mergedStudents = realStudents.length > 0 ? realStudents : dummyStudents;
+        const mergedTeachers = realTeachers.length > 0 ? realTeachers : dummyTeachers;
+        const mergedHODs = realHODs.length > 0 ? realHODs : dummyHODs;
+        const mergedAdmins = realAdmins.length > 0 ? realAdmins : dummyAdmins;
+        const mergedNonTeaching = realNonTeaching.length > 0 ? realNonTeaching : dummyNonTeaching;
+        const mergedDrivers = realDrivers.length > 0 ? realDrivers : dummyDrivers;
+        const mergedVisitors = realVisitors.length > 0 ? realVisitors : dummyVisitors;
+        
+        // Combine all users
+        usersData = [
+          ...mergedStudents,
+          ...mergedTeachers,
+          ...mergedHODs,
+          ...mergedAdmins,
+          ...mergedNonTeaching,
+          ...mergedDrivers,
+          ...mergedVisitors
+        ];
+        
+        console.log('User Management - Loaded users:', {
+          students: mergedStudents.length,
+          teachers: mergedTeachers.length,
+          hods: mergedHODs.length,
+          admins: mergedAdmins.length,
+          nonTeaching: mergedNonTeaching.length,
+          drivers: mergedDrivers.length,
+          visitors: mergedVisitors.length,
+          total: usersData.length
+        });
       }
+      
       setUsers(usersData);
       setFilteredUsers(usersData);
     } catch (error) {
       console.error('Error loading users:', error);
       // Use dummy data on error
       if (USE_DUMMY_DATA) {
-        const dummyData = [...getDummyData().teachers(), ...getDummyData().admins()];
+        const dummyData = getDummyData.allUsers();
         setUsers(dummyData);
         setFilteredUsers(dummyData);
       } else {

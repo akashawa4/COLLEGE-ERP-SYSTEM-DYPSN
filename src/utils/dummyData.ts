@@ -202,6 +202,186 @@ export const dummyAdmins: User[] = [
   }
 ];
 
+export const dummyNonTeachingStaff: User[] = [
+  {
+    id: 'nonteaching_1',
+    name: 'Rajesh Patel',
+    email: 'rajesh.patel@dypsn.edu',
+    phone: '+91 98765 41001',
+    gender: 'Male',
+    department: 'Administration',
+    role: 'non-teaching',
+    subRole: 'security',
+    accessLevel: 'basic',
+    isActive: true,
+    designation: 'Security Guard',
+    workShift: 'day',
+    workLocation: 'Main Gate',
+    createdAt: '2020-01-15T10:00:00Z',
+    lastLogin: '2024-12-20T07:00:00Z',
+    loginCount: 300
+  },
+  {
+    id: 'nonteaching_2',
+    name: 'Sunita Desai',
+    email: 'sunita.desai@dypsn.edu',
+    phone: '+91 98765 41002',
+    gender: 'Female',
+    department: 'Administration',
+    role: 'non-teaching',
+    subRole: 'cleaner',
+    accessLevel: 'basic',
+    isActive: true,
+    designation: 'Cleaner',
+    workShift: 'day',
+    workLocation: 'Building A',
+    createdAt: '2019-06-15T10:00:00Z',
+    lastLogin: '2024-12-20T08:00:00Z',
+    loginCount: 280
+  },
+  {
+    id: 'nonteaching_3',
+    name: 'Vikram Singh',
+    email: 'vikram.singh@dypsn.edu',
+    phone: '+91 98765 41003',
+    gender: 'Male',
+    department: 'Computer Science',
+    role: 'non-teaching',
+    subRole: 'lab-assistant',
+    accessLevel: 'basic',
+    isActive: true,
+    designation: 'Lab Assistant',
+    workShift: 'day',
+    workLocation: 'CS Lab',
+    createdAt: '2021-01-15T10:00:00Z',
+    lastLogin: '2024-12-20T09:00:00Z',
+    loginCount: 250
+  },
+  {
+    id: 'nonteaching_4',
+    name: 'Meera Joshi',
+    email: 'meera.joshi@dypsn.edu',
+    phone: '+91 98765 41004',
+    gender: 'Female',
+    department: 'Administration',
+    role: 'non-teaching',
+    subRole: 'peon',
+    accessLevel: 'basic',
+    isActive: true,
+    designation: 'Peon',
+    workShift: 'day',
+    workLocation: 'Admin Office',
+    createdAt: '2018-03-15T10:00:00Z',
+    lastLogin: '2024-12-20T08:30:00Z',
+    loginCount: 320
+  }
+];
+
+export const dummyDrivers: User[] = [
+  {
+    id: 'driver_1',
+    name: 'Ramesh Kumar',
+    email: 'ramesh.kumar@dypsn.edu',
+    phone: '+91 98765 42001',
+    gender: 'Male',
+    department: 'Transport',
+    role: 'driver',
+    accessLevel: 'basic',
+    isActive: true,
+    designation: 'Bus Driver',
+    createdAt: '2017-01-15T10:00:00Z',
+    lastLogin: '2024-12-20T06:00:00Z',
+    loginCount: 400
+  },
+  {
+    id: 'driver_2',
+    name: 'Suresh Yadav',
+    email: 'suresh.yadav@dypsn.edu',
+    phone: '+91 98765 42002',
+    gender: 'Male',
+    department: 'Transport',
+    role: 'driver',
+    accessLevel: 'basic',
+    isActive: true,
+    designation: 'Bus Driver',
+    createdAt: '2016-05-15T10:00:00Z',
+    lastLogin: '2024-12-20T06:30:00Z',
+    loginCount: 380
+  }
+];
+
+export const dummyVisitors: User[] = [
+  {
+    id: 'visitor_1',
+    name: 'Amit Shah',
+    email: 'amit.shah@example.com',
+    phone: '+91 98765 43001',
+    gender: 'Male',
+    department: 'External',
+    role: 'visitor',
+    accessLevel: 'basic',
+    isActive: true,
+    designation: 'Guest',
+    createdAt: '2024-12-19T10:00:00Z',
+    lastLogin: '2024-12-19T14:00:00Z',
+    loginCount: 1
+  },
+  {
+    id: 'visitor_2',
+    name: 'Priya Mehta',
+    email: 'priya.mehta@example.com',
+    phone: '+91 98765 43002',
+    gender: 'Female',
+    department: 'External',
+    role: 'visitor',
+    accessLevel: 'basic',
+    isActive: true,
+    designation: 'Guest',
+    createdAt: '2024-12-18T10:00:00Z',
+    lastLogin: '2024-12-18T15:00:00Z',
+    loginCount: 1
+  }
+];
+
+export const dummyHODs: User[] = [
+  {
+    id: 'hod_1',
+    name: 'Dr. Rajesh Sharma',
+    email: 'rajesh.sharma@dypsn.edu',
+    phone: '+91 98765 44001',
+    gender: 'Male',
+    department: 'Computer Science',
+    role: 'hod',
+    accessLevel: 'approver',
+    isActive: true,
+    qualification: 'Ph.D. in Computer Science',
+    specialization: 'Artificial Intelligence',
+    experience: '20 years',
+    designation: 'Head of Department',
+    createdAt: '2003-01-15T10:00:00Z',
+    lastLogin: '2024-12-20T09:00:00Z',
+    loginCount: 600
+  },
+  {
+    id: 'hod_2',
+    name: 'Dr. Anjali Deshmukh',
+    email: 'anjali.deshmukh@dypsn.edu',
+    phone: '+91 98765 44002',
+    gender: 'Female',
+    department: 'Information Technology',
+    role: 'hod',
+    accessLevel: 'approver',
+    isActive: true,
+    qualification: 'Ph.D. in Information Technology',
+    specialization: 'Cloud Computing',
+    experience: '18 years',
+    designation: 'Head of Department',
+    createdAt: '2004-01-15T10:00:00Z',
+    lastLogin: '2024-12-20T08:00:00Z',
+    loginCount: 580
+  }
+];
+
 // ==================== DUMMY LEAVE REQUESTS ====================
 export const dummyLeaveRequests: LeaveRequest[] = [
   {
@@ -950,6 +1130,11 @@ export const getDummyData = {
   students: () => dummyStudents,
   teachers: () => dummyTeachers,
   admins: () => dummyAdmins,
+  nonTeachingStaff: () => dummyNonTeachingStaff,
+  drivers: () => dummyDrivers,
+  visitors: () => dummyVisitors,
+  hods: () => dummyHODs,
+  allUsers: () => [...dummyStudents, ...dummyTeachers, ...dummyAdmins, ...dummyNonTeachingStaff, ...dummyDrivers, ...dummyVisitors, ...dummyHODs],
   leaveRequests: () => dummyLeaveRequests,
   attendanceLogs: () => dummyAttendanceLogs,
   notifications: () => dummyNotifications,

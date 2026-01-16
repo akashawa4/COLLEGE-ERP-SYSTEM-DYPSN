@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LogIn, Smartphone, User, GraduationCap, Crown, Shield, Wrench, UserCheck, TestTube, Eye, Library, Bus } from 'lucide-react';
+import { LogIn, Smartphone, User, GraduationCap, Crown, Shield, Wrench, UserCheck, TestTube, Eye, Library, Bus, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 const LoginForm: React.FC = () => {
@@ -7,6 +7,7 @@ const LoginForm: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showAllDemoAccounts, setShowAllDemoAccounts] = useState(false);
   const { login, loginAsVisitor, isLoading } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -64,55 +65,60 @@ const LoginForm: React.FC = () => {
     }
   };
 
+  // Professional button style - unified slate/gray theme
+  const primaryBtnClass = "flex items-center justify-center space-x-2 px-4 py-3 bg-slate-800 text-white text-sm font-medium rounded-xl hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md";
+  const secondaryBtnClass = "flex items-center justify-center space-x-2 px-3 py-2.5 bg-slate-100 text-slate-700 text-sm font-medium rounded-xl hover:bg-slate-200 border border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200";
+  const accentBtnClass = "flex items-center justify-center space-x-2 px-4 py-3 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md";
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full space-y-6">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 flex items-center justify-center p-4">
+      <div className="max-w-md w-full space-y-5">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto w-20 h-20 bg-sky-500 rounded-2xl flex items-center justify-center mb-4 shadow-mobile">
+          <div className="mx-auto w-20 h-20 bg-slate-800 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
             <span className="text-white font-bold text-3xl">D</span>
           </div>
-          <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2 font-heading">DYPSN Portal</h2>
-          <p className="text-gray-600 text-sm lg:text-base font-body">Digital Leave & Attendance System</p>
+          <h2 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-2 font-heading">DYPSN Portal</h2>
+          <p className="text-slate-600 text-sm lg:text-base font-body">Digital Leave & Attendance System</p>
 
           {/* Mobile indicator */}
-          <div className="mt-4 flex items-center justify-center space-x-2 text-xs text-gray-500">
+          <div className="mt-3 flex items-center justify-center space-x-2 text-xs text-slate-500">
             <Smartphone className="w-4 h-4" />
             <span>Mobile Optimized</span>
           </div>
         </div>
 
         {/* Login Form */}
-        <div className="bg-white rounded-2xl shadow-mobile-lg border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
           <div className="p-6">
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="label-mobile">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
                   Email Address
                 </label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="input-mobile"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   placeholder="Enter your email address"
                   required
                 />
               </div>
 
               <div>
-                <label className="label-mobile">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
                   Password
                 </label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="input-mobile"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   placeholder="Enter your password"
                   required
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-slate-500 mt-2">
                   Students & Teachers: Use your phone number as password
                   <br />
                   <span className="text-blue-600">Format: 10-digit number (e.g., 9876543210)</span>
@@ -120,21 +126,21 @@ const LoginForm: React.FC = () => {
               </div>
 
               {error && (
-                <div className="error-mobile">
-                  <p className="text-sm">{error}</p>
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
+                  <p className="text-sm text-red-600">{error}</p>
                 </div>
               )}
 
               {success && (
-                <div className="success-mobile">
-                  <p className="text-sm">{success}</p>
+                <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
+                  <p className="text-sm text-green-600">{success}</p>
                 </div>
               )}
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="btn-mobile w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`w-full ${accentBtnClass}`}
               >
                 {isLoading ? (
                   <>
@@ -152,198 +158,188 @@ const LoginForm: React.FC = () => {
           </div>
         </div>
 
-        {/* Demo Login Section */}
-        <div className="bg-white rounded-2xl shadow-mobile-lg border border-gray-200 overflow-hidden">
-          <div className="p-6">
-            <div className="text-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Or continue as</h3>
-            </div>
+        {/* Visitor Login */}
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+          <div className="p-5">
             <button
               onClick={loginAsVisitor}
               disabled={isLoading}
-              className="w-full flex items-center justify-center space-x-3 px-4 py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white font-medium rounded-lg hover:from-gray-700 hover:to-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
+              className={`w-full ${primaryBtnClass}`}
             >
               <User className="w-5 h-5" />
-              <span>Login as Visitor</span>
+              <span>Continue as Visitor</span>
             </button>
           </div>
         </div>
 
         {/* Quick Demo Access */}
-        <div className="bg-white rounded-2xl shadow-mobile-lg border border-gray-200 overflow-hidden">
-          <div className="p-6">
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+          <div className="p-5">
             <div className="text-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Quick Demo Access</h3>
-              <p className="text-sm text-gray-600">Most commonly used demo accounts</p>
+              <h3 className="text-base font-semibold text-slate-900 mb-1">Quick Demo Access</h3>
+              <p className="text-xs text-slate-500">Test the system with demo accounts</p>
             </div>
 
-            {/* Admin Hierarchy Section */}
-            <div className="mb-4">
-              <h4 className="text-xs font-medium text-gray-500 mb-2 text-center uppercase tracking-wide">Admin Hierarchy</h4>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => handleDemoLogin('principal')}
-                  disabled={isLoading}
-                  className="flex items-center justify-center space-x-2 px-3 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 text-white text-sm font-medium rounded-lg hover:from-red-700 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-                >
-                  <Crown className="w-4 h-4" />
-                  <span>Principal</span>
-                </button>
+            {/* Primary Roles - 2x2 Grid */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <button
+                onClick={() => handleDemoLogin('principal')}
+                disabled={isLoading}
+                className={secondaryBtnClass}
+              >
+                <Crown className="w-4 h-4 text-slate-600" />
+                <span>Principal</span>
+              </button>
 
-                <button
-                  onClick={() => handleDemoLogin('director')}
-                  disabled={isLoading}
-                  className="flex items-center justify-center space-x-2 px-3 py-2.5 bg-gradient-to-r from-purple-600 to-violet-600 text-white text-sm font-medium rounded-lg hover:from-purple-700 hover:to-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-                >
-                  <Shield className="w-4 h-4" />
-                  <span>Director</span>
-                </button>
+              <button
+                onClick={() => handleDemoLogin('hod')}
+                disabled={isLoading}
+                className={secondaryBtnClass}
+              >
+                <Shield className="w-4 h-4 text-slate-600" />
+                <span>HOD</span>
+              </button>
 
-                <button
-                  onClick={() => handleDemoLogin('registrar')}
-                  disabled={isLoading}
-                  className="flex items-center justify-center space-x-2 px-3 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-                >
-                  <GraduationCap className="w-4 h-4" />
-                  <span>Registrar</span>
-                </button>
+              <button
+                onClick={() => handleDemoLogin('teacher')}
+                disabled={isLoading}
+                className={secondaryBtnClass}
+              >
+                <GraduationCap className="w-4 h-4 text-slate-600" />
+                <span>Teacher</span>
+              </button>
 
-                <button
-                  onClick={() => handleDemoLogin('admin')}
-                  disabled={isLoading}
-                  className="flex items-center justify-center space-x-2 px-3 py-2.5 bg-gradient-to-r from-gray-600 to-slate-600 text-white text-sm font-medium rounded-lg hover:from-gray-700 hover:to-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-                >
-                  <Wrench className="w-4 h-4" />
-                  <span>Admin</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Faculty Section */}
-            <div className="mb-4">
-              <h4 className="text-xs font-medium text-gray-500 mb-2 text-center uppercase tracking-wide">Faculty</h4>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => handleDemoLogin('hod')}
-                  disabled={isLoading}
-                  className="flex items-center justify-center space-x-2 px-3 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white text-sm font-medium rounded-lg hover:from-amber-700 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-                >
-                  <Crown className="w-4 h-4" />
-                  <span>HOD</span>
-                </button>
-
-                <button
-                  onClick={() => handleDemoLogin('teacher')}
-                  disabled={isLoading}
-                  className="flex items-center justify-center space-x-2 px-3 py-2.5 bg-gradient-to-r from-green-600 to-teal-600 text-white text-sm font-medium rounded-lg hover:from-green-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-                >
-                  <GraduationCap className="w-4 h-4" />
-                  <span>Teacher</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Student Section */}
-            <div>
-              <h4 className="text-xs font-medium text-gray-500 mb-2 text-center uppercase tracking-wide">Student</h4>
               <button
                 onClick={() => handleDemoLogin('student')}
                 disabled={isLoading}
-                className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
+                className={secondaryBtnClass}
               >
-                <User className="w-4 h-4" />
+                <User className="w-4 h-4 text-slate-600" />
                 <span>Student</span>
               </button>
             </div>
-          </div>
-        </div>
 
-        {/* All Demo Accounts Section */}
-        <div className="bg-white rounded-2xl shadow-mobile-lg border border-gray-200 overflow-hidden">
-          <div className="p-6">
-            <div className="text-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">All Demo Accounts</h3>
-              <p className="text-sm text-gray-600">Complete list of available demo accounts</p>
-            </div>
+            {/* Toggle for more accounts */}
+            <button
+              onClick={() => setShowAllDemoAccounts(!showAllDemoAccounts)}
+              className="w-full flex items-center justify-center space-x-2 py-2 text-sm text-slate-500 hover:text-slate-700 transition-colors"
+            >
+              <span>{showAllDemoAccounts ? 'Show Less' : 'Show All Demo Accounts'}</span>
+              {showAllDemoAccounts ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
 
-            <div className="space-y-3">
-              {/* Non-Teaching Staff Demo Buttons */}
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-3 text-center">Non-Teaching Staff</h4>
+            {/* All Demo Accounts - Collapsible */}
+            {showAllDemoAccounts && (
+              <div className="mt-4 pt-4 border-t border-slate-100 space-y-4">
+                {/* Admin Hierarchy */}
+                <div>
+                  <h4 className="text-xs font-medium text-slate-400 mb-2 uppercase tracking-wide">Admin Hierarchy</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handleDemoLogin('director')}
+                      disabled={isLoading}
+                      className={secondaryBtnClass}
+                    >
+                      <Shield className="w-4 h-4 text-slate-500" />
+                      <span>Director</span>
+                    </button>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => handleDemoLogin('cleaner')}
-                    disabled={isLoading}
-                    className="flex items-center justify-center space-x-2 px-3 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-sm font-medium rounded-lg hover:from-orange-600 hover:to-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-                  >
-                    <Wrench className="w-4 h-4" />
-                    <span>Cleaner</span>
-                  </button>
+                    <button
+                      onClick={() => handleDemoLogin('registrar')}
+                      disabled={isLoading}
+                      className={secondaryBtnClass}
+                    >
+                      <GraduationCap className="w-4 h-4 text-slate-500" />
+                      <span>Registrar</span>
+                    </button>
 
-                  <button
-                    onClick={() => handleDemoLogin('peon')}
-                    disabled={isLoading}
-                    className="flex items-center justify-center space-x-2 px-3 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-sm font-medium rounded-lg hover:from-green-600 hover:to-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-                  >
-                    <UserCheck className="w-4 h-4" />
-                    <span>Peon</span>
-                  </button>
+                    <button
+                      onClick={() => handleDemoLogin('admin')}
+                      disabled={isLoading}
+                      className={secondaryBtnClass}
+                    >
+                      <Wrench className="w-4 h-4 text-slate-500" />
+                      <span>Admin</span>
+                    </button>
+                  </div>
+                </div>
 
-                  <button
-                    onClick={() => handleDemoLogin('lab-assistant')}
-                    disabled={isLoading}
-                    className="flex items-center justify-center space-x-2 px-3 py-2 bg-gradient-to-r from-purple-500 to-violet-500 text-white text-sm font-medium rounded-lg hover:from-purple-600 hover:to-violet-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-                  >
-                    <TestTube className="w-4 h-4" />
-                    <span>Lab Assistant</span>
-                  </button>
+                {/* Non-Teaching Staff */}
+                <div>
+                  <h4 className="text-xs font-medium text-slate-400 mb-2 uppercase tracking-wide">Non-Teaching Staff</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handleDemoLogin('cleaner')}
+                      disabled={isLoading}
+                      className={secondaryBtnClass}
+                    >
+                      <Wrench className="w-4 h-4 text-slate-500" />
+                      <span>Cleaner</span>
+                    </button>
 
-                  <button
-                    onClick={() => handleDemoLogin('security')}
-                    disabled={isLoading}
-                    className="flex items-center justify-center space-x-2 px-3 py-2 bg-gradient-to-r from-red-500 to-rose-500 text-white text-sm font-medium rounded-lg hover:from-red-600 hover:to-rose-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-                  >
-                    <Eye className="w-4 h-4" />
-                    <span>Security</span>
-                  </button>
+                    <button
+                      onClick={() => handleDemoLogin('peon')}
+                      disabled={isLoading}
+                      className={secondaryBtnClass}
+                    >
+                      <UserCheck className="w-4 h-4 text-slate-500" />
+                      <span>Peon</span>
+                    </button>
 
-                  <button
-                    onClick={() => handleDemoLogin('library-staff')}
-                    disabled={isLoading}
-                    className="flex items-center justify-center space-x-2 px-3 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-sm font-medium rounded-lg hover:from-indigo-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-                  >
-                    <Library className="w-4 h-4" />
-                    <span>Library Staff</span>
-                  </button>
+                    <button
+                      onClick={() => handleDemoLogin('lab-assistant')}
+                      disabled={isLoading}
+                      className={secondaryBtnClass}
+                    >
+                      <TestTube className="w-4 h-4 text-slate-500" />
+                      <span>Lab Assistant</span>
+                    </button>
 
-                  <button
-                    onClick={() => handleDemoLogin('driver')}
-                    disabled={isLoading}
-                    className="flex items-center justify-center space-x-2 px-3 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-sm font-medium rounded-lg hover:from-yellow-600 hover:to-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-                  >
-                    <Bus className="w-4 h-4" />
-                    <span>Driver</span>
-                  </button>
+                    <button
+                      onClick={() => handleDemoLogin('security')}
+                      disabled={isLoading}
+                      className={secondaryBtnClass}
+                    >
+                      <Eye className="w-4 h-4 text-slate-500" />
+                      <span>Security</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleDemoLogin('library-staff')}
+                      disabled={isLoading}
+                      className={secondaryBtnClass}
+                    >
+                      <Library className="w-4 h-4 text-slate-500" />
+                      <span>Library Staff</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleDemoLogin('driver')}
+                      disabled={isLoading}
+                      className={secondaryBtnClass}
+                    >
+                      <Bus className="w-4 h-4 text-slate-500" />
+                      <span>Driver</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-50 rounded-xl">
+                  <p className="text-xs text-slate-500 text-center">
+                    <strong>Note:</strong> Demo accounts are for testing purposes only.
+                  </p>
                 </div>
               </div>
-            </div>
-
-            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-              <p className="text-xs text-gray-600 text-center">
-                <strong>Note:</strong> Demo accounts are for testing purposes only.
-                Some demo accounts may not be available if not set up in the system.
-              </p>
-            </div>
+            )}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="text-center text-xs text-gray-500 space-y-2">
+        <div className="text-center text-xs text-slate-400 space-y-1 pb-4">
           <p>© 2025 DYPSN. All rights reserved.</p>
           <p>
             Developed by{' '}
-            <span className="font-semibold text-blue-600">Team Chaos</span>
+            <span className="font-medium text-slate-600">Team Chaos</span>
           </p>
         </div>
       </div>
