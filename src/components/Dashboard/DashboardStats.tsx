@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, FileText, CheckCircle, AlertCircle, X, Calendar, TrendingUp, User, Users, GraduationCap, Building2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { leaveService, userService, getBatchYear } from '../../firebase/firestore';
+import { leaveService, userService, getBatchYear, getCurrentBatchYear } from '../../firebase/firestore';
 import { getDepartmentCode } from '../../utils/departmentMapping';
 import { LeaveRequest } from '../../types';
 
@@ -91,8 +91,8 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ dashboardData, loading,
       try {
         // Determine batch/year/sem/div scope
         const dept = getDepartmentCode(user.department);
-        // Current batch based on user year (falls back to current year)
-        const batch = getBatchYear(user.year || '4th');
+        // Use current/ongoing year's batch (e.g., 2027, 2026) instead of user's year-based batch
+        const batch = getCurrentBatchYear(); // Get current year's batch (e.g., 2027, 2026)
         const years = ['2nd', '3rd', '4th'];
         const semsByYear: Record<string, string[]> = { '2nd': ['3','4'], '3rd': ['5','6'], '4th': ['7','8'] };
         const divs = ['A','B','C','D'];
@@ -207,47 +207,8 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ dashboardData, loading,
       ];
     }
 
-    // HOD stats - only show for HOD role
-    if (user.role as string === 'hod' || user.role as string === 'teacher') {
-      return [
-        {
-          id: 'staff',
-          title: 'Total Staff',
-          value: '156',
-          change: '+5 this month',
-          changeType: 'positive' as const,
-          icon: Clock,
-          color: 'blue'
-        },
-        {
-          id: 'approvals',
-          title: 'Pending Approvals',
-          value: pendingRequests.toString(),
-          change: 'Requires attention',
-          changeType: 'warning' as const,
-          icon: AlertCircle,
-          color: 'amber'
-        },
-        {
-          id: 'present',
-          title: 'Today Present',
-          value: '142/156',
-          change: '91% attendance',
-          changeType: 'positive' as const,
-          icon: CheckCircle,
-          color: 'green'
-        },
-        {
-          id: 'leaves',
-          title: 'Monthly Leaves',
-          value: totalRequests.toString(),
-          change: 'This month',
-          changeType: 'positive' as const,
-          icon: FileText,
-          color: 'purple'
-        }
-      ];
-    }
+    // HOD stats - only show for HOD role (but use real data calculations below instead)
+    // This section is now handled by the teacher/HOD stats with real student data below
 
     // Teacher/HOD stats with real student data - only for teachers/HODs
     const effectiveStudentData = (studentData && studentData.length > 0) ? studentData : localStudentData;

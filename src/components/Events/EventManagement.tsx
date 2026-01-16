@@ -20,6 +20,7 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 import { eventService } from "../../firebase/firestore";
 import { Event } from "../../types";
+import { injectDummyData, USE_DUMMY_DATA } from "../../utils/dummyData";
 
 
 /* ---------- Helpers ---------- */
@@ -91,7 +92,13 @@ const EventManagement: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const eventsData = await eventService.getAllEvents();
+      let eventsData: Event[] = [];
+      if (USE_DUMMY_DATA) {
+        eventsData = injectDummyData.events([]);
+      } else {
+        eventsData = await eventService.getAllEvents();
+      }
+      eventsData = injectDummyData.events(eventsData);
       setEvents(eventsData);
     } catch (error) {
       console.error('Error loading events:', error);

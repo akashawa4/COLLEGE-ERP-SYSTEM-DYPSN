@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { userService } from "../../firebase/firestore";
 import { User } from "../../types";
+import { auth } from "../../firebase/firebase";
+import { createUserWithEmailAndPassword } from "firebase/auth";
 
 const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -77,9 +79,9 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  // Filter users - exclude students and teachers from admin user management
+  // Filter users - exclude only students from admin user management
   useEffect(() => {
-    let filtered = users.filter(user => user.role !== 'student' && user.role !== 'teacher');
+    let filtered = users.filter(user => user.role !== 'student');
 
     if (searchTerm) {
       filtered = filtered.filter(
@@ -133,6 +135,10 @@ const UserManagement: React.FC = () => {
         return <Users className="w-4 h-4 text-blue-600" />;
       case "non-teaching":
         return <Users className="w-4 h-4 text-orange-600" />;
+      case "visitor":
+        return <Users className="w-4 h-4 text-indigo-600" />;
+      case "driver":
+        return <Users className="w-4 h-4 text-cyan-600" />;
       default:
         return <Users className="w-4 h-4 text-gray-600" />;
     }
@@ -150,6 +156,10 @@ const UserManagement: React.FC = () => {
         return "bg-blue-100 text-blue-800";
       case "non-teaching":
         return "bg-orange-100 text-orange-800";
+      case "visitor":
+        return "bg-indigo-100 text-indigo-800";
+      case "driver":
+        return "bg-cyan-100 text-cyan-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -195,8 +205,8 @@ const UserManagement: React.FC = () => {
       // Generate unique ID
       const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // Create user data
-      const userData: User = {
+      // Create user data - filter out undefined values
+      const userData: any = {
         id: userId,
         name: newUser.name!,
         email: newUser.email!,
@@ -204,20 +214,33 @@ const UserManagement: React.FC = () => {
         department: newUser.department!,
         accessLevel: newUser.accessLevel!,
         isActive: newUser.isActive!,
-        phone: newUser.phone,
-        rollNumber: newUser.rollNumber,
-        joiningDate: newUser.joiningDate,
-        designation: newUser.designation,
-        subRole: newUser.subRole,
-        workShift: newUser.workShift,
-        workLocation: newUser.workLocation,
-        supervisor: newUser.supervisor,
-        contractType: newUser.contractType,
-        workStatus: newUser.workStatus,
         createdAt: new Date().toISOString()
       };
 
-      // Create user
+      // Only add optional fields if they have values
+      if (newUser.phone) userData.phone = newUser.phone;
+      if (newUser.rollNumber) userData.rollNumber = newUser.rollNumber;
+      if (newUser.joiningDate) userData.joiningDate = newUser.joiningDate;
+      if (newUser.designation) userData.designation = newUser.designation;
+      if (newUser.subRole) userData.subRole = newUser.subRole;
+      if (newUser.workShift) userData.workShift = newUser.workShift;
+      if (newUser.workLocation) userData.workLocation = newUser.workLocation;
+      if (newUser.supervisor) userData.supervisor = newUser.supervisor;
+      if (newUser.contractType) userData.contractType = newUser.contractType;
+      if (newUser.workStatus) userData.workStatus = newUser.workStatus;
+
+      // Create Firebase Auth account first (if phone number is provided)
+      if (newUser.phone) {
+        try {
+          await createUserWithEmailAndPassword(auth, newUser.email!, newUser.phone);
+          console.log('Firebase Auth account created for:', newUser.email);
+        } catch (error: any) {
+          console.error('Error creating Firebase Auth account:', error);
+          // Continue with Firestore creation even if Auth fails
+        }
+      }
+
+      // Create user in Firestore
       await userService.createUser(userData);
       
       // Reload data
@@ -276,26 +299,30 @@ const UserManagement: React.FC = () => {
         }
       }
 
-      // Update user
-      await userService.updateUser(selectedUser.id, {
+      // Update user - filter out undefined values
+      const updateData: any = {
         name: selectedUser.name,
         email: selectedUser.email,
         role: selectedUser.role,
         department: selectedUser.department,
         accessLevel: selectedUser.accessLevel,
         isActive: selectedUser.isActive,
-        phone: selectedUser.phone,
-        rollNumber: selectedUser.rollNumber,
-        joiningDate: selectedUser.joiningDate,
-        designation: selectedUser.designation,
-        subRole: selectedUser.subRole,
-        workShift: selectedUser.workShift,
-        workLocation: selectedUser.workLocation,
-        supervisor: selectedUser.supervisor,
-        contractType: selectedUser.contractType,
-        workStatus: selectedUser.workStatus,
         updatedAt: new Date().toISOString()
-      });
+      };
+
+      // Only add optional fields if they have values
+      if (selectedUser.phone) updateData.phone = selectedUser.phone;
+      if (selectedUser.rollNumber) updateData.rollNumber = selectedUser.rollNumber;
+      if (selectedUser.joiningDate) updateData.joiningDate = selectedUser.joiningDate;
+      if (selectedUser.designation) updateData.designation = selectedUser.designation;
+      if (selectedUser.subRole) updateData.subRole = selectedUser.subRole;
+      if (selectedUser.workShift) updateData.workShift = selectedUser.workShift;
+      if (selectedUser.workLocation) updateData.workLocation = selectedUser.workLocation;
+      if (selectedUser.supervisor) updateData.supervisor = selectedUser.supervisor;
+      if (selectedUser.contractType) updateData.contractType = selectedUser.contractType;
+      if (selectedUser.workStatus) updateData.workStatus = selectedUser.workStatus;
+
+      await userService.updateUser(selectedUser.id, updateData);
 
       // Reload data
       await loadUsers();
@@ -446,7 +473,10 @@ const UserManagement: React.FC = () => {
               <option value="all">All Roles</option>
               <option value="admin">Admin</option>
               <option value="hod">HOD</option>
+              <option value="teacher">Teacher</option>
               <option value="non-teaching">Non-Teaching Staff</option>
+              <option value="visitor">Visitor</option>
+              <option value="driver">Driver</option>
             </select>
           </div>
 
@@ -510,7 +540,10 @@ const UserManagement: React.FC = () => {
                 <option value="all">All Roles</option>
                 <option value="admin">Admin</option>
                 <option value="hod">HOD</option>
+                <option value="teacher">Teacher</option>
                 <option value="non-teaching">Non-Teaching Staff</option>
+                <option value="visitor">Visitor</option>
+                <option value="driver">Driver</option>
               </select>
             </div>
 
@@ -846,7 +879,7 @@ const UserManagement: React.FC = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
         <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center">
             <Users className="w-8 h-8 text-blue-600" />
@@ -904,6 +937,42 @@ const UserManagement: React.FC = () => {
             </div>
           </div>
         </div>
+
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex items-center">
+            <GraduationCap className="w-8 h-8 text-green-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Teachers</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {users.filter((u) => u.role === "teacher").length}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex items-center">
+            <Users className="w-8 h-8 text-indigo-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Visitors</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {users.filter((u) => u.role === "visitor").length}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex items-center">
+            <Users className="w-8 h-8 text-cyan-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Drivers</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {users.filter((u) => u.role === "driver").length}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* NOTE: Add modal components or page-level routing for Add/Edit as appropriate */}
@@ -954,7 +1023,10 @@ const UserManagement: React.FC = () => {
                   >
                     <option value="admin">Admin</option>
                     <option value="hod">Head of Department</option>
+                    <option value="teacher">Teacher</option>
                     <option value="non-teaching">Non-Teaching Staff</option>
+                    <option value="visitor">Visitor</option>
+                    <option value="driver">Driver</option>
                   </select>
                 </div>
 
@@ -1076,7 +1148,10 @@ const UserManagement: React.FC = () => {
                   >
                     <option value="admin">Admin</option>
                     <option value="hod">Head of Department</option>
+                    <option value="teacher">Teacher</option>
                     <option value="non-teaching">Non-Teaching Staff</option>
+                    <option value="visitor">Visitor</option>
+                    <option value="driver">Driver</option>
                   </select>
                 </div>
 

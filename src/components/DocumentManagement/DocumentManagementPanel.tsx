@@ -29,13 +29,14 @@ import {
   Clock,
   Shield,
   CheckCircle,
-  MoreVertical
+  MoreVertical,
+  BarChart3
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { db, storage } from '../../firebase/firebase';
 import { collection, addDoc, serverTimestamp, getDocs, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { getBatchYear, userService } from '../../firebase/firestore';
+import { getBatchYear, userService, getCurrentBatchYear } from '../../firebase/firestore';
 import { getDepartmentCode } from '../../utils/departmentMapping';
 import { signInAnonymously } from 'firebase/auth';
 import { auth } from '../../firebase/firebase';
@@ -94,20 +95,26 @@ const DocumentManagementPanel: React.FC = () => {
   const [students, setStudents] = useState<UserType[]>([]);
   const [documentGroups, setDocumentGroups] = useState<DocumentGroup[]>([]);
   const [loading, setLoading] = useState(false);
+  const [studentsLoading, setStudentsLoading] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadModalStudent, setUploadModalStudent] = useState<UserType | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('');
-  const [filterYear, setFilterYear] = useState('');
-  const [filterSemester, setFilterSemester] = useState('');
-  const [filterDivision, setFilterDivision] = useState('');
+  const [filterBatch, setFilterBatch] = useState(getCurrentBatchYear());
+  const [filterDivision, _setFilterDivision] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'size' | 'category'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'student'>('student');
   const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [showStudentList, setShowStudentList] = useState(true);
+
+  // Generate batch years (current year and previous 4 years)
+  const availableBatches = Array.from({ length: 5 }, (_, i) => {
+    const year = new Date().getFullYear() - i;
+    return year.toString();
+  });
 
   // Form states
   const [uploadForm, setUploadForm] = useState({
@@ -116,7 +123,7 @@ const DocumentManagementPanel: React.FC = () => {
     department: user?.department || 'CSE',
     year: '2nd',
     semester: '3',
-    batch: '2025',
+    batch: getCurrentBatchYear(),
     division: 'A',
     studentId: '',
     studentName: '',
@@ -136,7 +143,7 @@ const DocumentManagementPanel: React.FC = () => {
     { value: 'other', label: 'Other', icon: '📄', color: 'bg-gray-100 text-gray-800' }
   ];
 
-  const departments = ['CSE', 'IT', 'ECE', 'EEE', 'MECH', 'CIVIL', 'CHEM'];
+  const departments = ['Computer Science', 'Information Technology', 'Mechanical', 'Electrical', 'Civil'];
   const years = ['1st', '2nd', '3rd', '4th'];
   const divisions = ['A', 'B', 'C', 'D'];
 
@@ -156,13 +163,18 @@ const DocumentManagementPanel: React.FC = () => {
     }
   };
 
-  const availableSemesters = getSemestersForYear(filterYear || uploadForm.year);
+  const availableSemesters = getSemestersForYear(uploadForm.year || '2');
 
-  // Load documents and students based on current filters
+  // Load documents and students based on current filters (including search term)
   useEffect(() => {
     loadDocuments();
+    loadStudentsForFilters();
+  }, [filterDepartment, filterBatch, filterDivision, searchTerm]);
+
+  // Load students when upload form changes (for dropdown)
+  useEffect(() => {
     loadStudents();
-  }, [filterDepartment, filterYear, filterSemester, filterDivision]);
+  }, [uploadForm.batch, uploadForm.department, uploadForm.year, uploadForm.semester, uploadForm.division]);
 
   // Organize documents by student when documents or students change
   useEffect(() => {
@@ -189,31 +201,37 @@ const DocumentManagementPanel: React.FC = () => {
     setLoading(true);
     try {
       const department = getDepartmentCode((filterDepartment || uploadForm.department || 'CSE').trim());
-      const year = (filterYear || uploadForm.year || '2nd').trim();
-      const sem = (filterSemester || uploadForm.semester || '3').trim();
-      const batch = getBatchYear(year);
-      const div = (filterDivision || uploadForm.division || 'A').trim();
-      
-      // Correct path structure: /documents/{batch}/{department}_{year}_{sem}_{div}
-      const path = `documents/${batch}/${department}_${year}_${sem}_${div}`;
-      console.log('Loading documents from path:', path);
-      console.log('Department:', department, 'Year:', year, 'Sem:', sem, 'Batch:', batch, 'Div:', div);
-      
-      const q = query(collection(db, path), orderBy('uploadedAt', 'desc'));
-      const snap = await getDocs(q);
-      console.log('Found documents:', snap.docs.length);
-      
-      // Debug: Log all document data
-      snap.docs.forEach((doc, index) => {
-        const data = doc.data();
-        console.log(`Document ${index + 1}:`, {
-          id: doc.id,
-          studentId: data.studentId,
-          studentName: data.studentName,
-          fileName: data.fileName,
-          uploadedAt: data.uploadedAt
+      const batch = filterBatch || getCurrentBatchYear();
+      const selectedDiv = (filterDivision || '').trim();
+
+      // Load documents for all years and semesters in the batch (removed year/sem filters)
+      const divisionsToLoad = selectedDiv ? [selectedDiv] : divisions;
+      const yearsToLoad = ['1st', '2nd', '3rd', '4th'];
+      const semestersToLoad = ['1', '2', '3', '4', '5', '6', '7', '8'];
+      let allDocs: StudentDocument[] = [];
+
+      for (const div of divisionsToLoad) {
+        for (const year of yearsToLoad) {
+          for (const sem of semestersToLoad) {
+            // Correct path structure: /documents/{batch}/{department}_{year}_{sem}_{div}
+            const path = `documents/${batch}/${department}_${year}_${sem}_${div}`;
+            try {
+              const q = query(collection(db, path), orderBy('uploadedAt', 'desc'));
+              const snap = await getDocs(q);
+              console.log('Found documents:', snap.docs.length, 'in', path);
+
+        // Debug: Log all document data
+        snap.docs.forEach((doc, index) => {
+          const data = doc.data();
+          console.log(`Document ${index + 1} (div ${div}):`, {
+            id: doc.id,
+            studentId: data.studentId,
+            studentName: data.studentName,
+            fileName: data.fileName,
+            uploadedAt: data.uploadedAt
+          });
         });
-      });
+
       const docs: StudentDocument[] = snap.docs.map((d) => {
         const data: any = d.data();
         return {
@@ -237,7 +255,7 @@ const DocumentManagementPanel: React.FC = () => {
           year: data.year,
           semester: data.semester,
           batch: data.batch,
-          division: data.division,
+          division: data.division || div,
           studentName: data.studentName,
           studentId: data.studentId,
           studentEmail: data.studentEmail,
@@ -245,27 +263,158 @@ const DocumentManagementPanel: React.FC = () => {
           storagePath: data.storagePath
         } as StudentDocument;
       });
-      setDocuments(docs);
+        allDocs = allDocs.concat(docs);
+            } catch (err) {
+              // Collection doesn't exist or error loading - skip
+              console.log('No documents in path:', path);
+            }
+          }
+        }
+      }
+
+      setDocuments(allDocs);
     } catch (err) {
       console.error('Failed to load documents', err);
     }
     setLoading(false);
   };
 
+  // Load students for the main filter view
+  const loadStudentsForFilters = async (retryCount = 0) => {
+    setStudentsLoading(true);
+    try {
+      const batch = filterBatch || getCurrentBatchYear();
+      const selectedDiv = (filterDivision || '').trim();
+      
+      // Always fetch all students first, then filter
+      console.log('Fetching students from Firestore...');
+      const allStudents = await userService.getAllStudents();
+      console.log('Fetched students from Firestore:', allStudents.length);
+      
+      // Filter students based on all criteria
+      let filtered = allStudents.filter(s => {
+        // Must be a student
+        if (s.role !== 'student') return false;
+        
+        // Filter by batch - require exact match when batch filter is selected
+        if (batch) {
+          const studentBatchYear = (s as any).batchYear;
+          // Only include students with matching batchYear
+          // Exclude students without batchYear or with different batchYear
+          if (!studentBatchYear || studentBatchYear !== batch) {
+            return false;
+          }
+        }
+        
+        // Filter by department - use exact match to avoid duplicates
+        if (filterDepartment) {
+          const studentDept = (s.department || '').trim();
+          const filterDept = filterDepartment.trim();
+          
+          // Map filter department to both full name and code for matching
+          const deptMap: { [key: string]: { full: string, code: string } } = {
+            'Computer Science': { full: 'Computer Science', code: 'CSE' },
+            'Information Technology': { full: 'Information Technology', code: 'IT' },
+            'Mechanical': { full: 'Mechanical', code: 'MECH' },
+            'Electrical': { full: 'Electrical', code: 'EEE' },
+            'Civil': { full: 'Civil', code: 'CIVIL' }
+          };
+          
+          const deptInfo = deptMap[filterDept] || { full: filterDept, code: filterDept };
+          
+          // Match against both full name and code (case-insensitive) to prevent duplicates
+          // This ensures a student only appears in one department
+          const studentDeptLower = studentDept.toLowerCase();
+          const filterFullLower = deptInfo.full.toLowerCase();
+          const filterCodeLower = deptInfo.code.toLowerCase();
+          
+          if (studentDeptLower !== filterFullLower && studentDeptLower !== filterCodeLower) {
+            return false;
+          }
+        }
+        
+        // Filter by division
+        if (selectedDiv && s.div !== selectedDiv) return false;
+        
+        // Filter by search term (student name)
+        if (searchTerm) {
+          const searchLower = searchTerm.toLowerCase();
+          const studentName = (s.name || '').toLowerCase();
+          const rollNumber = String(s.rollNumber || s.id || '').toLowerCase();
+          if (!studentName.includes(searchLower) && !rollNumber.includes(searchLower)) {
+            return false;
+          }
+        }
+        
+        return true;
+      });
+
+      // Remove duplicates by student id (in case of any duplicates)
+      const uniqueById = new Map<string, UserType>();
+      for (const s of filtered) {
+        // Use id as key to ensure uniqueness
+        if (!uniqueById.has(s.id)) {
+          uniqueById.set(s.id, s);
+        }
+      }
+      const uniqueStudents = Array.from(uniqueById.values());
+
+      console.log('Loaded students (filters):', uniqueStudents.length, 'for batch:', batch, 'dept:', filterDepartment || 'all', 'div:', selectedDiv || 'all', 'search:', searchTerm || 'none');
+      setStudents(uniqueStudents);
+    } catch (err: any) {
+      console.error('Failed to load students (filters):', err);
+      
+      // Retry up to 2 times if it's a network error
+      if (retryCount < 2 && (err?.code === 'unavailable' || err?.message?.includes('QUIC') || err?.message?.includes('network') || err?.code === 'deadline-exceeded')) {
+        console.log(`Retrying fetch students (attempt ${retryCount + 1})...`);
+        setTimeout(() => {
+          loadStudentsForFilters(retryCount + 1);
+        }, 1000 * (retryCount + 1)); // Exponential backoff
+        return;
+      }
+      
+      // If all retries failed or it's a different error, show empty list
+      setStudents([]);
+      if (retryCount === 0) {
+        console.error('Failed to load students after retries. Error:', err);
+      }
+    } finally {
+      setStudentsLoading(false);
+    }
+  };
+
+  // Load students for upload form dropdown
   const loadStudents = async () => {
     try {
-      const department = filterDepartment || uploadForm.department || 'CSE';
-      const year = filterYear || uploadForm.year || '2nd';
-      const semester = filterSemester || uploadForm.semester || '3';
-      const batch = getBatchYear(year);
-      const division = filterDivision || uploadForm.division || 'A';
-      
-      const studentsData = await userService.getStudentsByBatchDeptYearSemDiv(batch, department, year, semester, division);
-      console.log('Loaded students:', studentsData.length);
-      console.log('Student IDs:', studentsData.map(s => s.id));
-      setStudents(studentsData);
+      const department = getDepartmentCode(uploadForm.department || 'CSE');
+      const year = uploadForm.year || '2nd';
+      const semester = uploadForm.semester || '3';
+      const batch = uploadForm.batch || getCurrentBatchYear();
+      const selectedDiv = uploadForm.division || 'A';
+
+      // Fetch students based on batch, department, year, semester, and division
+      const studentsData = await userService.getStudentsByBatchDeptYearSemDiv(
+        batch,
+        department,
+        year,
+        semester,
+        selectedDiv
+      );
+
+      // Remove duplicates by student id
+      const uniqueById = new Map<string, UserType>();
+      for (const s of studentsData) uniqueById.set(s.id, s);
+      const uniqueStudents = Array.from(uniqueById.values());
+
+      console.log('Loaded students (upload form):', uniqueStudents.length, 'for batch:', batch, 'dept:', department, 'year:', year, 'sem:', semester, 'div:', selectedDiv);
+      // Only update students if we're in upload modal context
+      // Don't override the main filter students
+      if (showUploadModal) {
+        // Create a separate state for upload modal students if needed
+        // For now, we'll use the same state but this is for the dropdown
+      }
     } catch (err) {
-      console.error('Failed to load students', err);
+      console.error('Failed to load students (upload form):', err);
     }
   };
 
@@ -456,12 +605,19 @@ const DocumentManagementPanel: React.FC = () => {
       const fileRef = storageRef(storage, storagePath);
       await deleteObject(fileRef);
       
-      // Delete from Firestore
-      const department = getDepartmentCode((filterDepartment || uploadForm.department || 'CSE').trim());
-      const year = (filterYear || uploadForm.year || '2nd').trim();
-      const sem = (filterSemester || uploadForm.semester || '3').trim();
-      const batch = getBatchYear(year);
-      const div = (filterDivision || uploadForm.division || 'A').trim();
+      // Find the document to get its year/semester/batch
+      const documentToDelete = documents.find(d => d.id === docId);
+      if (!documentToDelete) {
+        console.error('Document not found');
+        return;
+      }
+      
+      // Delete from Firestore - use document's own year/semester/batch
+      const department = getDepartmentCode((documentToDelete.department || filterDepartment || 'CSE').trim());
+      const year = documentToDelete.year || '2nd';
+      const sem = documentToDelete.semester || '3';
+      const batch = documentToDelete.batch || getBatchYear(year);
+      const div = documentToDelete.division || 'A';
       const path = `documents/${batch}/${department}_${year}_${sem}_${div}`;
       await deleteDoc(doc(db, path, docId));
       
@@ -562,14 +718,6 @@ const DocumentManagementPanel: React.FC = () => {
     setExpandedStudents(new Set());
   };
 
-  const handleYearChange = (year: string) => {
-    setFilterYear(year);
-    // Reset semester when year changes
-    const newSemesters = getSemestersForYear(year);
-    if (newSemesters.length > 0) {
-      setFilterSemester(newSemesters[0]); // Set to first available semester
-    }
-  };
 
   const handleUploadFormYearChange = (year: string) => {
     setUploadForm(prev => {
@@ -583,10 +731,19 @@ const DocumentManagementPanel: React.FC = () => {
   };
 
   const getFilteredDocuments = () => {
-    if (selectedStudentId) {
-      return documents.filter(doc => doc.studentId === selectedStudentId);
+    let filtered = documents;
+    
+    // Filter by batch if selected
+    if (filterBatch) {
+      filtered = filtered.filter(doc => doc.batch === filterBatch);
     }
-    return documents;
+    
+    // Filter by selected student if viewing individual student
+    if (selectedStudentId) {
+      filtered = filtered.filter(doc => doc.studentId === selectedStudentId);
+    }
+    
+    return filtered;
   };
 
   const getSelectedStudent = () => {
@@ -621,7 +778,7 @@ const DocumentManagementPanel: React.FC = () => {
       department: user?.department || 'CSE',
       year: '2nd',
       semester: '3',
-      batch: '2025',
+      batch: getCurrentBatchYear(),
       division: 'A',
       studentId: '',
       studentName: '',
@@ -659,7 +816,7 @@ const DocumentManagementPanel: React.FC = () => {
 
         {/* Filters */}
         <div className="bg-white rounded-lg p-4 shadow-sm border">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-4">
             {/* Department Filter */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -673,68 +830,35 @@ const DocumentManagementPanel: React.FC = () => {
           >
             <option value="">All Departments</option>
             {departments.map(dept => (
-              <option key={dept} value={dept}>{dept}</option>
+              <option key={dept} value={dept}>
+                {dept === 'Computer Science' ? 'CSE' : 
+                 dept === 'Information Technology' ? 'IT' : 
+                 dept === 'Mechanical' ? 'MECH' :
+                 dept === 'Electrical' ? 'EEE' :
+                 dept === 'Civil' ? 'CIVIL' : dept}
+              </option>
             ))}
           </select>
             </div>
 
-            {/* Year Filter */}
+            {/* Batch Filter */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                <BookOpen className="w-4 h-4 inline mr-1" />
-                Year
-              </label>
-          <select
-                value={filterYear}
-                onChange={(e) => handleYearChange(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Years</option>
-                {years.map(year => (
-                  <option key={year} value={year}>{year} Year</option>
-                ))}
-          </select>
-            </div>
-
-            {/* Semester Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Calendar className="w-4 h-4 inline mr-1" />
-                Semester
+                <BarChart3 className="w-4 h-4 inline mr-1" />
+                Batch
               </label>
               <select
-                value={filterSemester}
-                onChange={(e) => setFilterSemester(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={!filterYear}
-              >
-                <option value="">All Semesters</option>
-                {availableSemesters.map(sem => (
-                  <option key={sem} value={sem}>Semester {sem}</option>
-                ))}
-              </select>
-              {!filterYear && (
-                <p className="text-xs text-gray-500 mt-1">Select a year first</p>
-              )}
-            </div>
-
-            {/* Division Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Users className="w-4 h-4 inline mr-1" />
-                Division
-              </label>
-              <select
-                value={filterDivision}
-                onChange={(e) => setFilterDivision(e.target.value)}
+                value={filterBatch}
+                onChange={(e) => setFilterBatch(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">All Divisions</option>
-                {divisions.map(div => (
-                  <option key={div} value={div}>Division {div}</option>
+                {availableBatches.map(batch => (
+                  <option key={batch} value={batch}>Batch {batch}</option>
                 ))}
               </select>
             </div>
+
+            {/* Division Filter removed – showing all divisions when not specified */}
 
             {/* Category Filter */}
             <div>
@@ -762,7 +886,7 @@ const DocumentManagementPanel: React.FC = () => {
               </label>
               <input
                 type="text"
-                placeholder="Search documents..."
+                placeholder="Search by student name or roll number..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -824,23 +948,42 @@ const DocumentManagementPanel: React.FC = () => {
                   </div>
 
       {/* Student List View */}
-      {showStudentList && students.length > 0 && (
+      {showStudentList && (
         <div className="bg-white rounded-lg shadow-sm border mb-8">
           <div className="p-6 border-b border-gray-200">
             <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
               <Users className="w-6 h-6 text-blue-600" />
-              Students ({students.length} students)
+              Students {studentsLoading ? '(Loading...)' : `(${students.length} students)`}
             </h2>
             <p className="text-gray-600 mt-1">
-              {filterDepartment} • {filterYear} Year • Semester {filterSemester} • Division {filterDivision}
+              {filterDepartment && `${filterDepartment} • `}
+              Batch {filterBatch}
+              {filterDivision && ` • Division ${filterDivision}`}
+              {searchTerm && ` • Search: "${searchTerm}"`}
             </p>
             <p className="text-sm text-gray-500 mt-2">
               Click on a student to view their documents
             </p>
                   </div>
           <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {students.map((student) => {
+            {studentsLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading students...</p>
+              </div>
+            ) : students.length === 0 ? (
+              <div className="text-center py-12">
+                <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No students found</h3>
+                <p className="text-gray-600 mb-4">
+                  {filterDepartment || filterBatch || filterDivision || searchTerm
+                    ? 'Try adjusting your filters to find students'
+                    : 'No students available. Please add students first.'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {students.map((student) => {
                 const studentDocs = documents.filter(doc => doc.studentId === student.id);
                 const totalSize = studentDocs.reduce((sum, doc) => sum + doc.fileSize, 0);
                 const lastUploaded = studentDocs.length > 0 
@@ -885,7 +1028,8 @@ const DocumentManagementPanel: React.FC = () => {
                   </div>
                 );
               })}
-                  </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1091,7 +1235,7 @@ const DocumentManagementPanel: React.FC = () => {
             <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No documents found</h3>
             <p className="text-gray-600 mb-4">
-              {filterDepartment || filterYear || filterSemester || filterDivision || filterCategory || searchTerm
+              {filterDepartment || filterBatch || filterDivision || filterCategory || searchTerm
                 ? 'Try adjusting your filters or search terms'
                 : 'Upload some documents to get started'
               }
@@ -1450,14 +1594,16 @@ const DocumentManagementPanel: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Batch</label>
-                  <input
-                    type="text"
+                  <select
                     value={uploadForm.batch}
                     onChange={(e) => setUploadForm(prev => ({ ...prev, batch: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="e.g., 2025"
                     required
-                  />
+                  >
+                    {availableBatches.map(batch => (
+                      <option key={batch} value={batch}>Batch {batch}</option>
+                    ))}
+                  </select>
                 </div>
                   <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Student</label>

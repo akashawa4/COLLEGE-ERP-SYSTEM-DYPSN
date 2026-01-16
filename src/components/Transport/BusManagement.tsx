@@ -16,11 +16,14 @@ import {
   Calendar,
   Mail
 } from 'lucide-react';
-import { Bus as BusType, BusRoute, BusStop } from '../../types';
-import { busService } from '../../firebase/firestore';
+import { Bus as BusType, BusRoute, BusStop, User } from '../../types';
+import { busService, userService } from '../../firebase/firestore';
+import { locationService, BusLocation, LocationData } from '../../services/locationService';
+import LiveBusMap from './LiveBusMap';
 
 const BusManagement: React.FC<{ user: any }> = ({ user }) => {
   const [buses, setBuses] = useState<BusType[]>([]);
+  const [drivers, setDrivers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -32,6 +35,13 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
   const [editingBus, setEditingBus] = useState<BusType | null>(null);
   const [editingStop, setEditingStop] = useState<BusStop | null>(null);
   const [currentRouteId, setCurrentRouteId] = useState<string | null>(null);
+  
+  // Live tracking states
+  const [showLiveTracking, setShowLiveTracking] = useState(false);
+  const [busLocations, setBusLocations] = useState<Map<string, BusLocation>>(new Map());
+  const [selectedBusForTracking, setSelectedBusForTracking] = useState<BusType | null>(null);
+  const [locationHistory, setLocationHistory] = useState<LocationData[]>([]);
+  const [trackingLoading, setTrackingLoading] = useState(false);
 
   // Form states
   const [busForm, setBusForm] = useState({
@@ -40,6 +50,7 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
     capacity: 50,
     type: 'Non-AC' as 'AC' | 'Non-AC' | 'Semi-AC',
     status: 'active' as 'active' | 'maintenance' | 'inactive',
+    driverId: '',
     driverName: '',
     driverPhone: '',
     registrationNumber: '',
@@ -80,6 +91,127 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
 
   const isAdmin = user?.role === 'admin';
 
+  // Live tracking functions
+  const updateBusLocations = async () => {
+    try {
+      // Use the efficient Firebase method to get all bus locations at once
+      const allBusLocations = await busService.getAllBusLocations();
+      setBusLocations(allBusLocations);
+      
+      // Update location history for selected bus
+      if (selectedBusForTracking) {
+        try {
+          const history = await locationService.getLocationHistoryForBus(selectedBusForTracking.id);
+          setLocationHistory(history);
+        } catch (error) {
+          console.error('Error getting location history:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Error updating bus locations:', error);
+      
+      // Fallback to individual bus queries
+      const newBusLocations = new Map<string, BusLocation>();
+      
+      for (const bus of buses) {
+        if (bus.driverId) {
+          try {
+            const history = await locationService.getLocationHistoryForBus(bus.id);
+            
+            if (history.length > 0) {
+              const latestLocation = history[history.length - 1];
+              const isOnline = Date.now() - latestLocation.timestamp < 30000; // 30 seconds threshold
+              
+              newBusLocations.set(bus.id, {
+                busId: bus.id,
+                busNumber: bus.busNumber,
+                driverName: bus.driverName || 'Unknown Driver',
+                location: latestLocation,
+                isOnline,
+                lastUpdate: latestLocation.timestamp
+              });
+            }
+          } catch (error) {
+            console.error(`Error getting location for bus ${bus.id}:`, error);
+          }
+        }
+      }
+      
+      setBusLocations(newBusLocations);
+    }
+  };
+
+  const handleLiveMapClick = () => {
+    setShowLiveTracking(true);
+    updateBusLocations();
+    
+    // Set up auto-refresh every 5 seconds
+    const interval = setInterval(() => {
+      updateBusLocations();
+    }, 5000);
+    
+    // Store interval ID for cleanup
+    (window as any).trackingInterval = interval;
+  };
+
+  const handleBusSelectForTracking = async (bus: BusType) => {
+    setSelectedBusForTracking(bus);
+    try {
+      const history = await locationService.getLocationHistoryForBus(bus.id);
+      setLocationHistory(history);
+    } catch (error) {
+      console.error('Error getting location history:', error);
+      setLocationHistory([]);
+    }
+  };
+
+  const formatTimeAgo = (timestamp: number): string => {
+    const now = Date.now();
+    const diffInSeconds = Math.floor((now - timestamp) / 1000);
+    
+    if (diffInSeconds < 60) {
+      return `${diffInSeconds}s ago`;
+    } else if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60);
+      return `${minutes}m ago`;
+    } else {
+      const hours = Math.floor(diffInSeconds / 3600);
+      return `${hours}h ago`;
+    }
+  };
+
+  const getLocationAccuracy = (accuracy?: number): string => {
+    if (!accuracy) return 'Unknown';
+    if (accuracy < 10) return 'Excellent';
+    if (accuracy < 50) return 'Good';
+    if (accuracy < 100) return 'Fair';
+    return 'Poor';
+  };
+
+  // Load drivers from database
+  const loadDrivers = async () => {
+    try {
+      const allUsers = await userService.getAllUsers();
+      const driverUsers = allUsers.filter(user => user.role === 'driver');
+      setDrivers(driverUsers);
+    } catch (error) {
+      console.error('Error loading drivers:', error);
+    }
+  };
+
+  // Handle driver selection
+  const handleDriverSelect = (driverId: string) => {
+    const selectedDriver = drivers.find(driver => driver.id === driverId);
+    if (selectedDriver) {
+      setBusForm({
+        ...busForm,
+        driverId: selectedDriver.id,
+        driverName: selectedDriver.name,
+        driverPhone: selectedDriver.phone || ''
+      });
+    }
+  };
+
   // Load data from Firestore
   useEffect(() => {
     const loadData = async () => {
@@ -100,6 +232,7 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
     };
 
     loadData();
+    loadDrivers();
   }, []);
 
   // Set up real-time listeners
@@ -107,10 +240,23 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
     const unsubscribeBuses = busService.listenBuses((buses) => {
       setBuses(buses);
       
+      // Update bus locations when buses change
+      if (showLiveTracking) {
+        updateBusLocations();
+      }
     });
 
     return () => {
       unsubscribeBuses();
+    };
+  }, [showLiveTracking]);
+
+  // Cleanup tracking interval on unmount
+  useEffect(() => {
+    return () => {
+      if ((window as any).trackingInterval) {
+        clearInterval((window as any).trackingInterval);
+      }
     };
   }, []);
 
@@ -147,6 +293,7 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
         capacity: 50,
         type: 'Non-AC',
         status: 'active',
+        driverId: '',
         driverName: '',
         driverPhone: '',
         registrationNumber: '',
@@ -364,8 +511,16 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
           <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Bus Management</h1>
           <p className="text-gray-600 mt-1">Manage college buses and routes</p>
         </div>
-        {isAdmin && (
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <button
+            onClick={handleLiveMapClick}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
+          >
+            <MapPin className="w-5 h-5" />
+            <span className="hidden sm:inline">Live Map</span>
+            <span className="sm:hidden">Map</span>
+          </button>
+          {isAdmin && (
             <button
               onClick={() => {
                 setEditingBus(null);
@@ -377,8 +532,8 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
               <span className="hidden sm:inline">Add Bus</span>
               <span className="sm:hidden">Bus</span>
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Error Message */}
@@ -466,24 +621,30 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
                   </span>
                 </div>
                 
-                <div className="space-y-2 text-sm text-gray-600 mb-3">
-                  <div className="flex items-center">
-                    <Users className="w-4 h-4 mr-2" />
-                    {bus.capacity} seats • {bus.type}
+                  <div className="space-y-2 text-sm text-gray-600 mb-3">
+                    <div className="flex items-center">
+                      <Users className="w-4 h-4 mr-2" />
+                      {bus.capacity} seats • {bus.type}
+                    </div>
+                    {bus.driverName && (
+                      <div className="flex items-center">
+                        <Phone className="w-4 h-4 mr-2" />
+                        {bus.driverName} - {bus.driverPhone}
+                      </div>
+                    )}
+                    {bus.routeName && (
+                      <div className="flex items-center">
+                        <MapPin className="w-4 h-4 mr-2" />
+                        {bus.routeName}
+                      </div>
+                    )}
+                    {bus.status === 'active' && (
+                      <div className="flex items-center text-green-600">
+                        <MapPin className="w-4 h-4 mr-2" />
+                        📍 Sharing Live Location
+                      </div>
+                    )}
                   </div>
-                  {bus.driverName && (
-                    <div className="flex items-center">
-                      <Phone className="w-4 h-4 mr-2" />
-                      {bus.driverName} - {bus.driverPhone}
-                    </div>
-                  )}
-                  {bus.routeName && (
-                    <div className="flex items-center">
-                      <MapPin className="w-4 h-4 mr-2" />
-                      {bus.routeName}
-                    </div>
-                  )}
-                </div>
                 
                  <div className="flex items-center justify-between">
                    <div className="flex space-x-2">
@@ -720,21 +881,28 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Driver Name</label>
-                    <input
-                      type="text"
-                      value={busForm.driverName}
-                      onChange={(e) => setBusForm({...busForm, driverName: e.target.value})}
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Driver</label>
+                    <select
+                      value={drivers.find(d => d.name === busForm.driverName)?.id || ''}
+                      onChange={(e) => handleDriverSelect(e.target.value)}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                    />
+                    >
+                      <option value="">Select a driver</option>
+                      {drivers.map((driver) => (
+                        <option key={driver.id} value={driver.id}>
+                          {driver.name} {driver.phone && `(${driver.phone})`}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Driver Phone</label>
                     <input
                       type="tel"
                       value={busForm.driverPhone}
-                      onChange={(e) => setBusForm({...busForm, driverPhone: e.target.value})}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      readOnly
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-600"
+                      placeholder="Phone number will be auto-filled when driver is selected"
                     />
                   </div>
                   <div>
@@ -1203,6 +1371,215 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live Tracking Modal */}
+      {showLiveTracking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Live Bus Tracking</h2>
+                <button
+                  onClick={() => {
+                    setShowLiveTracking(false);
+                    setSelectedBusForTracking(null);
+                    if ((window as any).trackingInterval) {
+                      clearInterval((window as any).trackingInterval);
+                    }
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Bus List */}
+                <div className="lg:col-span-1">
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Available Buses</h3>
+                    <div className="space-y-3">
+                      {buses.map(bus => {
+                        const busLocation = busLocations.get(bus.id);
+                        const isOnline = busLocation?.isOnline || false;
+                        
+                        return (
+                          <div
+                            key={bus.id}
+                            onClick={() => handleBusSelectForTracking(bus)}
+                            className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                              selectedBusForTracking?.id === bus.id
+                                ? 'border-blue-500 bg-blue-50'
+                                : 'border-gray-200 hover:border-gray-300 bg-white'
+                            }`}
+                          >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-semibold text-gray-900">{bus.busNumber}</h4>
+                            <p className="text-sm text-gray-600">{bus.driverName || 'No Driver'}</p>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <span className={`px-2 py-1 text-xs rounded-full ${
+                                bus.status === 'active' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : bus.status === 'maintenance'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {bus.status}
+                              </span>
+                              {bus.status === 'active' && (
+                                <span className="text-xs text-green-600 font-medium">
+                                  📍 Sharing Location
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <div className={`w-3 h-3 rounded-full ${
+                              isOnline ? 'bg-green-500' : 'bg-gray-400'
+                            }`}></div>
+                            <span className="text-xs text-gray-500">
+                              {isOnline ? 'Live' : 'Offline'}
+                            </span>
+                          </div>
+                        </div>
+                            {busLocation && (
+                              <div className="mt-2 text-xs text-gray-500">
+                                Last update: {formatTimeAgo(busLocation.lastUpdate)}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Map and Details */}
+                <div className="lg:col-span-2">
+                  {selectedBusForTracking ? (
+                    <div className="space-y-6">
+                      {/* Interactive Map */}
+                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                        <div className="p-4 border-b border-gray-200">
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            Live Bus Locations
+                          </h3>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Real-time tracking of all buses
+                          </p>
+                        </div>
+                        <div className="h-96">
+                          <LiveBusMap
+                            busLocations={busLocations}
+                            selectedBus={selectedBusForTracking}
+                            onBusSelect={handleBusSelectForTracking}
+                            buses={buses}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Bus Details */}
+                      <div className="bg-gray-50 rounded-lg p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Bus Information</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <p><span className="font-medium text-gray-700">Bus Number:</span> {selectedBusForTracking.busNumber}</p>
+                            <p><span className="font-medium text-gray-700">Driver:</span> {selectedBusForTracking.driverName || 'Not Assigned'}</p>
+                            <p><span className="font-medium text-gray-700">Phone:</span> {selectedBusForTracking.driverPhone || 'N/A'}</p>
+                            <p><span className="font-medium text-gray-700">Route:</span> {selectedBusForTracking.routeName || 'Not Set'}</p>
+                          </div>
+                          <div>
+                            <p><span className="font-medium text-gray-700">Type:</span> {selectedBusForTracking.type || 'N/A'}</p>
+                            <p><span className="font-medium text-gray-700">Capacity:</span> {selectedBusForTracking.capacity || 'N/A'} seats</p>
+                            <p><span className="font-medium text-gray-700">Status:</span> 
+                              <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
+                                busLocations.get(selectedBusForTracking.id)?.isOnline 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {busLocations.get(selectedBusForTracking.id)?.isOnline ? 'Online' : 'Offline'}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Location History */}
+                      {locationHistory.length > 0 && (
+                        <div className="bg-gray-50 rounded-lg p-6">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Locations</h3>
+                          <div className="space-y-3">
+                            {locationHistory.slice(-5).reverse().map((location, index) => (
+                              <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg">
+                                <div className="flex items-center">
+                                  <MapPin className="w-4 h-4 text-gray-400 mr-3" />
+                                  <div>
+                                    <p className="text-sm font-medium text-gray-900">
+                                      {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      Accuracy: {getLocationAccuracy(location.accuracy)}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-sm text-gray-600">{formatTimeAgo(location.timestamp)}</p>
+                                  <p className="text-xs text-gray-500">
+                                    {new Date(location.timestamp).toLocaleTimeString()}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {/* Interactive Map - Show all buses */}
+                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                        <div className="p-4 border-b border-gray-200">
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            Live Bus Locations
+                          </h3>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Click on a bus marker or select from the list to view details
+                          </p>
+                        </div>
+                        <div className="h-96">
+                          <LiveBusMap
+                            busLocations={busLocations}
+                            selectedBus={null}
+                            onBusSelect={handleBusSelectForTracking}
+                            buses={buses}
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Instructions */}
+                      <div className="bg-blue-50 rounded-lg p-4">
+                        <div className="flex items-start">
+                          <MapPin className="w-5 h-5 text-blue-600 mt-0.5 mr-3" />
+                          <div>
+                            <h4 className="font-medium text-blue-900 mb-1">How to use the map</h4>
+                            <ul className="text-sm text-blue-800 space-y-1">
+                              <li>• Click on bus markers to see details</li>
+                              <li>• Select a bus from the list to center the map</li>
+                              <li>• Green markers indicate online buses</li>
+                              <li>• Gray markers indicate offline buses</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>

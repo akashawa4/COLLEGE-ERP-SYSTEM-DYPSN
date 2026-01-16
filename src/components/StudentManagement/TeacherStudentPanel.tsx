@@ -1,31 +1,59 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { userService, attendanceService } from '../../firebase/firestore';
+import { userService, attendanceService, getCurrentBatchYear } from '../../firebase/firestore';
+import { auth } from '../../firebase/firebase';
+import { signInAnonymously } from 'firebase/auth';
 import { User, AttendanceLog } from '../../types';
-import { Users, Search, Filter, Download, Eye, Upload, Plus, Edit, Trash2, Calendar, FileText, BarChart3, X } from 'lucide-react';
+import { Users, Search, Download, Eye, Upload, Plus, Edit, Trash2, X } from 'lucide-react';
 import { getDepartmentCode } from '../../utils/departmentMapping';
+import { getAvailableSemesters, isValidSemesterForYear, getDefaultSemesterForYear } from '../../utils/semesterMapping';
 
 interface TeacherStudentPanelProps {
   user: User;
 }
 
 const YEARS = ['1st', '2nd', '3rd', '4th'];
-const SEMS = ['1', '2', '3', '4', '5', '6', '7', '8'];
 const DIVS = ['A', 'B', 'C', 'D'];
+const DEPARTMENTS = ['Computer Science', 'Information Technology', 'Mechanical', 'Electrical', 'Civil'];
 
 const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
   const [students, setStudents] = useState<User[]>([]);
   const [filteredStudents, setFilteredStudents] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [selectedBatch, setSelectedBatch] = useState(getCurrentBatchYear()); // Default to current year
   const [selectedYear, setSelectedYear] = useState('2nd');
   const [selectedSem, setSelectedSem] = useState('3');
   const [selectedDiv, setSelectedDiv] = useState('A');
+  const [availableSemesters, setAvailableSemesters] = useState<string[]>(getAvailableSemesters('2'));
+  const [formAvailableSemesters, setFormAvailableSemesters] = useState<string[]>(getAvailableSemesters('2'));
+  
+  // Generate batch years (current year and previous 4 years)
+  const availableBatches = Array.from({ length: 5 }, (_, i) => {
+    const year = new Date().getFullYear() - i;
+    return year.toString();
+  });
+
+  // Handle year change to update available semesters
+  const handleYearChange = (newYear: string) => {
+    setSelectedYear(newYear);
+    const normalizedYear = newYear.replace(/(st|nd|rd|th)/i, '');
+    const newAvailableSemesters = getAvailableSemesters(normalizedYear);
+    setAvailableSemesters(newAvailableSemesters);
+    
+    // If current semester is not valid for new year, reset to first available
+    if (!isValidSemesterForYear(normalizedYear, selectedSem)) {
+      const defaultSem = getDefaultSemesterForYear(normalizedYear);
+      setSelectedSem(defaultSem);
+    }
+  };
+
   const [searchTerm, setSearchTerm] = useState('');
+  const [departmentFilter] = useState('all');
   const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportType, setExportType] = useState<'basic' | 'monthly' | 'custom' | 'subject'>('basic');
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM format
@@ -35,11 +63,13 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState<{ current: number; total: number; message: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
 
   // --- Refactor to use rollNumber instead of employeeId ---
 
-  // Update newStudent and editingStudent state to use rollNumber
-  const [newStudent, setNewStudent] = useState<Partial<User>>({
+  // Update newStudent and editingStudent state to use rollNumber and batchYear
+  const [newStudent, setNewStudent] = useState<Partial<User & { batchYear?: string }>>({
     name: '',
     email: '',
     phone: '',
@@ -49,41 +79,28 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
     sem: '3',
     div: 'A',
     department: 'Computer Science',
+    batchYear: getCurrentBatchYear(),
     role: 'student',
     accessLevel: 'basic',
     isActive: true
   });
 
-  const [editingStudent, setEditingStudent] = useState<Partial<User>>({
-    name: '',
-    email: '',
-    phone: '',
-    gender: '',
-    rollNumber: '',
-    year: '2nd',
-    sem: '3',
-    div: 'A',
-    department: 'Computer Science',
-    role: 'student',
-    accessLevel: 'basic',
-    isActive: true
-  });
+  const [editingStudent, setEditingStudent] = useState<User | null>(null);
 
   useEffect(() => {
     fetchStudents();
-  }, [selectedYear, selectedSem, selectedDiv]);
+  }, [selectedBatch, selectedYear, selectedSem, selectedDiv]);
 
   useEffect(() => {
     filterStudents();
-  }, [students, searchTerm]);
+  }, [students, searchTerm, departmentFilter, selectedBatch, selectedYear, selectedSem, selectedDiv]);
 
-  const fetchStudents = async () => {
+  const fetchStudents = async (retryCount = 0) => {
     setLoading(true);
     try {
-      // Use the new batch structure to get students
-      const batch = '2025'; // Default batch year
+      // Use current/ongoing year's batch and user's department
+      const batch = getCurrentBatchYear(); // Use current year's batch (e.g., 2027, 2026)
       const department = getDepartmentCode(user.department);
-      
       
       const fetchedStudents = await userService.getStudentsByBatchDeptYearSemDiv(
         batch,
@@ -94,23 +111,53 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
       );
       
       setStudents(fetchedStudents);
-    } catch (error) {
-      // Handle error silently
-      setStudents([]);
+    } catch (error: any) {
+      // Retry mechanism for network errors
+      if (retryCount < 2 && (error?.code === 'unavailable' || error?.message?.includes('network'))) {
+        setTimeout(() => fetchStudents(retryCount + 1), 1000 * (retryCount + 1));
+      } else {
+        setStudents([]);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const filterStudents = () => {
-    const filtered = students.filter(student =>
-      student.role === 'student' &&
-      (
-      student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (student.rollNumber && student.rollNumber.toLowerCase().includes(searchTerm.toLowerCase()))
-      )
-    );
+    const filtered = students.filter(student => {
+      if (student.role !== 'student') return false;
+      
+      // Batch filter - check if student's batchYear matches selected batch
+      if (selectedBatch) {
+        const studentBatchYear = (student as any).batchYear;
+        if (studentBatchYear && studentBatchYear !== selectedBatch) {
+          return false;
+        }
+        // If student doesn't have batchYear field, include them (for backward compatibility)
+      }
+      
+      // Department filter
+      if (departmentFilter !== 'all' && student.department !== departmentFilter) {
+        return false;
+      }
+      
+      // Year filter
+      if (selectedYear && student.year !== selectedYear) return false;
+      
+      // Semester filter
+      if (selectedSem && student.sem !== selectedSem) return false;
+      
+      // Division filter
+      if (selectedDiv && student.div !== selectedDiv) return false;
+      
+      // Search filter
+      const matchesSearch = 
+        student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (student.rollNumber && student.rollNumber.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      return matchesSearch;
+    });
     setFilteredStudents(filtered);
   };
 
@@ -203,13 +250,6 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
         default:
           return;
       }
-
-      // Define all subjects
-      const allSubjects = [
-        'Mathematics', 'Physics', 'Chemistry', 'Computer Science', 'English', 
-        'Engineering Drawing', 'Programming', 'Data Structures', 'Database Management', 
-        'Web Development', 'Software Engineering'
-      ];
 
       // Get attendance data for all students using optimized batch function
       const attendanceData: any[] = [];
@@ -523,99 +563,121 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
     }
   };
 
-  const getAttendanceStatus = (student: User) => {
-    // This would be integrated with actual attendance data
-    // For now, return a mock status
-    const statuses = ['Present', 'Absent', 'Late'];
-    return statuses[Math.floor(Math.random() * statuses.length)];
-  };
+  interface StudentData {
+    name: string;
+    email: string;
+    phone?: string;
+    gender?: string;
+    rollNumber: string;
+    year: string;
+    sem: string;
+    div: string;
+    department: string;
+    batchYear?: string;
+  }
 
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    setSelectedFile(file || null);
-  };
-
-  const handleFileUpload = async () => {
-    if (!selectedFile) {
-      alert('Please select a file first');
-      return;
-    }
-
-      setUploading(true);
-    try {
-      const data = await readExcelFile(selectedFile);
-      await importStudents(data);
-      setShowImportModal(false);
-      setSelectedFile(null);
-      fetchStudents();
-    } catch (error) {
-      console.error('Error importing students:', error);
-      alert('Error importing students. Please check the file format.');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const readExcelFile = (file: File): Promise<any[]> => {
+  const readExcelFile = (file: File): Promise<StudentData[]> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
-          const data = new Uint8Array(e.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet);
-          
-          const students = jsonData.map((row: any) => ({
-            name: String(row.name || row.Name || row.NAME || ''),
-            email: String(row.email || row.Email || row.EMAIL || ''),
-            phone: String(row.phone || row.Phone || row.PHONE || ''),
-            gender: String(row.gender || row.Gender || row.GENDER || ''),
-            rollNumber: String(row.rollNumber || row.roll || row.RollNumber || row.roll_number || ''),
-            year: String(row.year || row.Year || row.YEAR || '2nd'),
-            sem: String(row.sem || row.Sem || row.SEM || '3'),
-            div: String(row.div || row.Div || row.DIV || 'A'),
-            department: String(row.department || row.Department || row.DEPARTMENT || user.department)
-          }));
-
-          resolve(students);
+          if (file.name.endsWith('.csv')) {
+            // Parse CSV
+            const text = e.target?.result as string;
+            const lines = text.split(/\r?\n/).filter(Boolean);
+            const headers = lines[0].split(',').map(h => h.trim());
+            const students: StudentData[] = lines.slice(1).map(line => {
+              const values = line.split(',');
+              const row: any = {};
+              headers.forEach((h, i) => { row[h] = values[i] || ''; });
+              return {
+                name: row.name || row.Name || row.NAME || '',
+                email: row.email || row.Email || row.EMAIL || '',
+                phone: row.phone || row.Phone || row.PHONE || '',
+                gender: row.gender || row.Gender || row.GENDER || '',
+                rollNumber: row.rollNumber || row.roll || row.RollNumber || row.roll_number || '',
+                year: row.year || row.Year || row.YEAR || '2nd',
+                sem: row.sem || row.Sem || row.SEM || '3',
+                div: row.div || row.Div || row.DIV || 'A',
+                department: row.department || row.Department || row.DEPARTMENT || 'Computer Science',
+                batchYear: row.batchYear || row.batch || row.BatchYear || getCurrentBatchYear()
+              };
+            });
+            // Check required columns
+            const missing = students.find(s => !s.name || !s.email || !s.rollNumber);
+            if (missing) {
+              reject(new Error('Missing required columns (name, email, rollNumber) in one or more rows.'));
+              return;
+            }
+            resolve(students);
+          } else {
+            // Excel
+            const data = new Uint8Array(e.target?.result as ArrayBuffer);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+            const students: StudentData[] = jsonData.map((row: any) => ({
+              name: row.name || row.Name || row.NAME || '',
+              email: row.email || row.Email || row.EMAIL || '',
+              phone: row.phone || row.Phone || row.PHONE || '',
+              gender: row.gender || row.Gender || row.GENDER || '',
+              rollNumber: row.rollNumber || row.roll || row.RollNumber || row.roll_number || '',
+              year: row.year || row.Year || row.YEAR || '2nd',
+              sem: row.sem || row.Sem || row.SEM || '3',
+              div: row.div || row.Div || row.DIV || 'A',
+              department: row.department || row.Department || row.DEPARTMENT || 'Computer Science',
+              batchYear: row.batchYear || row.batch || row.BatchYear || getCurrentBatchYear()
+            }));
+            // Check required columns
+            const missing = students.find(s => !s.name || !s.email || !s.rollNumber);
+            if (missing) {
+              reject(new Error('Missing required columns (name, email, rollNumber) in one or more rows.'));
+              return;
+            }
+            resolve(students);
+          }
         } catch (error) {
-          reject(error);
+          reject(new Error('Failed to parse file. Please check the format and required columns.'));
         }
       };
       reader.onerror = reject;
-      reader.readAsArrayBuffer(file);
+      if (file.name.endsWith('.csv')) {
+        reader.readAsText(file);
+      } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        reader.readAsArrayBuffer(file);
+      } else {
+        reject(new Error('Unsupported file format. Please upload .xlsx, .xls, or .csv file.'));
+      }
     });
   };
 
-  const importStudents = async (studentsData: any[]) => {
+  const importStudents = async (studentsData: StudentData[]) => {
     const batch = [];
-    
-    for (const studentData of studentsData) {
+    setUploadProgress(0);
+    for (let i = 0; i < studentsData.length; i++) {
+      const studentData = studentsData[i];
       if (!studentData.name || !studentData.email || !studentData.rollNumber) {
-        continue; // Skip invalid entries
+        setUploadProgress(Math.round(((i + 1) / studentsData.length) * 100));
+        continue;
       }
-      
-      // Ensure rollNumber is a string
-      const rollNumber = String(studentData.rollNumber);
-      if (rollNumber.includes('/')) {
-        continue; // Skip entries with slashes in roll number
+      const safeRollNumber = String(studentData.rollNumber || '');
+      if (safeRollNumber.includes('/')) {
+        setUploadProgress(Math.round(((i + 1) / studentsData.length) * 100));
+        continue;
       }
-
-      const student: User = {
-        id: `student_${rollNumber}_${Date.now()}_${Math.random()}`,
+      const student: User & { batchYear?: string } = {
+        id: `student_${safeRollNumber}_${Date.now()}_${Math.random()}`,
         name: studentData.name,
         email: studentData.email,
         phone: studentData.phone || '',
         gender: studentData.gender || '',
-        rollNumber: rollNumber,
+        rollNumber: safeRollNumber,
         year: studentData.year,
         sem: studentData.sem,
         div: studentData.div,
         department: studentData.department,
+        batchYear: studentData.batchYear || getCurrentBatchYear(),
         role: 'student',
         accessLevel: 'basic',
         isActive: true,
@@ -623,49 +685,80 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
         lastLogin: '',
         loginCount: 0
       };
-
       // Create student (automatically creates in batch structure)
       batch.push(userService.createUser(student));
+      setUploadProgress(Math.round(((i + 1) / studentsData.length) * 100));
     }
-
     await Promise.all(batch);
+    setUploadProgress(100);
   };
 
-  // Update addStudent to use rollNumber and validate
+  const handleFileUpload = async (file: File) => {
+    if (!file) return;
+
+    setUploading(true);
+    setUploadProgress(0);
+
+    try {
+      // Ensure Firebase Auth so Firestore rules allow writes
+      if (!auth.currentUser) {
+        try { await signInAnonymously(auth); } catch {}
+      }
+
+      // Read the Excel/CSV file
+      const studentsData = await readExcelFile(file);
+      
+      // Import the students
+      await importStudents(studentsData);
+      
+      // Close modal and refresh student list
+      setShowImportModal(false);
+      setImportFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
+      // Refresh the student list
+      setTimeout(() => {
+        fetchStudents(0);
+      }, 1000);
+    } catch (error: any) {
+      alert(error?.message || 'Error importing students. Please check the file format.');
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
   const addStudent = async () => {
-    console.log('DEBUG newStudent:', newStudent);
     if (!newStudent.name || !newStudent.email || !newStudent.rollNumber) {
       alert('Please fill in all required fields');
       return;
     }
-    if (newStudent.rollNumber.includes('/')) {
+
+    const safeRollNumber = String(newStudent.rollNumber || '');
+    if (safeRollNumber.includes('/')) {
       alert('Roll Number cannot contain slashes');
       return;
     }
+
     try {
-      // Check for duplicate email
-      const emailExists = await userService.checkStudentExists(newStudent.email!);
-      if (emailExists) {
-        alert('A student with this email already exists.');
-        return;
+      // Ensure Firebase Auth so Firestore rules allow writes
+      if (!auth.currentUser) {
+        try { await signInAnonymously(auth); } catch {}
       }
-      // Check for duplicate roll number
-      const rollExists = await userService.checkStudentExistsByRollNumber(newStudent.rollNumber!);
-      if (rollExists) {
-        alert('A student with this roll number already exists.');
-        return;
-      }
-      const student: User = {
-        id: `student_${newStudent.rollNumber}_${Date.now()}_${Math.random()}`,
+      const student: User & { batchYear?: string } = {
+        id: `student_${safeRollNumber}_${Date.now()}_${Math.random()}`,
         name: newStudent.name!,
         email: newStudent.email!,
         phone: newStudent.phone || '',
         gender: newStudent.gender || '',
-        rollNumber: newStudent.rollNumber!,
+        rollNumber: safeRollNumber,
         year: newStudent.year!,
         sem: newStudent.sem!,
         div: newStudent.div!,
         department: newStudent.department!,
+        batchYear: newStudent.batchYear || getCurrentBatchYear(),
         role: 'student',
         accessLevel: 'basic',
         isActive: true,
@@ -673,8 +766,10 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
         lastLogin: '',
         loginCount: 0
       };
+
       // Create student (automatically creates in batch structure)
       await userService.createUser(student);
+      
       setShowAddModal(false);
       setNewStudent({
         name: '',
@@ -686,14 +781,19 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
         sem: '3',
         div: 'A',
         department: 'Computer Science',
+        batchYear: getCurrentBatchYear(),
         role: 'student',
         accessLevel: 'basic',
         isActive: true
       });
-      fetchStudents();
+      
+      // Add a small delay to ensure Firestore has indexed the new document
+      // Then fetch with retry mechanism
+      setTimeout(() => {
+        fetchStudents(0);
+      }, 1000);
     } catch (error: any) {
-      console.error('Error adding student:', error, error?.message, error?.stack);
-      alert('Error adding student: ' + (error?.message || error));
+      alert(error?.message || 'Error adding student');
     }
   };
 
@@ -708,7 +808,8 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
         year: '2nd',
         sem: '3',
         div: 'A',
-        department: 'Computer Science'
+        department: 'Computer Science',
+        batchYear: getCurrentBatchYear()
       }
     ];
 
@@ -720,7 +821,8 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
 
   const handleEditStudent = (student: User) => {
     setEditingStudent({
-      id: student.id,
+      ...student,
+      batchYear: (student as any).batchYear || getCurrentBatchYear(),
       name: student.name,
       email: student.email,
       phone: student.phone || '',
@@ -733,61 +835,21 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
       role: 'student',
       accessLevel: 'basic',
       isActive: student.isActive
-    });
+    } as User);
     setShowEditModal(true);
   };
 
   const updateStudent = async () => {
-    if (!editingStudent.name || !editingStudent.email || !editingStudent.rollNumber) {
-      alert('Please fill in all required fields');
-      return;
-    }
-    if (editingStudent.rollNumber.includes('/')) {
-      alert('Roll Number cannot contain slashes');
-      return;
-    }
-    try {
-      const updatedStudent: User = {
-        id: editingStudent.id!,
-        name: editingStudent.name!,
-        email: editingStudent.email!,
-        phone: editingStudent.phone || '',
-        gender: editingStudent.gender || '',
-        rollNumber: editingStudent.rollNumber!,
-        year: editingStudent.year!,
-        sem: editingStudent.sem!,
-        div: editingStudent.div!,
-        department: editingStudent.department!,
-        role: 'student',
-        accessLevel: 'basic',
-        isActive: editingStudent.isActive!,
-        createdAt: new Date().toISOString(),
-        lastLogin: '',
-        loginCount: 0
-      };
+    if (!editingStudent) return;
 
-      // Update in both regular users collection and organized collection
-      await userService.updateUser(updatedStudent.id, updatedStudent);
-      await userService.updateOrganizedStudentCollection(updatedStudent);
-      
+    try {
+      await userService.updateUser(editingStudent.id, editingStudent);
       setShowEditModal(false);
-      setEditingStudent({
-        name: '',
-        email: '',
-        phone: '',
-        gender: '',
-        rollNumber: '',
-        year: '2nd',
-        sem: '3',
-        div: 'A',
-        department: 'Computer Science',
-        role: 'student',
-        accessLevel: 'basic',
-        isActive: true
-      });
-      fetchStudents();
+      setEditingStudent(null);
+      setTimeout(() => {
+        fetchStudents(0);
+      }, 500);
     } catch (error) {
-      console.error('Error updating student:', error);
       alert('Error updating student');
     }
   };
@@ -869,10 +931,22 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
       <div className="mb-3 sm:mb-6">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4">
         <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Batch</label>
+          <select
+            value={selectedBatch}
+            onChange={(e) => setSelectedBatch(e.target.value)}
+            className="w-full border border-gray-300 rounded-md p-1.5 text-xs sm:text-base"
+          >
+            {availableBatches.map(batch => (
+              <option key={batch} value={batch}>Batch {batch}</option>
+            ))}
+          </select>
+        </div>
+        <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Year</label>
           <select
             value={selectedYear}
-            onChange={(e) => setSelectedYear(e.target.value)}
+            onChange={(e) => handleYearChange(e.target.value)}
               className="w-full border border-gray-300 rounded-md p-1.5 text-xs sm:text-base"
           >
             {YEARS.map(year => (
@@ -887,7 +961,7 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
             onChange={(e) => setSelectedSem(e.target.value)}
               className="w-full border border-gray-300 rounded-md p-1.5 text-xs sm:text-base"
           >
-            {SEMS.map(sem => (
+            {availableSemesters.map(sem => (
               <option key={sem} value={sem}>{sem}</option>
             ))}
           </select>
@@ -1195,16 +1269,19 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Select Excel File
                 </label>
-                <input
+                  <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".xlsx,.xls"
-                  onChange={handleFileSelect}
+                  accept=".xlsx,.xls,.csv"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    setImportFile(file || null);
+                  }}
                   className="w-full border border-gray-300 rounded-lg p-2"
                 />
-                {selectedFile && (
+                {importFile && (
                   <p className="text-sm text-green-600 mt-1">
-                    Selected: {selectedFile.name}
+                    Selected: {importFile.name}
                   </p>
                 )}
               </div>
@@ -1216,7 +1293,10 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
                 <button
                   onClick={() => {
                     setShowImportModal(false);
-                    setSelectedFile(null);
+                    setImportFile(null);
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = '';
+                    }
                   }}
                   className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400"
                 >
@@ -1231,12 +1311,20 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={handleFileUpload}
-                  disabled={!selectedFile || uploading}
+                  onClick={async () => { if (importFile) await handleFileUpload(importFile); }}
+                  disabled={!importFile || uploading}
                   className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {uploading ? 'Uploading...' : 'Upload Students'}
                 </button>
+                {uploading && (
+                  <div className="w-full mt-2">
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-2 bg-green-500" style={{ width: `${uploadProgress}%` }}></div>
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1 text-center">{uploadProgress}%</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1317,14 +1405,51 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
+                  <select
+                    value={newStudent.batchYear || getCurrentBatchYear()}
+                    onChange={(e) => setNewStudent({...newStudent, batchYear: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg p-2"
+                  >
+                    {availableBatches.map(batch => (
+                      <option key={batch} value={batch}>Batch {batch}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Branch/Department</label>
+                  <select
+                    value={newStudent.department}
+                    onChange={(e) => setNewStudent({...newStudent, department: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg p-2"
+                  >
+                    {DEPARTMENTS.map(dept => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label htmlFor="studentYear" className="block text-sm font-medium text-gray-700 mb-1">Year</label>
                   <select
                     id="studentYear"
                     name="year"
                     value={newStudent.year}
-                    onChange={(e) => setNewStudent({...newStudent, year: e.target.value})}
+                    onChange={(e) => {
+                      const newYear = e.target.value;
+                      const normalizedYear = newYear.replace(/(st|nd|rd|th)/i, '');
+                      const newAvailableSemesters = getAvailableSemesters(normalizedYear);
+                      const defaultSem = getDefaultSemesterForYear(normalizedYear);
+                      setFormAvailableSemesters(newAvailableSemesters);
+                      setNewStudent({
+                        ...newStudent, 
+                        year: newYear,
+                        sem: isValidSemesterForYear(normalizedYear, newStudent.sem || '') ? newStudent.sem : defaultSem
+                      });
+                    }}
                     className="w-full border border-gray-300 rounded-lg p-2"
                     required
                   >
@@ -1343,7 +1468,7 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
                     className="w-full border border-gray-300 rounded-lg p-2"
                     required
                   >
-                    {SEMS.map(sem => (
+                    {formAvailableSemesters.map(sem => (
                       <option key={sem} value={sem}>{sem}</option>
                     ))}
                   </select>
@@ -1384,18 +1509,18 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
       )}
 
       {/* Edit Student Modal */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Edit Student</h3>
+      {showEditModal && editingStudent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-4 sticky top-0 bg-white pb-2">Edit Student</h3>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
                 <input
                   type="text"
-                  value={editingStudent.name}
+                  value={editingStudent.name || ''}
                   onChange={(e) => setEditingStudent({...editingStudent, name: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg p-2"
+                  className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2"
                   placeholder="Full Name"
                 />
               </div>
@@ -1403,9 +1528,9 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
                 <input
                   type="email"
-                  value={editingStudent.email}
+                  value={editingStudent.email || ''}
                   onChange={(e) => setEditingStudent({...editingStudent, email: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg p-2"
+                  className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2"
                   placeholder="Email Address"
                 />
               </div>
@@ -1413,29 +1538,29 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Roll Number *</label>
                 <input
                   type="text"
-                  value={editingStudent.rollNumber}
+                  value={editingStudent.rollNumber || ''}
                   onChange={(e) => setEditingStudent({...editingStudent, rollNumber: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg p-2"
+                  className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2"
                   placeholder="Roll Number"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
                   <input
                     type="tel"
-                    value={editingStudent.phone}
+                    value={editingStudent.phone || ''}
                     onChange={(e) => setEditingStudent({...editingStudent, phone: e.target.value})}
-                    className="w-full border border-gray-300 rounded-lg p-2"
+                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2"
                     placeholder="Phone Number"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
                   <select
-                    value={editingStudent.gender}
+                    value={editingStudent.gender || ''}
                     onChange={(e) => setEditingStudent({...editingStudent, gender: e.target.value})}
-                    className="w-full border border-gray-300 rounded-lg p-2"
+                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2"
                   >
                     <option value="">Select Gender</option>
                     <option value="Male">Male</option>
@@ -1444,13 +1569,39 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
+                  <select
+                    value={(editingStudent as any).batchYear || getCurrentBatchYear()}
+                    onChange={(e) => setEditingStudent({...editingStudent, batchYear: e.target.value} as any)}
+                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2"
+                  >
+                    {availableBatches.map(batch => (
+                      <option key={batch} value={batch}>Batch {batch}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Branch/Department</label>
+                  <select
+                    value={editingStudent.department || ''}
+                    onChange={(e) => setEditingStudent({...editingStudent, department: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2"
+                  >
+                    {DEPARTMENTS.map(dept => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
                   <select
-                    value={editingStudent.year}
+                    value={editingStudent.year || ''}
                     onChange={(e) => setEditingStudent({...editingStudent, year: e.target.value})}
-                    className="w-full border border-gray-300 rounded-lg p-2"
+                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2"
                   >
                     {YEARS.map(year => (
                       <option key={year} value={year}>{year}</option>
@@ -1460,11 +1611,11 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Semester</label>
                   <select
-                    value={editingStudent.sem}
+                    value={editingStudent.sem || ''}
                     onChange={(e) => setEditingStudent({...editingStudent, sem: e.target.value})}
-                    className="w-full border border-gray-300 rounded-lg p-2"
+                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2"
                   >
-                    {SEMS.map(sem => (
+                    {availableSemesters.map(sem => (
                       <option key={sem} value={sem}>{sem}</option>
                     ))}
                   </select>
@@ -1472,9 +1623,9 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
                   <select
-                    value={editingStudent.div}
+                    value={editingStudent.div || ''}
                     onChange={(e) => setEditingStudent({...editingStudent, div: e.target.value})}
-                    className="w-full border border-gray-300 rounded-lg p-2"
+                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2"
                   >
                     {DIVS.map(div => (
                       <option key={div} value={div}>{div}</option>
@@ -1487,7 +1638,7 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
                 <select
                   value={editingStudent.isActive ? 'true' : 'false'}
                   onChange={(e) => setEditingStudent({...editingStudent, isActive: e.target.value === 'true'})}
-                  className="w-full border border-gray-300 rounded-lg p-2"
+                  className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2"
                 >
                   <option value="true">Active</option>
                   <option value="false">Inactive</option>
@@ -1539,7 +1690,7 @@ const TeacherStudentPanel: React.FC<TeacherStudentPanelProps> = ({ user }) => {
                     onChange={(e) => setSelectedSem(e.target.value)}
                     className="w-full border border-gray-300 rounded-lg p-2"
                   >
-                    {SEMS.map(sem => (
+                    {formAvailableSemesters.map(sem => (
                       <option key={sem} value={sem}>{sem}</option>
                     ))}
                   </select>

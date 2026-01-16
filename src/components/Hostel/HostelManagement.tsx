@@ -16,7 +16,7 @@ const HostelManagement: React.FC<{ user: any }> = ({ user }) => {
   // Handle redirect to Nivasi Space website
   const handleRedirectToWebsite = () => {
     // Replace with your actual Nivasi Space website URL
-    window.open('https://www.nivasi.space/', '_blank');
+    window.open('https://www.nivasispace.com/', '_blank');
   };
 
   return (

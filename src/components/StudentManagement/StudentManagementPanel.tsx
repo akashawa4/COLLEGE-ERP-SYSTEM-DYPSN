@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { userService, attendanceService } from '../../firebase/firestore';
+import { userService, attendanceService, getCurrentBatchYear, getBatchYear } from '../../firebase/firestore';
 import { auth } from '../../firebase/firebase';
 import { signInAnonymously } from 'firebase/auth';
 import { User, AttendanceLog } from '../../types';
@@ -33,11 +33,18 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
   const [filteredStudents, setFilteredStudents] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [selectedBatch, setSelectedBatch] = useState(getCurrentBatchYear()); // Default to current year
   const [selectedYear, setSelectedYear] = useState('2nd');
   const [selectedSem, setSelectedSem] = useState('3');
   const [selectedDiv, setSelectedDiv] = useState('A');
   const [availableSemesters, setAvailableSemesters] = useState<string[]>(getAvailableSemesters('2'));
   const [formAvailableSemesters, setFormAvailableSemesters] = useState<string[]>(getAvailableSemesters('2'));
+  
+  // Generate batch years (current year and previous 4 years)
+  const availableBatches = Array.from({ length: 5 }, (_, i) => {
+    const year = new Date().getFullYear() - i;
+    return year.toString();
+  });
 
   // Handle year change to update available semesters
   const handleYearChange = (newYear: string) => {
@@ -77,7 +84,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<User | null>(null);
 
-  const [newStudent, setNewStudent] = useState<Partial<User>>({
+  const [newStudent, setNewStudent] = useState<Partial<User & { batchYear?: string }>>({
     name: '',
     email: '',
     phone: '',
@@ -87,6 +94,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
     sem: '3',
     div: 'A',
     department: 'Computer Science',
+    batchYear: getCurrentBatchYear(),
     role: 'student',
     accessLevel: 'basic',
     isActive: true
@@ -94,47 +102,76 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
 
   useEffect(() => {
     fetchStudents();
-  }, [selectedYear, selectedSem, selectedDiv]);
+  }, [selectedBatch, selectedYear, selectedSem, selectedDiv]);
 
   useEffect(() => {
     filterStudents();
-  }, [students, searchTerm, departmentFilter]);
+  }, [students, searchTerm, departmentFilter, selectedBatch, selectedYear, selectedSem, selectedDiv]);
 
-  const fetchStudents = async () => {
+  const fetchStudents = async (retryCount = 0) => {
     setLoading(true);
     try {
-      // Use the new batch structure to get students
-      const batch = '2025'; // Default batch year
-      const department = getDepartmentCode(user?.department || 'CSE');
-      
-      
-      const fetchedStudents = await userService.getStudentsByBatchDeptYearSemDiv(
-        batch,
-        department,
-        selectedYear,
-        selectedSem,
-        selectedDiv
-      );
-      
+      // Fetch ALL students from the main users collection
+      const fetchedStudents = await userService.getAllStudents();
       setStudents(fetchedStudents);
-    } catch (error) {
-      // Handle error silently
+    } catch (error: any) {
+      console.error('Error fetching students:', error);
+      // Retry up to 2 times if it's a network error
+      if (retryCount < 2 && (error?.code === 'unavailable' || error?.message?.includes('QUIC') || error?.message?.includes('network'))) {
+        console.log(`Retrying fetch students (attempt ${retryCount + 1})...`);
+        setTimeout(() => {
+          fetchStudents(retryCount + 1);
+        }, 1000 * (retryCount + 1)); // Exponential backoff
+        return;
+      }
+      // If all retries failed or it's a different error, show empty list
       setStudents([]);
+      if (retryCount === 0) {
+        alert('Failed to load students. Please check your internet connection and try refreshing the page.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const filterStudents = () => {
-    const filtered = students.filter(student =>
-      student.role === 'student' &&
-      (
-      student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (student.rollNumber && student.rollNumber.toLowerCase().includes(searchTerm.toLowerCase()))
-      ) &&
-      (departmentFilter === 'all' || student.department === departmentFilter)
-    );
+    const filtered = students.filter(student => {
+      // Role filter
+      if (student.role !== 'student') return false;
+      
+      // Batch filter - check if student's batchYear matches selected batch
+      // If student doesn't have batchYear field, include them (for backward compatibility and newly added students)
+      if (selectedBatch) {
+        const studentBatchYear = (student as any).batchYear;
+        if (studentBatchYear) {
+          // Student has batchYear field, must match selected batch
+          if (studentBatchYear !== selectedBatch) return false;
+        }
+        // If student doesn't have batchYear field, include them to show newly added students
+        // This handles cases where batchYear hasn't been set yet or for backward compatibility
+      }
+      
+      // Year filter (only if a specific year is selected)
+      if (selectedYear && student.year !== selectedYear) return false;
+      
+      // Semester filter (only if a specific semester is selected)
+      if (selectedSem && student.sem !== selectedSem) return false;
+      
+      // Division filter (only if a specific division is selected)
+      if (selectedDiv && student.div !== selectedDiv) return false;
+      
+      // Search filter
+      const matchesSearch = 
+        student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (student.rollNumber && student.rollNumber.toLowerCase().includes(searchTerm.toLowerCase()));
+      if (!matchesSearch) return false;
+      
+      // Department filter
+      if (departmentFilter !== 'all' && student.department !== departmentFilter) return false;
+      
+      return true;
+    });
     setFilteredStudents(filtered);
   };
 
@@ -147,7 +184,10 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
       const data = await readExcelFile(file);
       await importStudents(data);
       setShowImportModal(false);
-      fetchStudents();
+      // Add delay and retry for import
+      setTimeout(() => {
+        fetchStudents(0);
+      }, 1000);
       setImportFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (error: any) {
@@ -290,7 +330,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
       if (!auth.currentUser) {
         try { await signInAnonymously(auth); } catch {}
       }
-      const student: User = {
+      const student: User & { batchYear?: string } = {
         id: `student_${safeRollNumber}_${Date.now()}_${Math.random()}`,
         name: newStudent.name!,
         email: newStudent.email!,
@@ -301,6 +341,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
         sem: newStudent.sem!,
         div: newStudent.div!,
         department: newStudent.department!,
+        batchYear: newStudent.batchYear || getCurrentBatchYear(),
         role: 'student',
         accessLevel: 'basic',
         isActive: true,
@@ -323,11 +364,17 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
         sem: '3',
         div: 'A',
         department: 'Computer Science',
+        batchYear: getCurrentBatchYear(),
         role: 'student',
         accessLevel: 'basic',
         isActive: true
       });
-      fetchStudents();
+      
+      // Add a small delay to ensure Firestore has indexed the new document
+      // Then fetch with retry mechanism
+      setTimeout(() => {
+        fetchStudents(0);
+      }, 1000);
     } catch (error: any) {
       alert(error?.message || 'Error adding student');
     }
@@ -339,7 +386,9 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
     try {
       await userService.updateUser(editingStudent.id, editingStudent);
       setEditingStudent(null);
-      fetchStudents();
+      setTimeout(() => {
+        fetchStudents(0);
+      }, 500);
     } catch (error) {
       // Handle error silently
       alert('Error updating student');
@@ -356,7 +405,9 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
       }
       setShowDeleteModal(false);
       setStudentToDelete(null);
-      fetchStudents();
+      setTimeout(() => {
+        fetchStudents(0);
+      }, 500);
     } catch (error) {
       // Handle error silently
       alert('Error deleting student');
@@ -609,7 +660,22 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            <div className="space-y-2">
+              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                <BarChart3 className="w-4 h-4" />
+                <span>Batch</span>
+              </label>
+              <select
+                value={selectedBatch}
+                onChange={(e) => setSelectedBatch(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              >
+                {availableBatches.map(batch => (
+                  <option key={batch} value={batch}>Batch {batch}</option>
+                ))}
+              </select>
+            </div>
             <div className="space-y-2">
               <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
                 <Calendar className="w-4 h-4" />
@@ -620,6 +686,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
                 onChange={(e) => handleYearChange(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
               >
+                <option value="">All Years</option>
                 {YEARS.map(year => (
                   <option key={year} value={year}>{year} Year</option>
                 ))}
@@ -635,6 +702,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
                 onChange={(e) => setSelectedSem(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
               >
+                <option value="">All Semesters</option>
                 {availableSemesters.map(sem => (
                   <option key={sem} value={sem}>Semester {sem}</option>
                 ))}
@@ -650,6 +718,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
                 onChange={(e) => setSelectedDiv(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
               >
+                <option value="">All Divisions</option>
                 {DIVS.map(div => (
                   <option key={div} value={div}>Division {div}</option>
                 ))}
@@ -993,6 +1062,34 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
                   </select>
                 </div>
               </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
+                  <select
+                    value={newStudent.batchYear || getCurrentBatchYear()}
+                    onChange={(e) => setNewStudent({...newStudent, batchYear: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                  >
+                    {availableBatches.map(batch => (
+                      <option key={batch} value={batch}>Batch {batch}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Branch/Department</label>
+                  <select
+                    value={newStudent.department}
+                    onChange={(e) => setNewStudent({...newStudent, department: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                  >
+                    <option value="Computer Science">Computer Science</option>
+                    <option value="Information Technology">Information Technology</option>
+                    <option value="Mechanical">Mechanical</option>
+                    <option value="Electrical">Electrical</option>
+                    <option value="Civil">Civil</option>
+                  </select>
+                </div>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
@@ -1115,6 +1212,34 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
+                  <select
+                    value={(editingStudent as any).batchYear || getCurrentBatchYear()}
+                    onChange={(e) => setEditingStudent({...editingStudent, batchYear: e.target.value} as User & { batchYear?: string })}
+                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                  >
+                    {availableBatches.map(batch => (
+                      <option key={batch} value={batch}>Batch {batch}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Branch/Department</label>
+                  <select
+                    value={editingStudent.department}
+                    onChange={(e) => setEditingStudent({...editingStudent, department: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                  >
+                    <option value="Computer Science">Computer Science</option>
+                    <option value="Information Technology">Information Technology</option>
+                    <option value="Mechanical">Mechanical</option>
+                    <option value="Electrical">Electrical</option>
+                    <option value="Civil">Civil</option>
                   </select>
                 </div>
               </div>

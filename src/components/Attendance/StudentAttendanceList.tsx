@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Calendar, Users, TrendingUp } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { userService, attendanceService, subjectService, batchAttendanceService, batchService } from '../../firebase/firestore';
+import { userService, attendanceService, subjectService, batchAttendanceService, batchService, getCurrentBatchYear } from '../../firebase/firestore';
 import { User, AttendanceLog } from '../../types';
 import { saveAs } from 'file-saver';
 import { getDepartmentCode } from '../../utils/departmentMapping';
@@ -88,9 +88,9 @@ const StudentAttendanceList: React.FC = () => {
     }
   };
 
-  // Load students, subjects and their attendance data
+  // Load students and subjects when year, sem, or div changes (NOT when subject/batch/date changes)
   useEffect(() => {
-    const loadStudentAttendance = async () => {
+    const loadStudentsAndSubjects = async () => {
       if (!user || (user.role !== 'teacher' && user.role !== 'hod')) return;
       
       try {
@@ -98,9 +98,8 @@ const StudentAttendanceList: React.FC = () => {
         setError('');
         
         // Get students for selected year, sem, div from batch structure
-        const batch = '2025'; // Default batch year
+        const batch = getCurrentBatchYear(); // Use current/ongoing year's batch
         const department = getDepartmentCode(user.department);
-        
         
         const studentsList = await userService.getStudentsByBatchDeptYearSemDiv(
           batch,
@@ -133,7 +132,7 @@ const StudentAttendanceList: React.FC = () => {
         // Load batches for the selected year, sem, div
         setBatchesLoading(true);
         try {
-          const batch = '2025'; // Default batch year
+          const batch = getCurrentBatchYear(); // Use current/ongoing year's batch
           const department = getDepartmentCode(user.department);
           const batches = await batchService.getBatchesForDivision(
             batch,
@@ -157,24 +156,25 @@ const StudentAttendanceList: React.FC = () => {
 
         if (studentsList.length === 0) {
           setError(`No students found for ${selectedYear} Year, ${selectedSem} Semester, Division ${selectedDiv}`);
-          return;
-        }
-        
-        // Load attendance data for selected date
-        if (selectedDate) {
-          await loadAttendanceData(studentsList);
         }
         
       } catch (error) {
         setError('Failed to load students. Please try again.');
       } finally {
         setLoadingStudents(false);
-        setLoading(false);
       }
     };
 
-    loadStudentAttendance();
-  }, [user, selectedYear, selectedSem, selectedDiv, selectedSubject, selectedBatch, selectedDate]);
+    loadStudentsAndSubjects();
+  }, [user, selectedYear, selectedSem, selectedDiv]); // Only reload when year/sem/div changes
+
+  // Load attendance data separately when subject, batch, or date changes
+  useEffect(() => {
+    if (students.length > 0 && selectedDate && selectedSubject) {
+      loadAttendanceData(students);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSubject, selectedBatch, selectedDate]); // Reload attendance when these change (students is stable)
 
   // Filter students by selected batch
   const filterStudentsByBatch = (studentsList: User[]) => {
@@ -209,134 +209,153 @@ const StudentAttendanceList: React.FC = () => {
     : studentAttendanceData;
 
   const loadAttendanceData = async (studentsList: User[]) => {
-    if (!selectedDate) return;
+    if (!selectedDate || !selectedSubject) return;
     
     setLoading(true);
     
     try {
-      // First, load batch attendance data
-      let batchDataMap: { [batchName: string]: AttendanceLog[] } = {};
-      
-      try {
-        const batch = '2025'; // Default batch year
-        const department = getDepartmentCode(user?.department || 'Computer Science');
-        
-        // Get all available batches for this division
-        const availableBatchesForDivision = await batchService.getBatchesForDivision(
-          batch,
-          department,
-          selectedYear,
-          selectedSem,
-          selectedDiv
-        );
-        
-        // Fetch batch attendance data for each batch
-        const batchDataPromises = availableBatchesForDivision.map(async (batchInfo) => {
-          try {
-            const batchAttendance = await batchAttendanceService.getBatchAttendanceByDate(
-              selectedYear,
-              selectedSem,
-              selectedDiv,
-              batchInfo.batchName,
-              selectedSubject,
-              selectedDate
-            );
-            return { batchName: batchInfo.batchName, attendance: batchAttendance };
-          } catch (error) {
-            console.log(`No batch attendance data found for ${batchInfo.batchName}`);
-            return { batchName: batchInfo.batchName, attendance: [] };
-          }
-        });
-        
-        const batchResults = await Promise.all(batchDataPromises);
-        
-        batchResults.forEach(result => {
-          if (result.attendance.length > 0) {
-            batchDataMap[result.batchName] = result.attendance;
-          }
-        });
-        
-        setBatchAttendanceData(batchDataMap);
-      } catch (error) {
-        console.log('Error loading batch attendance data:', error);
-        setBatchAttendanceData({});
-      }
-      
       // Filter students by batch if selected
       const filteredStudents = filterStudentsByBatch(studentsList);
       const studentsWithRollNumbers = filteredStudents.filter(student => student.rollNumber);
       
-      // Create all promises for parallel processing - much faster
-      const allAttendancePromises = studentsWithRollNumbers.map(async (student) => {
-        try {
-          // First try to get attendance from regular attendance service
-          let studentAttendance = await attendanceService.getOrganizedAttendanceByUserAndDateRange(
-            student.rollNumber!,
-            selectedYear,
-            selectedSem,
-            selectedDiv,
-            selectedSubject,
-            new Date(selectedDate),
-            new Date(selectedDate)
-          );
-          
-          // If no regular attendance found, check batch attendance data
-          if (studentAttendance.length === 0) {
-            // Find which batch this student belongs to
-            const studentBatch = availableBatches.find(batch => {
-              const rollNumber = parseInt(student.rollNumber || '0');
-              const fromRoll = parseInt(batch.fromRollNo);
-              const toRoll = parseInt(batch.toRollNo);
-              return rollNumber >= fromRoll && rollNumber <= toRoll;
+      if (studentsWithRollNumbers.length === 0) {
+        setStudentAttendanceData([]);
+        setLoading(false);
+        return;
+      }
+      
+      // OPTIMIZATION: Load batch attendance data and student attendance in parallel
+      const batch = getCurrentBatchYear();
+      const department = getDepartmentCode(user?.department || 'Computer Science');
+      
+      // Start both batch attendance loading and student attendance loading in parallel
+      const [batchDataMap, attendanceResults] = await Promise.all([
+        // Load batch attendance data (if batches are available)
+        (async () => {
+          try {
+            // Use cached availableBatches if they exist, otherwise fetch
+            const batchesForDivision = availableBatches.length > 0 
+              ? availableBatches 
+              : await batchService.getBatchesForDivision(batch, department, selectedYear, selectedSem, selectedDiv);
+            
+            if (batchesForDivision.length === 0) return {};
+            
+            const batchDataPromises = batchesForDivision.map(async (batchInfo) => {
+              try {
+                const batchAttendance = await batchAttendanceService.getBatchAttendanceByDate(
+                  selectedYear,
+                  selectedSem,
+                  selectedDiv,
+                  batchInfo.batchName,
+                  selectedSubject,
+                  selectedDate
+                );
+                return { batchName: batchInfo.batchName, attendance: batchAttendance };
+              } catch {
+                return { batchName: batchInfo.batchName, attendance: [] };
+              }
             });
             
-            if (studentBatch && batchDataMap[studentBatch.batchName]) {
-              // Find attendance record for this specific student in batch data
-              const batchAttendance = batchDataMap[studentBatch.batchName];
-              const studentBatchAttendance = batchAttendance.filter(att => 
-                att.userId === student.id || att.userName === student.name
-              );
-              
-              if (studentBatchAttendance.length > 0) {
-                studentAttendance = studentBatchAttendance;
+            const batchResults = await Promise.all(batchDataPromises);
+            const batchMap: { [batchName: string]: AttendanceLog[] } = {};
+            batchResults.forEach(result => {
+              if (result.attendance.length > 0) {
+                batchMap[result.batchName] = result.attendance;
               }
+            });
+            return batchMap;
+          } catch {
+            return {};
+          }
+        })(),
+        
+        // Load student attendance in parallel (don't wait for batch data)
+        Promise.all(studentsWithRollNumbers.map(async (student) => {
+          try {
+            // Try to get attendance from regular attendance service
+            const studentAttendance = await attendanceService.getOrganizedAttendanceByUserAndDateRange(
+              student.rollNumber!,
+              selectedYear,
+              selectedSem,
+              selectedDiv,
+              selectedSubject,
+              new Date(selectedDate),
+              new Date(selectedDate)
+            );
+            
+            // Calculate attendance statistics for selected date only
+            const presentCount = studentAttendance.filter(a => a.status === 'present').length;
+            const absentCount = studentAttendance.filter(a => a.status === 'absent').length;
+            const totalDays = studentAttendance.length;
+            const attendancePercentage = totalDays > 0 ? Math.round((presentCount / totalDays) * 100) : 0;
+            
+            return {
+              student,
+              attendance: studentAttendance,
+              presentCount,
+              absentCount,
+              totalDays,
+              attendancePercentage
+            };
+          } catch {
+            // Return student with zero attendance if there's an error
+            return {
+              student,
+              attendance: [],
+              presentCount: 0,
+              absentCount: 0,
+              totalDays: 0,
+              attendancePercentage: 0
+            };
+          }
+        }))
+      ]);
+      
+      // Update batch attendance data
+      setBatchAttendanceData(batchDataMap);
+      
+      // If no regular attendance found for some students, check batch attendance
+      const finalResults = attendanceResults.map((result) => {
+        if (result.attendance.length === 0 && Object.keys(batchDataMap).length > 0) {
+          // Find which batch this student belongs to
+          const studentBatch = availableBatches.find(batch => {
+            const rollNumber = parseInt(result.student.rollNumber || '0');
+            const fromRoll = parseInt(batch.fromRollNo);
+            const toRoll = parseInt(batch.toRollNo);
+            return rollNumber >= fromRoll && rollNumber <= toRoll;
+          });
+          
+          if (studentBatch && batchDataMap[studentBatch.batchName]) {
+            const batchAttendance = batchDataMap[studentBatch.batchName];
+            const studentBatchAttendance = batchAttendance.filter(att => 
+              att.userId === result.student.id || att.userName === result.student.name
+            );
+            
+            if (studentBatchAttendance.length > 0) {
+              const presentCount = studentBatchAttendance.filter(a => a.status === 'present').length;
+              const absentCount = studentBatchAttendance.filter(a => a.status === 'absent').length;
+              const totalDays = studentBatchAttendance.length;
+              const attendancePercentage = totalDays > 0 ? Math.round((presentCount / totalDays) * 100) : 0;
+              
+              return {
+                ...result,
+                attendance: studentBatchAttendance,
+                presentCount,
+                absentCount,
+                totalDays,
+                attendancePercentage
+              };
             }
           }
-          
-          // Calculate attendance statistics for selected date only
-          const presentCount = studentAttendance.filter(a => a.status === 'present').length;
-          const absentCount = studentAttendance.filter(a => a.status === 'absent').length;
-          const totalDays = studentAttendance.length;
-          const attendancePercentage = totalDays > 0 ? Math.round((presentCount / totalDays) * 100) : 0;
-          
-          return {
-            student,
-            attendance: studentAttendance,
-            presentCount,
-            absentCount,
-            totalDays,
-            attendancePercentage
-          };
-          
-        } catch (error) {
-          // Return student with zero attendance if there's an error
-          return {
-            student,
-            attendance: [],
-            presentCount: 0,
-            absentCount: 0,
-            totalDays: 0,
-            attendancePercentage: 0
-          };
         }
+        return result;
       });
       
-      // Execute all promises in parallel using Promise.all - this is the key to speed
-      const results = await Promise.all(allAttendancePromises);
-      setStudentAttendanceData(results);
+      setStudentAttendanceData(finalResults);
       
     } catch (error) {
-      // Handle error silently
+      console.error('Error loading attendance data:', error);
+      setStudentAttendanceData([]);
     } finally {
       setLoading(false);
     }
@@ -344,18 +363,12 @@ const StudentAttendanceList: React.FC = () => {
 
   const handleSubjectChange = (newSubject: string) => {
     setSelectedSubject(newSubject);
-    // Reload attendance data when subject changes
-    if (students.length > 0 && selectedDate) {
-      loadAttendanceData(students);
-    }
+    // Attendance will reload automatically via useEffect
   };
 
   const handleDateChange = (newDate: string) => {
     setSelectedDate(newDate);
-    // Reload attendance data when date changes
-    if (students.length > 0) {
-      loadAttendanceData(students);
-    }
+    // Attendance will reload automatically via useEffect
   };
 
   const handleExportAttendance = async () => {

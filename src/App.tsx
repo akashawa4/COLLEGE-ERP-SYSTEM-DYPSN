@@ -1,51 +1,56 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, lazy, Suspense } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginForm from './components/Auth/LoginForm';
 import Sidebar from './components/Layout/Sidebar';
 import Header from './components/Layout/Header';
 import Footer from './components/Layout/Footer';
 import MobileBottomNav from './components/Layout/MobileBottomNav';
-import Dashboard from './components/Dashboard/Dashboard';
-import LeaveRequestForm from './components/Leave/LeaveRequestForm';
-import LeaveApprovalPanel from './components/Leave/LeaveApprovalPanel';
-import MyLeaves from './components/Leave/MyLeaves';
-import MyAttendance from './components/Attendance/MyAttendance';
-import ESLBiometricIntegration from './components/Attendance/ESLBiometricIntegration';
-import Notifications from './components/Notifications/Notifications';
-import StudentManagementPanel from './components/StudentManagement/StudentManagementPanel';
-import TeacherStudentPanel from './components/StudentManagement/TeacherStudentPanel';
-import TeacherManagementPanel from './components/TeacherManagement/TeacherManagementPanel';
-import SubjectManagementPanel from './components/SubjectManagement/SubjectManagementPanel';
-import ResultEntryPanel from './components/Results/ResultEntryPanel';
-import MyResults from './components/Results/MyResults';
 import { Upload, BarChart3, Users, Calendar, FileText, User } from 'lucide-react';
-import StudentProfile from './components/StudentProfile';
-import TakeAttendancePanel from './components/Attendance/TakeAttendancePanel';
-import BatchManagementPanel from './components/BatchManagement/BatchManagementPanel';
-import UserManagement from './components/Admin/UserManagement';
-import InstitutionSettings from './components/Admin/InstitutionSettings';
-import DepartmentManagement from './components/Admin/DepartmentManagement';
-import FinancialAdmin from './components/Admin/FinancialAdmin';
-import EventManagement from './components/Events/EventManagement';
-import ClubManagement from './components/Clubs/ClubManagement';
-import ComplaintManagement from './components/Complaints/ComplaintManagement';
-import CanteenManagement from './components/Canteen/CanteenManagement';
-import StationaryManagement from './components/Stationary/StationaryManagement';
-import LibraryManagement from './components/Library/LibraryManagement';
-import NonTeachingDashboard from './components/NonTeaching/NonTeachingDashboard';
-import CleanerPanel from './components/NonTeaching/CleanerPanel';
-import PeonPanel from './components/NonTeaching/PeonPanel';
-import LabAssistantPanel from './components/NonTeaching/LabAssistantPanel';
-import SecurityPanel from './components/NonTeaching/SecurityPanel';
-import VisitorManagement from './components/Admin/VisitorManagement';
-import BusManagement from './components/Transport/BusManagement';
-import DriverDashboard from './components/Driver/DriverDashboard';
-import CollegeContacts from './components/Contacts/CollegeContacts';
-import LostFoundManagement from './components/LostFound/LostFoundManagement';
-import HostelManagement from './components/Hostel/HostelManagement';
-import CourseManagementPanel from './components/CourseManagement/CourseManagementPanel';
-import DocumentManagementPanel from './components/DocumentManagement/DocumentManagementPanel';
-import AboutPage from './components/Visitor/AboutPage';
+import { visitorService } from './firebase/firestore';
+import { User as UserType } from './types';
+
+// Lazy load components for better code splitting
+const Dashboard = lazy(() => import('./components/Dashboard/Dashboard'));
+const LeaveRequestForm = lazy(() => import('./components/Leave/LeaveRequestForm'));
+const LeaveApprovalPanel = lazy(() => import('./components/Leave/LeaveApprovalPanel'));
+const MyLeaves = lazy(() => import('./components/Leave/MyLeaves'));
+const MyAttendance = lazy(() => import('./components/Attendance/MyAttendance'));
+const ESLBiometricIntegration = lazy(() => import('./components/Attendance/ESLBiometricIntegration'));
+const Notifications = lazy(() => import('./components/Notifications/Notifications'));
+const StudentManagementPanel = lazy(() => import('./components/StudentManagement/StudentManagementPanel'));
+const TeacherStudentPanel = lazy(() => import('./components/StudentManagement/TeacherStudentPanel'));
+const TeacherManagementPanel = lazy(() => import('./components/TeacherManagement/TeacherManagementPanel'));
+const SubjectManagementPanel = lazy(() => import('./components/SubjectManagement/SubjectManagementPanel'));
+const ResultEntryPanel = lazy(() => import('./components/Results/ResultEntryPanel'));
+const MyResults = lazy(() => import('./components/Results/MyResults'));
+const StudentProfile = lazy(() => import('./components/StudentProfile'));
+const TakeAttendancePanel = lazy(() => import('./components/Attendance/TakeAttendancePanel'));
+const BatchManagementPanel = lazy(() => import('./components/BatchManagement/BatchManagementPanel'));
+const UserManagement = lazy(() => import('./components/Admin/UserManagement'));
+const InstitutionSettings = lazy(() => import('./components/Admin/InstitutionSettings'));
+const DepartmentManagement = lazy(() => import('./components/Admin/DepartmentManagement'));
+const FinancialAdmin = lazy(() => import('./components/Admin/FinancialAdmin'));
+const EventManagement = lazy(() => import('./components/Events/EventManagement'));
+const ClubManagement = lazy(() => import('./components/Clubs/ClubManagement'));
+const ComplaintManagement = lazy(() => import('./components/Complaints/ComplaintManagement'));
+const CanteenManagement = lazy(() => import('./components/Canteen/CanteenManagement'));
+const StationaryManagement = lazy(() => import('./components/Stationary/StationaryManagement'));
+const LibraryManagement = lazy(() => import('./components/Library/LibraryManagement'));
+const NonTeachingDashboard = lazy(() => import('./components/NonTeaching/NonTeachingDashboard'));
+const CleanerPanel = lazy(() => import('./components/NonTeaching/CleanerPanel'));
+const PeonPanel = lazy(() => import('./components/NonTeaching/PeonPanel'));
+const LabAssistantPanel = lazy(() => import('./components/NonTeaching/LabAssistantPanel'));
+const SecurityPanel = lazy(() => import('./components/NonTeaching/SecurityPanel'));
+const VisitorManagement = lazy(() => import('./components/Admin/VisitorManagement'));
+const BusManagement = lazy(() => import('./components/Transport/BusManagement'));
+const DriverDashboard = lazy(() => import('./components/Driver/DriverDashboard'));
+const CollegeContacts = lazy(() => import('./components/Contacts/CollegeContacts'));
+const LostFoundManagement = lazy(() => import('./components/LostFound/LostFoundManagement'));
+const HostelManagement = lazy(() => import('./components/Hostel/HostelManagement'));
+const CourseManagementPanel = lazy(() => import('./components/CourseManagement/CourseManagementPanel'));
+const DocumentManagementPanel = lazy(() => import('./components/DocumentManagement/DocumentManagementPanel'));
+const AboutPage = lazy(() => import('./components/Visitor/AboutPage'));
+const TeacherLeaveAttendance = lazy(() => import('./components/TeacherManagement/TeacherLeaveAttendance'));
 // Visitor lightweight components
 const VisitorCard: React.FC<{ title: string; description: string; onClick: () => void }> = ({ title, description, onClick }) => (
   <button onClick={onClick} className="p-6 bg-white border rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-left group">
@@ -63,7 +68,6 @@ const VisitorInfoForm: React.FC<{ onComplete: () => void }> = ({ onComplete }) =
     try {
       const deviceId = localStorage.getItem('dypsn_device_id') || `dev_${crypto?.randomUUID?.() || Math.random().toString(36).slice(2)}`;
       localStorage.setItem('dypsn_device_id', deviceId);
-      const { visitorService } = await import('./firebase/firestore');
       await visitorService.upsertVisitor({ deviceId, name: payload.name, phone: payload.phone, purpose: payload.purpose });
     } catch (e) {
       // silent fail to keep UX smooth; can add toast later
@@ -240,7 +244,7 @@ const UserManagementPage: React.FC = () => {
           </button>
           <p className="text-xs text-gray-500 mt-2">Accepted formats: .xlsx, .xls</p>
         </div>
-        
+
 
       </div>
       <div className="my-6 border-t border-gray-200"></div>
@@ -375,12 +379,11 @@ const AttendanceLogsPage: React.FC = () => {
                 <td className="px-3 py-2 font-medium text-gray-900">{log.name}</td>
                 <td className="px-3 py-2 text-gray-700">{log.date}</td>
                 <td className="px-3 py-2">
-                  <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
-                    log.status === 'Present' ? 'bg-green-100 text-green-700' :
+                  <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${log.status === 'Present' ? 'bg-green-100 text-green-700' :
                     log.status === 'Absent' ? 'bg-red-100 text-red-700' :
-                    log.status === 'Late' ? 'bg-amber-100 text-amber-700' :
-                    'bg-gray-100 text-gray-500'
-                  }`}>{log.status}</span>
+                      log.status === 'Late' ? 'bg-amber-100 text-amber-700' :
+                        'bg-gray-100 text-gray-500'
+                    }`}>{log.status}</span>
                 </td>
                 <td className="px-3 py-2 text-gray-700">{log.clockIn}</td>
                 <td className="px-3 py-2 text-gray-700">{log.clockOut}</td>
@@ -411,6 +414,29 @@ const AppContent: React.FC = () => {
     setCurrentPage(page);
     localStorage.setItem('dypsn_current_page', page);
   };
+
+  // Reset to dashboard when user logs in (user changes from null to a user object)
+  const prevUserRef = React.useRef<UserType | null>(null);
+  const isInitialMount = React.useRef(true);
+  
+  React.useEffect(() => {
+    // Skip on initial mount to avoid overriding login-set page
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      prevUserRef.current = user;
+      return;
+    }
+    
+    // If user just logged in (was null, now has a user), reset to dashboard
+    if (!prevUserRef.current && user) {
+      // Clear any stale page state and reset to dashboard
+      localStorage.removeItem('dypsn_current_page');
+      setCurrentPage('dashboard');
+      localStorage.setItem('dypsn_current_page', 'dashboard');
+    }
+    // Update the ref with the current user
+    prevUserRef.current = user;
+  }, [user]);
 
   // Enforce correct landing pages based on role and clean up restricted initial states
   React.useEffect(() => {
@@ -494,7 +520,7 @@ const AppContent: React.FC = () => {
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
               <h2 className="text-xl font-semibold text-yellow-800 mb-2">Access Restricted</h2>
               <p className="text-yellow-700 mb-4">This page is not available for visitors.</p>
-              <button 
+              <button
                 onClick={() => handlePageChange('visitor-home')}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               >
@@ -509,7 +535,7 @@ const AppContent: React.FC = () => {
     switch (currentPage) {
       case 'profile':
         if (user.role === 'student') {
-          return <StudentProfile 
+          return <StudentProfile
             name={user.name}
             gender={user.gender || 'Not specified'}
             mobile={user.phone || 'Not specified'}
@@ -535,7 +561,7 @@ const AppContent: React.FC = () => {
                       <p className="text-gray-600">Campus Visitor</p>
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
@@ -554,10 +580,10 @@ const AppContent: React.FC = () => {
                       <p className="text-gray-900">Guest</p>
                     </div>
                   </div>
-                  
+
                   <div className="pt-4 border-t">
                     <p className="text-sm text-gray-600">
-                      As a visitor, you have limited access to campus facilities. 
+                      As a visitor, you have limited access to campus facilities.
                       You can browse canteen menus, stationary services, events, clubs, and submit complaints.
                     </p>
                   </div>
@@ -591,35 +617,35 @@ const AppContent: React.FC = () => {
               <p className="text-gray-600">Explore our campus facilities and activities</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <VisitorCard 
-                title="About College" 
+              <VisitorCard
+                title="About College"
                 description="Learn about our institution, history, and achievements"
-                onClick={() => handlePageChange('visitor-about')} 
+                onClick={() => handlePageChange('visitor-about')}
               />
-              <VisitorCard 
-                title="Canteen Menu" 
+              <VisitorCard
+                title="Canteen Menu"
                 description="View available food items and prices"
-                onClick={() => handlePageChange('canteen')} 
+                onClick={() => handlePageChange('canteen')}
               />
-              <VisitorCard 
-                title="Stationary & Xerox" 
+              <VisitorCard
+                title="Stationary & Xerox"
                 description="Check printing and stationery services"
-                onClick={() => handlePageChange('stationary')} 
+                onClick={() => handlePageChange('stationary')}
               />
-              <VisitorCard 
-                title="Student Clubs" 
+              <VisitorCard
+                title="Student Clubs"
                 description="Explore our student organizations"
-                onClick={() => handlePageChange('clubs')} 
+                onClick={() => handlePageChange('clubs')}
               />
-              <VisitorCard 
-                title="College Events" 
+              <VisitorCard
+                title="College Events"
                 description="View upcoming events and activities"
-                onClick={() => handlePageChange('events')} 
+                onClick={() => handlePageChange('events')}
               />
-              <VisitorCard 
-                title="Contact Information" 
+              <VisitorCard
+                title="Contact Information"
                 description="Get in touch with administration"
-                onClick={() => handlePageChange('visitor-contact')} 
+                onClick={() => handlePageChange('visitor-contact')}
               />
             </div>
           </div>
@@ -659,7 +685,7 @@ const AppContent: React.FC = () => {
                 </div>
               </div>
               <div className="pt-4 border-t">
-                <button 
+                <button
                   onClick={() => handlePageChange('visitor-home')}
                   className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
                 >
@@ -702,7 +728,7 @@ const AppContent: React.FC = () => {
       case 'esl-integration':
         return <ESLBiometricIntegration />;
       case 'notifications':
-        return <Notifications setCurrentPage={setCurrentPage}/>;
+        return <Notifications setCurrentPage={setCurrentPage} />;
       case 'leave-requests':
         return <LeaveApprovalPanel />;
       case 'approvals':
@@ -770,7 +796,9 @@ const AppContent: React.FC = () => {
           <StudentManagementPanel user={user} />
         );
       case 'teacher-management':
-        return <TeacherManagementPanel />;
+        return <TeacherManagementPanel onPageChange={handlePageChange} />;
+      case 'teacher-leave-attendance':
+        return <TeacherLeaveAttendance />;
       case 'subject-management':
         return <SubjectManagementPanel />;
       case 'take-attendance':
@@ -880,13 +908,13 @@ const AppContent: React.FC = () => {
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar - Hidden on mobile, shown on desktop */}
-      <Sidebar 
-        isOpen={sidebarOpen} 
+      <Sidebar
+        isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         currentPage={currentPage}
         onPageChange={handlePageChange}
       />
-      
+
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col lg:ml-0 min-h-screen">
         <Header
@@ -897,10 +925,19 @@ const AppContent: React.FC = () => {
           setShowNotifications={setShowNotifications}
           isOnline={isOnline}
         />
-        
+
         {/* Main Content - Scrollable */}
         <main className="flex-1 overflow-y-auto pb-24 lg:pb-0">
-          {renderPage()}
+          <Suspense fallback={
+            <div className="flex items-center justify-center min-h-[400px]">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading...</p>
+              </div>
+            </div>
+          }>
+            {renderPage()}
+          </Suspense>
         </main>
 
         {/* Footer */}
@@ -908,7 +945,7 @@ const AppContent: React.FC = () => {
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <MobileBottomNav 
+      <MobileBottomNav
         currentPage={currentPage}
         onPageChange={handlePageChange}
       />

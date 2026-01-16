@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Search, 
-  User, 
-  Mail, 
-  Phone, 
-  GraduationCap, 
-  BookOpen, 
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Search,
+  User,
+  Mail,
+  Phone,
+  GraduationCap,
+  BookOpen,
   Calendar,
   Award,
   MapPin,
@@ -43,7 +43,11 @@ interface TeacherFormData {
   isActive: boolean;
 }
 
-const TeacherManagementPanel: React.FC = () => {
+interface TeacherManagementPanelProps {
+  onPageChange?: (page: string) => void;
+}
+
+const TeacherManagementPanel: React.FC<TeacherManagementPanelProps> = ({ onPageChange }) => {
   const [teachers, setTeachers] = useState<UserType[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -53,7 +57,7 @@ const TeacherManagementPanel: React.FC = () => {
   const [filterDesignation, setFilterDesignation] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [teacherToDelete, setTeacherToDelete] = useState<UserType | null>(null);
-  
+
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState<UserType | null>(null);
   const [isImporting, setIsImporting] = useState(false);
@@ -88,7 +92,7 @@ const TeacherManagementPanel: React.FC = () => {
   ];
   const designations = [
     'Assistant Professor',
-    'Associate Professor', 
+    'Associate Professor',
     'Professor',
     'Head of Department',
     'Dean',
@@ -184,7 +188,7 @@ const TeacherManagementPanel: React.FC = () => {
 
   const handleDelete = async () => {
     if (!teacherToDelete) return;
-    
+
     try {
       await userService.deleteTeacher(teacherToDelete.id);
       setShowDeleteModal(false);
@@ -224,7 +228,7 @@ const TeacherManagementPanel: React.FC = () => {
     // Create a more structured CSV with proper formatting
     const headers = [
       'Name',
-      'Email', 
+      'Email',
       'Phone',
       'Department',
       'Designation',
@@ -238,7 +242,7 @@ const TeacherManagementPanel: React.FC = () => {
       'Gender',
       'Is Active (true/false)'
     ];
-    
+
     const sampleData = [
       {
         name: 'Dr. Aakash Patil',
@@ -328,7 +332,7 @@ const TeacherManagementPanel: React.FC = () => {
     try {
       // Filter teachers based on current filters
       const teachersToExport = filteredTeachers;
-      
+
       if (teachersToExport.length === 0) {
         alert('No teachers to export. Please adjust your filters.');
         return;
@@ -336,7 +340,7 @@ const TeacherManagementPanel: React.FC = () => {
 
       // Create Excel workbook
       const workbook = XLSX.utils.book_new();
-      
+
       // Prepare data for export
       const exportData = teachersToExport.map(teacher => ({
         'Name': teacher.name || '',
@@ -358,17 +362,17 @@ const TeacherManagementPanel: React.FC = () => {
 
       // Create worksheet
       const worksheet = XLSX.utils.json_to_sheet(exportData);
-      
+
       // Add worksheet to workbook
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Teachers');
-      
+
       // Generate filename with timestamp
       const timestamp = new Date().toISOString().slice(0, 10);
       const filename = `teachers_export_${timestamp}.xlsx`;
-      
+
       // Download the file
       XLSX.writeFile(workbook, filename);
-      
+
     } catch (error) {
       alert('Failed to export teachers. Please try again.');
     }
@@ -431,10 +435,10 @@ const TeacherManagementPanel: React.FC = () => {
         }
       ];
 
-    // Create workbook and worksheet
-    const workbook = XLSX.utils.book_new();
-    const worksheet = XLSX.utils.json_to_sheet(sampleData);
-    
+      // Create workbook and worksheet
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(sampleData);
+
       // Set column widths for better readability
       const columnWidths = [
         { wch: 25 }, // Name
@@ -457,11 +461,11 @@ const TeacherManagementPanel: React.FC = () => {
 
       // Add the worksheet to workbook
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Teacher Template');
-      
+
       // Generate and download the file
       const filename = `teacher_import_template_${new Date().toISOString().slice(0, 10)}.xlsx`;
       XLSX.writeFile(workbook, filename);
-      
+
       console.log('Excel template downloaded successfully');
     } catch (error) {
       console.error('Error downloading template:', error);
@@ -578,7 +582,7 @@ const TeacherManagementPanel: React.FC = () => {
     try {
       setIsImporting(true);
       console.log('Starting teacher import...');
-      
+
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data, { type: 'array' });
       const sheetName = workbook.SheetNames[0];
@@ -596,7 +600,7 @@ const TeacherManagementPanel: React.FC = () => {
       const headerMapping: { [key: string]: string } = {
         'Name': 'name',
         'name': 'name',
-        'Email': 'email', 
+        'Email': 'email',
         'email': 'email',
         'Phone': 'phone',
         'phone': 'phone',
@@ -647,48 +651,48 @@ const TeacherManagementPanel: React.FC = () => {
           }
 
           const id = `teacher_${Date.now()}_${idx}`;
-          
+
           // Helper function to get value from row using header mapping
           const getValue = (fieldName: string): string => {
             // Try exact match first
             if (row[fieldName] !== undefined && row[fieldName] !== null) {
               return String(row[fieldName]).trim();
             }
-            
+
             // Try case-insensitive match
             const lowerFieldName = fieldName.toLowerCase();
             for (const [excelHeader, mappedField] of Object.entries(headerMapping)) {
-              if (mappedField === fieldName && 
-                  excelHeader.toLowerCase() === lowerFieldName && 
-                  row[excelHeader] !== undefined) {
+              if (mappedField === fieldName &&
+                excelHeader.toLowerCase() === lowerFieldName &&
+                row[excelHeader] !== undefined) {
                 return String(row[excelHeader]).trim();
               }
             }
-            
+
             // Try direct header mapping
             for (const [excelHeader, mappedField] of Object.entries(headerMapping)) {
               if (mappedField === fieldName && row[excelHeader] !== undefined) {
                 return String(row[excelHeader]).trim();
               }
             }
-            
+
             return '';
           };
 
           const name = getValue('name');
           const email = getValue('email');
-          
+
           // Validate required fields
           if (!name) {
             errors.push(`Row ${idx + 2}: Name is required`);
             return;
           }
-          
+
           if (!email) {
             errors.push(`Row ${idx + 2}: Email is required`);
             return;
           }
-          
+
           // Validate email format
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           if (!emailRegex.test(email)) {
@@ -735,15 +739,15 @@ const TeacherManagementPanel: React.FC = () => {
       }
 
       console.log('Importing teachers:', teachers.length);
-      
+
       // Import teachers to Firestore
       await userService.bulkImportTeachers(teachers);
-      
+
       // Reload the teacher list
       await loadTeachers();
-      
+
       alert(`Successfully imported ${teachers.length} teachers!${errors.length > 0 ? ` (${errors.length} rows had errors)` : ''}`);
-      
+
     } catch (error) {
       console.error('Import error:', error);
       alert(`Failed to import teachers: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -755,22 +759,22 @@ const TeacherManagementPanel: React.FC = () => {
 
   const filteredTeachers = teachers.filter(teacher => {
     const matchesSearch = teacher.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         teacher.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         teacher.phone?.includes(searchTerm);
-    
+      teacher.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      teacher.phone?.includes(searchTerm);
+
     // Handle department mapping - convert UI department to database format
     let matchesDepartment = true;
     if (filterDepartment) {
       const teacherDeptCode = getDepartmentCode(teacher.department);
       const filterDeptCode = getDepartmentCode(filterDepartment);
-      matchesDepartment = teacherDeptCode === filterDeptCode || 
-                         teacher.department === filterDepartment ||
-                         teacherDeptCode === filterDepartment;
+      matchesDepartment = teacherDeptCode === filterDeptCode ||
+        teacher.department === filterDepartment ||
+        teacherDeptCode === filterDepartment;
     }
-    
+
     const matchesDesignation = !filterDesignation || teacher.designation === filterDesignation;
-    
-    
+
+
     return matchesSearch && matchesDepartment && matchesDesignation;
   });
 
@@ -787,94 +791,176 @@ const TeacherManagementPanel: React.FC = () => {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-mobile border border-gray-200 p-4 lg:p-6">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4 lg:mb-6">
-        <div className="mb-4 lg:mb-0">
-          <h2 className="text-lg lg:text-2xl font-bold text-gray-900 mb-2">Teacher Management</h2>
-          <p className="text-sm lg:text-base text-gray-600">Manage faculty members and their information</p>
+    <div className="space-y-6">
+      {/* Teacher Leaves & Attendance Section */}
+      <div className="bg-white rounded-2xl shadow-mobile border border-gray-200 p-4 lg:p-6">
+        <div className="mb-4">
+          <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-1">Teacher Leaves & Attendance</h2>
+          <p className="text-sm text-gray-600">Overview of faculty attendance and leave statistics</p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full lg:w-auto">
-          <button
-            onClick={() => {
-              setShowForm(true);
-              setEditingTeacher(null);
-              resetForm();
-            }}
-            className="btn-mobile bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 active:scale-95 flex items-center justify-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Add Teacher</span>
-            <span className="sm:hidden">Add</span>
-          </button>
-          
-          <button
-            onClick={() => downloadExcelTemplate()}
-            className="btn-mobile bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">Excel Template</span>
-            <span className="sm:hidden">Template</span>
-          </button>
-          <label className="btn-mobile bg-blue-600 hover:bg-blue-700 text-white cursor-pointer flex items-center justify-center gap-2">
-            <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImportTeachers} disabled={isImporting} />
-            <Upload className="w-4 h-4" />
-            <span className="hidden sm:inline">{isImporting ? 'Importing…' : 'Import Excel'}</span>
-            <span className="sm:hidden">{isImporting ? 'Importing…' : 'Import'}</span>
-          </label>
-          <button
-            onClick={exportTeachers}
-            className="btn-mobile bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">Export Excel</span>
-            <span className="sm:hidden">Export</span>
-          </button>
-        </div>
-      </div>
 
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Today's Attendance */}
+          <div
+            onClick={() => onPageChange?.('teacher-leave-attendance')}
+            className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border border-green-100 cursor-pointer hover:shadow-md transition-all group"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-700 group-hover:text-green-800 transition-colors">Today's Attendance</p>
+                <p className="text-2xl font-bold text-green-800 mt-1">
+                  {teachers.filter(t => t.isActive).length}/{teachers.length}
+                </p>
+                <p className="text-xs text-green-600 mt-1">Teachers Present</p>
+              </div>
+              <div className="p-3 bg-green-100 rounded-lg group-hover:bg-green-200 transition-colors">
+                <User className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+          </div>
 
-      {/* Search and Filters - Mobile Optimized */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 lg:gap-4 mb-4 lg:mb-6">
-        <div className="lg:col-span-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search teachers..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="input-mobile pl-10 w-full text-sm lg:text-base"
-            />
+          {/* Pending Leave Requests */}
+          <div
+            onClick={() => onPageChange?.('teacher-leave-attendance')}
+            className="bg-gradient-to-br from-amber-50 to-yellow-50 p-4 rounded-xl border border-amber-100 cursor-pointer hover:shadow-md transition-all group"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-amber-700 group-hover:text-amber-800 transition-colors">Pending Leaves</p>
+                <p className="text-2xl font-bold text-amber-800 mt-1">5</p>
+                <p className="text-xs text-amber-600 mt-1">Awaiting Approval</p>
+              </div>
+              <div className="p-3 bg-amber-100 rounded-lg group-hover:bg-amber-200 transition-colors">
+                <Clock className="w-6 h-6 text-amber-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* Approved Leaves */}
+          <div
+            onClick={() => onPageChange?.('teacher-leave-attendance')}
+            className="bg-gradient-to-br from-blue-50 to-sky-50 p-4 rounded-xl border border-blue-100 cursor-pointer hover:shadow-md transition-all group"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-700 group-hover:text-blue-800 transition-colors">Approved Leaves</p>
+                <p className="text-2xl font-bold text-blue-800 mt-1">12</p>
+                <p className="text-xs text-blue-600 mt-1">This Month</p>
+              </div>
+              <div className="p-3 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
+                <Calendar className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* On Leave Today */}
+          <div
+            onClick={() => onPageChange?.('teacher-leave-attendance')}
+            className="bg-gradient-to-br from-purple-50 to-violet-50 p-4 rounded-xl border border-purple-100 cursor-pointer hover:shadow-md transition-all group"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-purple-700 group-hover:text-purple-800 transition-colors">On Leave Today</p>
+                <p className="text-2xl font-bold text-purple-800 mt-1">2</p>
+                <p className="text-xs text-purple-600 mt-1">Teachers</p>
+              </div>
+              <div className="p-3 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
+                <GraduationCap className="w-6 h-6 text-purple-600" />
+              </div>
+            </div>
           </div>
         </div>
-        <select
-          value={filterDepartment}
-          onChange={(e) => setFilterDepartment(e.target.value)}
-          className="input-mobile text-sm lg:text-base"
-        >
-          <option value="">All Departments</option>
-          {departments.map(dept => (
-            <option key={dept} value={dept}>{dept}</option>
-          ))}
-        </select>
-        <select
-          value={filterDesignation}
-          onChange={(e) => setFilterDesignation(e.target.value)}
-          className="input-mobile text-sm lg:text-base"
-        >
-          <option value="">All Designations</option>
-          {designations.map(desig => (
-            <option key={desig} value={desig}>{desig}</option>
-          ))}
-        </select>
       </div>
 
-      {/* Teachers Grid - Mobile Optimized */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
+      {/* Teacher Management Section */}
+      <div className="bg-white rounded-2xl shadow-mobile border border-gray-200 p-4 lg:p-6">
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4 lg:mb-6">
+          <div className="mb-4 lg:mb-0">
+            <h2 className="text-lg lg:text-2xl font-bold text-gray-900 mb-2">Teacher Management</h2>
+            <p className="text-sm lg:text-base text-gray-600">Manage faculty members and their information</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full lg:w-auto">
+            <button
+              onClick={() => {
+                setShowForm(true);
+                setEditingTeacher(null);
+                resetForm();
+              }}
+              className="btn-mobile bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 active:scale-95 flex items-center justify-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Add Teacher</span>
+              <span className="sm:hidden">Add</span>
+            </button>
+
+            <button
+              onClick={() => downloadExcelTemplate()}
+              className="btn-mobile bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">Excel Template</span>
+              <span className="sm:hidden">Template</span>
+            </button>
+            <label className="btn-mobile bg-blue-600 hover:bg-blue-700 text-white cursor-pointer flex items-center justify-center gap-2">
+              <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImportTeachers} disabled={isImporting} />
+              <Upload className="w-4 h-4" />
+              <span className="hidden sm:inline">{isImporting ? 'Importing…' : 'Import Excel'}</span>
+              <span className="sm:hidden">{isImporting ? 'Importing…' : 'Import'}</span>
+            </label>
+            <button
+              onClick={exportTeachers}
+              className="btn-mobile bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">Export Excel</span>
+              <span className="sm:hidden">Export</span>
+            </button>
+          </div>
+        </div>
+
+
+        {/* Search and Filters - Mobile Optimized */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 lg:gap-4 mb-4 lg:mb-6">
+          <div className="lg:col-span-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search teachers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="input-mobile pl-10 w-full text-sm lg:text-base"
+              />
+            </div>
+          </div>
+          <select
+            value={filterDepartment}
+            onChange={(e) => setFilterDepartment(e.target.value)}
+            className="input-mobile text-sm lg:text-base"
+          >
+            <option value="">All Departments</option>
+            {departments.map(dept => (
+              <option key={dept} value={dept}>{dept}</option>
+            ))}
+          </select>
+          <select
+            value={filterDesignation}
+            onChange={(e) => setFilterDesignation(e.target.value)}
+            className="input-mobile text-sm lg:text-base"
+          >
+            <option value="">All Designations</option>
+            {designations.map(desig => (
+              <option key={desig} value={desig}>{desig}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Teachers Grid - Mobile Optimized */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
           {filteredTeachers.map((teacher) => (
-            <div 
-              key={teacher.id} 
+            <div
+              key={teacher.id}
               className="border border-gray-200 rounded-xl p-4 hover:shadow-mobile transition-shadow cursor-pointer active:scale-[0.98]"
               onClick={() => handleViewDetails(teacher)}
             >
@@ -902,11 +988,10 @@ const TeacherManagementPanel: React.FC = () => {
                 </div>
               </div>
               <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-100">
-                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                  teacher.isActive 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-red-100 text-red-800'
-                }`}>
+                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${teacher.isActive
+                  ? 'bg-green-100 text-green-800'
+                  : 'bg-red-100 text-red-800'
+                  }`}>
                   {teacher.isActive ? 'Active' : 'Inactive'}
                 </span>
                 <div className="flex space-x-2">
@@ -937,437 +1022,436 @@ const TeacherManagementPanel: React.FC = () => {
           ))}
         </div>
 
-      {filteredTeachers.length === 0 && (
-        <div className="text-center py-12">
-          <User className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No teachers found</h3>
-          <p className="text-gray-500">Get started by adding your first teacher.</p>
-        </div>
-      )}
+        {filteredTeachers.length === 0 && (
+          <div className="text-center py-12">
+            <User className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No teachers found</h3>
+            <p className="text-gray-500">Get started by adding your first teacher.</p>
+          </div>
+        )}
 
-      {/* Teacher Detail Modal */}
-      {showDetailModal && selectedTeacher && (
-        <div className="modal-mobile">
-          <div className="modal-content-mobile max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-4 lg:p-6 border-b border-gray-200">
-              <h3 className="text-lg lg:text-xl font-semibold text-gray-900">Teacher Details</h3>
-              <button
-                onClick={() => setShowDetailModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-            
-            <div className="p-4 lg:p-6 space-y-6">
-              {/* Header with Avatar and Basic Info */}
-              <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-                  <User className="w-8 h-8 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-xl font-bold text-gray-900">{selectedTeacher.name}</h2>
-                  <p className="text-blue-600 font-medium">{selectedTeacher.designation}</p>
-                  <p className="text-gray-600">{selectedTeacher.department} Department</p>
-                </div>
-                <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${
-                  selectedTeacher.isActive 
-                    ? 'bg-green-100 text-green-800' 
+        {/* Teacher Detail Modal */}
+        {showDetailModal && selectedTeacher && (
+          <div className="modal-mobile">
+            <div className="modal-content-mobile max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-4 lg:p-6 border-b border-gray-200">
+                <h3 className="text-lg lg:text-xl font-semibold text-gray-900">Teacher Details</h3>
+                <button
+                  onClick={() => setShowDetailModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <div className="p-4 lg:p-6 space-y-6">
+                {/* Header with Avatar and Basic Info */}
+                <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl">
+                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                    <User className="w-8 h-8 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-xl font-bold text-gray-900">{selectedTeacher.name}</h2>
+                    <p className="text-blue-600 font-medium">{selectedTeacher.designation}</p>
+                    <p className="text-gray-600">{selectedTeacher.department} Department</p>
+                  </div>
+                  <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${selectedTeacher.isActive
+                    ? 'bg-green-100 text-green-800'
                     : 'bg-red-100 text-red-800'
-                }`}>
-                  {selectedTeacher.isActive ? 'Active' : 'Inactive'}
-                </span>
-              </div>
-
-              {/* Contact Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <h4 className="font-semibold text-gray-900 flex items-center">
-                    <Mail className="w-4 h-4 mr-2 text-blue-600" />
-                    Contact Information
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center text-gray-600">
-                      <Mail className="w-4 h-4 mr-3 text-gray-400" />
-                      <span className="truncate">{selectedTeacher.email}</span>
-                    </div>
-                    <div className="flex items-center text-gray-600">
-                      <Phone className="w-4 h-4 mr-3 text-gray-400" />
-                      <span>{selectedTeacher.phone}</span>
-                    </div>
-                  </div>
+                    }`}>
+                    {selectedTeacher.isActive ? 'Active' : 'Inactive'}
+                  </span>
                 </div>
 
-                <div className="space-y-3">
-                  <h4 className="font-semibold text-gray-900 flex items-center">
-                    <User className="w-4 h-4 mr-2 text-blue-600" />
-                    Personal Information
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center text-gray-600">
-                      <User className="w-4 h-4 mr-3 text-gray-400" />
-                      <span>Gender: {selectedTeacher.gender || 'Not specified'}</span>
-                    </div>
-                    {selectedTeacher.dateOfBirth && (
-                      <div className="flex items-center text-gray-600">
-                        <Calendar className="w-4 h-4 mr-3 text-gray-400" />
-                        <span>DOB: {new Date(selectedTeacher.dateOfBirth).toLocaleDateString()}</span>
-                      </div>
-                    )}
-                    {selectedTeacher.bloodGroup && (
-                      <div className="flex items-center text-gray-600">
-                        <Heart className="w-4 h-4 mr-3 text-gray-400" />
-                        <span>Blood Group: {selectedTeacher.bloodGroup}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Academic Information */}
-              <div className="space-y-3">
-                <h4 className="font-semibold text-gray-900 flex items-center">
-                  <GraduationCap className="w-4 h-4 mr-2 text-blue-600" />
-                  Academic Information
-                </h4>
+                {/* Contact Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center text-gray-600">
-                      <BookOpen className="w-4 h-4 mr-3 text-gray-400" />
-                      <span>Qualification: {selectedTeacher.qualification || 'Not specified'}</span>
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-gray-900 flex items-center">
+                      <Mail className="w-4 h-4 mr-2 text-blue-600" />
+                      Contact Information
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center text-gray-600">
+                        <Mail className="w-4 h-4 mr-3 text-gray-400" />
+                        <span className="truncate">{selectedTeacher.email}</span>
+                      </div>
+                      <div className="flex items-center text-gray-600">
+                        <Phone className="w-4 h-4 mr-3 text-gray-400" />
+                        <span>{selectedTeacher.phone}</span>
+                      </div>
                     </div>
-                    {selectedTeacher.specialization && (
-                      <div className="flex items-center text-gray-600">
-                        <Award className="w-4 h-4 mr-3 text-gray-400" />
-                        <span>Specialization: {selectedTeacher.specialization}</span>
-                      </div>
-                    )}
                   </div>
-                  <div className="space-y-2 text-sm">
-                    {selectedTeacher.experience && (
+
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-gray-900 flex items-center">
+                      <User className="w-4 h-4 mr-2 text-blue-600" />
+                      Personal Information
+                    </h4>
+                    <div className="space-y-2 text-sm">
                       <div className="flex items-center text-gray-600">
-                        <Clock className="w-4 h-4 mr-3 text-gray-400" />
-                        <span>Experience: {selectedTeacher.experience}</span>
+                        <User className="w-4 h-4 mr-3 text-gray-400" />
+                        <span>Gender: {selectedTeacher.gender || 'Not specified'}</span>
                       </div>
-                    )}
-                    {selectedTeacher.joiningDate && (
-                      <div className="flex items-center text-gray-600">
-                        <Calendar className="w-4 h-4 mr-3 text-gray-400" />
-                        <span>Joined: {new Date(selectedTeacher.joiningDate).toLocaleDateString()}</span>
-                      </div>
-                    )}
+                      {selectedTeacher.dateOfBirth && (
+                        <div className="flex items-center text-gray-600">
+                          <Calendar className="w-4 h-4 mr-3 text-gray-400" />
+                          <span>DOB: {new Date(selectedTeacher.dateOfBirth).toLocaleDateString()}</span>
+                        </div>
+                      )}
+                      {selectedTeacher.bloodGroup && (
+                        <div className="flex items-center text-gray-600">
+                          <Heart className="w-4 h-4 mr-3 text-gray-400" />
+                          <span>Blood Group: {selectedTeacher.bloodGroup}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Employment Details */}
-              {(selectedTeacher.salary || selectedTeacher.address) && (
+                {/* Academic Information */}
                 <div className="space-y-3">
                   <h4 className="font-semibold text-gray-900 flex items-center">
-                    <DollarSign className="w-4 h-4 mr-2 text-blue-600" />
-                    Employment Details
+                    <GraduationCap className="w-4 h-4 mr-2 text-blue-600" />
+                    Academic Information
                   </h4>
-                  <div className="space-y-2 text-sm">
-                    {selectedTeacher.salary && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2 text-sm">
                       <div className="flex items-center text-gray-600">
-                        <DollarSign className="w-4 h-4 mr-3 text-gray-400" />
-                        <span>Annual Salary: {selectedTeacher.salary}</span>
+                        <BookOpen className="w-4 h-4 mr-3 text-gray-400" />
+                        <span>Qualification: {selectedTeacher.qualification || 'Not specified'}</span>
                       </div>
-                    )}
-                    {selectedTeacher.address && (
-                      <div className="flex items-start text-gray-600">
-                        <MapPin className="w-4 h-4 mr-3 text-gray-400 mt-0.5" />
-                        <span>Address: {selectedTeacher.address}</span>
-                      </div>
-                    )}
+                      {selectedTeacher.specialization && (
+                        <div className="flex items-center text-gray-600">
+                          <Award className="w-4 h-4 mr-3 text-gray-400" />
+                          <span>Specialization: {selectedTeacher.specialization}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      {selectedTeacher.experience && (
+                        <div className="flex items-center text-gray-600">
+                          <Clock className="w-4 h-4 mr-3 text-gray-400" />
+                          <span>Experience: {selectedTeacher.experience}</span>
+                        </div>
+                      )}
+                      {selectedTeacher.joiningDate && (
+                        <div className="flex items-center text-gray-600">
+                          <Calendar className="w-4 h-4 mr-3 text-gray-400" />
+                          <span>Joined: {new Date(selectedTeacher.joiningDate).toLocaleDateString()}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              )}
 
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200">
-                <button
-                  onClick={() => {
-                    setShowDetailModal(false);
-                    handleEdit(selectedTeacher);
-                  }}
-                  className="btn-mobile bg-blue-600 text-white hover:bg-blue-700 flex-1"
-                >
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit Teacher
-                </button>
-                <button
-                  onClick={() => {
-                    setShowDetailModal(false);
-                    setTeacherToDelete(selectedTeacher);
-                    setShowDeleteModal(true);
-                  }}
-                  className="btn-mobile bg-red-600 text-white hover:bg-red-700 flex-1"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete Teacher
-                </button>
+                {/* Employment Details */}
+                {(selectedTeacher.salary || selectedTeacher.address) && (
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-gray-900 flex items-center">
+                      <DollarSign className="w-4 h-4 mr-2 text-blue-600" />
+                      Employment Details
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      {selectedTeacher.salary && (
+                        <div className="flex items-center text-gray-600">
+                          <DollarSign className="w-4 h-4 mr-3 text-gray-400" />
+                          <span>Annual Salary: {selectedTeacher.salary}</span>
+                        </div>
+                      )}
+                      {selectedTeacher.address && (
+                        <div className="flex items-start text-gray-600">
+                          <MapPin className="w-4 h-4 mr-3 text-gray-400 mt-0.5" />
+                          <span>Address: {selectedTeacher.address}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200">
+                  <button
+                    onClick={() => {
+                      setShowDetailModal(false);
+                      handleEdit(selectedTeacher);
+                    }}
+                    className="btn-mobile bg-blue-600 text-white hover:bg-blue-700 flex-1"
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit Teacher
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDetailModal(false);
+                      setTeacherToDelete(selectedTeacher);
+                      setShowDeleteModal(true);
+                    }}
+                    className="btn-mobile bg-red-600 text-white hover:bg-red-700 flex-1"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Teacher
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Add/Edit Teacher Form Modal */}
-      {showForm && (
-        <div className="modal-mobile">
-          <div className="modal-content-mobile max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-4 lg:p-6 border-b border-gray-200">
-              <h3 className="text-lg lg:text-xl font-semibold text-gray-900">
-                {editingTeacher ? 'Edit Teacher' : 'Add New Teacher'}
-              </h3>
-              <button
-                onClick={() => {
-                  setShowForm(false);
-                  setEditingTeacher(null);
-                  resetForm();
-                }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="p-4 lg:p-6 space-y-4 lg:space-y-6">
-              {/* Basic Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4">
-                <div>
-                  <label className="label-mobile">Name *</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className="input-mobile"
-                    placeholder="Enter full name"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label-mobile">Email *</label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({...formData, email: e.target.value})}
-                    className="input-mobile"
-                    placeholder="Enter email address"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label-mobile">Phone *</label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                    className="input-mobile"
-                    placeholder="Enter phone number"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label-mobile">Department *</label>
-                  <select
-                    value={formData.department}
-                    onChange={(e) => setFormData({...formData, department: e.target.value})}
-                    className="input-mobile"
-                    required
-                  >
-                    {departments.map(dept => (
-                      <option key={dept} value={dept}>{dept}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="label-mobile">Designation *</label>
-                  <select
-                    value={formData.designation}
-                    onChange={(e) => setFormData({...formData, designation: e.target.value})}
-                    className="input-mobile"
-                    required
-                  >
-                    {designations.map(desig => (
-                      <option key={desig} value={desig}>{desig}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="label-mobile">Qualification *</label>
-                  <input
-                    type="text"
-                    value={formData.qualification}
-                    onChange={(e) => setFormData({...formData, qualification: e.target.value})}
-                    className="input-mobile"
-                    placeholder="e.g., Ph.D., M.Tech, B.E."
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label-mobile">Specialization</label>
-                  <input
-                    type="text"
-                    value={formData.specialization}
-                    onChange={(e) => setFormData({...formData, specialization: e.target.value})}
-                    className="input-mobile"
-                    placeholder="e.g., Machine Learning, Database Systems"
-                  />
-                </div>
-                <div>
-                  <label className="label-mobile">Experience</label>
-                  <input
-                    type="text"
-                    value={formData.experience}
-                    onChange={(e) => setFormData({...formData, experience: e.target.value})}
-                    className="input-mobile"
-                    placeholder="e.g., 5 years"
-                  />
-                </div>
-                <div>
-                  <label className="label-mobile">Joining Date</label>
-                  <input
-                    type="date"
-                    value={formData.joiningDate}
-                    onChange={(e) => setFormData({...formData, joiningDate: e.target.value})}
-                    className="input-mobile"
-                  />
-                </div>
-                <div>
-                  <label className="label-mobile">Salary</label>
-                  <input
-                    type="text"
-                    value={formData.salary}
-                    onChange={(e) => setFormData({...formData, salary: e.target.value})}
-                    className="input-mobile"
-                    placeholder="e.g., ₹8,00,000"
-                  />
-                </div>
-                <div>
-                  <label className="label-mobile">Address</label>
-                  <textarea
-                    value={formData.address}
-                    onChange={(e) => setFormData({...formData, address: e.target.value})}
-                    className="input-mobile"
-                    rows={2}
-                    placeholder="Enter complete address"
-                  />
-                </div>
-                <div>
-                  <label className="label-mobile">Blood Group</label>
-                  <select
-                    value={formData.bloodGroup}
-                    onChange={(e) => setFormData({...formData, bloodGroup: e.target.value})}
-                    className="input-mobile"
-                  >
-                    <option value="">Select Blood Group</option>
-                    {bloodGroups.map(bg => (
-                      <option key={bg} value={bg}>{bg}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="label-mobile">Date of Birth</label>
-                  <input
-                    type="date"
-                    value={formData.dateOfBirth}
-                    onChange={(e) => setFormData({...formData, dateOfBirth: e.target.value})}
-                    className="input-mobile"
-                  />
-                </div>
-                <div>
-                  <label className="label-mobile">Gender</label>
-                  <select
-                    value={formData.gender}
-                    onChange={(e) => setFormData({...formData, gender: e.target.value})}
-                    className="input-mobile"
-                  >
-                    {genders.map(gender => (
-                      <option key={gender} value={gender}>{gender}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
-                    id="isActive"
-                    checked={formData.isActive}
-                    onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
-                    Is Active
-                  </label>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200">
+        {/* Add/Edit Teacher Form Modal */}
+        {showForm && (
+          <div className="modal-mobile">
+            <div className="modal-content-mobile max-w-4xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-4 lg:p-6 border-b border-gray-200">
+                <h3 className="text-lg lg:text-xl font-semibold text-gray-900">
+                  {editingTeacher ? 'Edit Teacher' : 'Add New Teacher'}
+                </h3>
                 <button
-                  type="button"
                   onClick={() => {
                     setShowForm(false);
                     setEditingTeacher(null);
                     resetForm();
                   }}
-                  className="btn-mobile bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn-mobile bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700"
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  {editingTeacher ? 'Update Teacher' : 'Add Teacher'}
+                  <X className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="modal-mobile">
-          <div className="modal-content-mobile max-w-md">
-            <div className="p-4 lg:p-6">
-              <div className="flex items-center mb-4">
-                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mr-4">
-                  <Trash2 className="w-6 h-6 text-red-600" />
+              <form onSubmit={handleSubmit} className="p-4 lg:p-6 space-y-4 lg:space-y-6">
+                {/* Basic Information */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4">
+                  <div>
+                    <label className="label-mobile">Name *</label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="input-mobile"
+                      placeholder="Enter full name"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="label-mobile">Email *</label>
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className="input-mobile"
+                      placeholder="Enter email address"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="label-mobile">Phone *</label>
+                    <input
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      className="input-mobile"
+                      placeholder="Enter phone number"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="label-mobile">Department *</label>
+                    <select
+                      value={formData.department}
+                      onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                      className="input-mobile"
+                      required
+                    >
+                      {departments.map(dept => (
+                        <option key={dept} value={dept}>{dept}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label-mobile">Designation *</label>
+                    <select
+                      value={formData.designation}
+                      onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
+                      className="input-mobile"
+                      required
+                    >
+                      {designations.map(desig => (
+                        <option key={desig} value={desig}>{desig}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label-mobile">Qualification *</label>
+                    <input
+                      type="text"
+                      value={formData.qualification}
+                      onChange={(e) => setFormData({ ...formData, qualification: e.target.value })}
+                      className="input-mobile"
+                      placeholder="e.g., Ph.D., M.Tech, B.E."
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="label-mobile">Specialization</label>
+                    <input
+                      type="text"
+                      value={formData.specialization}
+                      onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
+                      className="input-mobile"
+                      placeholder="e.g., Machine Learning, Database Systems"
+                    />
+                  </div>
+                  <div>
+                    <label className="label-mobile">Experience</label>
+                    <input
+                      type="text"
+                      value={formData.experience}
+                      onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
+                      className="input-mobile"
+                      placeholder="e.g., 5 years"
+                    />
+                  </div>
+                  <div>
+                    <label className="label-mobile">Joining Date</label>
+                    <input
+                      type="date"
+                      value={formData.joiningDate}
+                      onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
+                      className="input-mobile"
+                    />
+                  </div>
+                  <div>
+                    <label className="label-mobile">Salary</label>
+                    <input
+                      type="text"
+                      value={formData.salary}
+                      onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
+                      className="input-mobile"
+                      placeholder="e.g., ₹8,00,000"
+                    />
+                  </div>
+                  <div>
+                    <label className="label-mobile">Address</label>
+                    <textarea
+                      value={formData.address}
+                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      className="input-mobile"
+                      rows={2}
+                      placeholder="Enter complete address"
+                    />
+                  </div>
+                  <div>
+                    <label className="label-mobile">Blood Group</label>
+                    <select
+                      value={formData.bloodGroup}
+                      onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })}
+                      className="input-mobile"
+                    >
+                      <option value="">Select Blood Group</option>
+                      {bloodGroups.map(bg => (
+                        <option key={bg} value={bg}>{bg}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label-mobile">Date of Birth</label>
+                    <input
+                      type="date"
+                      value={formData.dateOfBirth}
+                      onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                      className="input-mobile"
+                    />
+                  </div>
+                  <div>
+                    <label className="label-mobile">Gender</label>
+                    <select
+                      value={formData.gender}
+                      onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                      className="input-mobile"
+                    >
+                      {genders.map(gender => (
+                        <option key={gender} value={gender}>{gender}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      id="isActive"
+                      checked={formData.isActive}
+                      onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
+                      Is Active
+                    </label>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Delete Teacher</h3>
-                  <p className="text-gray-500">This action cannot be undone.</p>
+
+                <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForm(false);
+                      setEditingTeacher(null);
+                      resetForm();
+                    }}
+                    className="btn-mobile bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-mobile bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    {editingTeacher ? 'Update Teacher' : 'Add Teacher'}
+                  </button>
                 </div>
-              </div>
-              <p className="text-gray-700 mb-6">
-                Are you sure you want to delete <strong>{teacherToDelete?.name}</strong>? 
-                This will permanently remove their account and all associated data.
-              </p>
-              <div className="flex flex-col sm:flex-row justify-end gap-3">
-                <button
-                  onClick={() => setShowDeleteModal(false)}
-                  className="btn-mobile bg-gray-100 text-gray-700 hover:bg-gray-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDelete}
-                  className="btn-mobile bg-red-600 text-white hover:bg-red-700"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete Teacher
-                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && (
+          <div className="modal-mobile">
+            <div className="modal-content-mobile max-w-md">
+              <div className="p-4 lg:p-6">
+                <div className="flex items-center mb-4">
+                  <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mr-4">
+                    <Trash2 className="w-6 h-6 text-red-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Delete Teacher</h3>
+                    <p className="text-gray-500">This action cannot be undone.</p>
+                  </div>
+                </div>
+                <p className="text-gray-700 mb-6">
+                  Are you sure you want to delete <strong>{teacherToDelete?.name}</strong>?
+                  This will permanently remove their account and all associated data.
+                </p>
+                <div className="flex flex-col sm:flex-row justify-end gap-3">
+                  <button
+                    onClick={() => setShowDeleteModal(false)}
+                    className="btn-mobile bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className="btn-mobile bg-red-600 text-white hover:bg-red-700"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Teacher
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
 
 export default TeacherManagementPanel;
-

@@ -18,7 +18,10 @@ export interface User {
   lastLogin?: string;
   loginCount?: number;
   updatedAt?: string;
-  
+
+  // Admin-specific fields for hierarchy
+  adminRole?: 'principal' | 'director' | 'registrar' | 'admin';
+
   // Teacher-specific fields
   qualification?: string;
   specialization?: string;
@@ -28,7 +31,7 @@ export interface User {
   emergencyContact?: string;
   bloodGroup?: string;
   dateOfBirth?: string;
-  
+
   // Non-Teaching Staff specific fields
   subRole?: 'cleaner' | 'peon' | 'lab-assistant' | 'security' | 'maintenance' | 'canteen-staff' | 'library-staff' | 'office-assistant' | 'driver' | 'gardener';
   workShift?: 'morning' | 'evening' | 'night' | 'full-day';

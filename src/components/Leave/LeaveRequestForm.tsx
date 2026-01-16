@@ -2,26 +2,27 @@ import React, { useState } from 'react';
 import { Calendar, FileText, Clock, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { leaveService } from '../../firebase/firestore';
+import { userService } from '../../firebase/firestore';
 import { auth } from '../../firebase/firebase';
 import { signInAnonymously } from 'firebase/auth';
 
 const LeaveRequestForm: React.FC = () => {
   const { user } = useAuth();
-  
-  // Security check: Only students can apply for leave
-  if (!user || (user.role !== 'student')) {
+
+  // Security check: Only students and teachers can apply for leave
+  if (!user || (user.role !== 'student' && user.role !== 'teacher')) {
     return (
       <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-md p-6 border border-gray-200 mt-8">
         <div className="text-center">
           <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
-          <p className="text-gray-600">Only students can apply for leave requests.</p>
-          <p className="text-sm text-gray-500 mt-2">Teachers and HODs manage leave approvals instead.</p>
+          <p className="text-gray-600">Only students and teachers can apply for leave requests.</p>
+          <p className="text-sm text-gray-500 mt-2">HODs and Admins manage leave approvals instead.</p>
         </div>
       </div>
     );
   }
-  
+
   const [formData, setFormData] = useState({
     leaveType: '',
     fromDate: '',
@@ -59,15 +60,21 @@ const LeaveRequestForm: React.FC = () => {
     try {
       // Ensure Firebase Auth so Firestore rules allow writes
       if (!auth.currentUser) {
-        try { await signInAnonymously(auth); } catch {}
+        try { await signInAnonymously(auth); } catch { }
       }
       if (!user) {
         throw new Error('User not authenticated');
       }
 
       const daysRequested = calculateDays();
-      
+
       // Create leave request data
+      // For teachers: approval flow is HOD → Registrar → Principal → Admin
+      // For students: keep existing flow (if any, or can be updated separately)
+      const approvalFlow = user.role === 'teacher' 
+        ? ['HOD', 'Registrar', 'Principal', 'Admin'] 
+        : ['Teacher', 'HOD'];
+      
       const leaveRequestData: any = {
         userId: user.id,
         userName: user.name,
@@ -78,19 +85,35 @@ const LeaveRequestForm: React.FC = () => {
         reason: formData.reason,
         daysCount: daysRequested,
         submittedAt: new Date().toISOString(),
-        currentApprovalLevel: 'Teacher', // Start with Teacher approval
-        approvalFlow: ['Teacher', 'HOD'], // Define approval hierarchy
+        currentApprovalLevel: user.role === 'teacher' ? 'HOD' : 'Teacher', // Start with first approval level
+        approvalFlow: approvalFlow, // Define approval hierarchy
         status: 'pending' as 'pending', // Always pending on creation
+        // Additional fields for approver visibility
+        studentName: user.name,
+        rollNumber: (user as any).rollNumber || user.id,
+        subject: 'General'
       };
 
-      // Enrich with student academic info if available to support teacher/HOD filters
+      // Enrich with student academic info (try in-memory first, then fetch profile if missing)
       if ((user as any).year) leaveRequestData.year = (user as any).year;
       if ((user as any).sem) leaveRequestData.sem = (user as any).sem;
       if ((user as any).div) leaveRequestData.div = (user as any).div;
+      if (!leaveRequestData.year || !leaveRequestData.sem || !leaveRequestData.div || !(user as any).rollNumber) {
+        try {
+          const profile = await userService.getUser(user.id);
+          if (profile) {
+            if (!leaveRequestData.year && (profile as any).year) leaveRequestData.year = (profile as any).year;
+            if (!leaveRequestData.sem && (profile as any).sem) leaveRequestData.sem = (profile as any).sem;
+            if (!leaveRequestData.div && (profile as any).div) leaveRequestData.div = (profile as any).div;
+            if (!(user as any).rollNumber && (profile as any).rollNumber) leaveRequestData.rollNumber = (profile as any).rollNumber;
+            if (!leaveRequestData.department && profile.department) leaveRequestData.department = profile.department;
+          }
+        } catch { }
+      }
 
       // Save to Firestore
       const requestId = await leaveService.createLeaveRequest(leaveRequestData);
-      
+
 
       // Reset form
       setFormData({
@@ -123,16 +146,15 @@ const LeaveRequestForm: React.FC = () => {
   const daysRequested = calculateDays();
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+    <div className="theme-card p-6">
       {/* Toast notification */}
       {toast && (
         <div className="fixed left-1/2 top-6 z-50 -translate-x-1/2">
           <div
             role="status"
             aria-live="polite"
-            className={`flex items-center space-x-2 px-4 py-3 rounded-xl shadow-mobile-lg text-white animate-slide-down ${
-              toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
-            }`}
+            className={`flex items-center space-x-2 px-4 py-3 rounded-xl shadow-mobile-lg text-white animate-slide-down ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+              }`}
           >
             {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
             <span className="font-semibold">{toast.text}</span>
@@ -142,20 +164,20 @@ const LeaveRequestForm: React.FC = () => {
 
       <div className="flex items-center space-x-3 mb-6">
         <FileText className="w-6 h-6 text-blue-600" />
-        <h1 className="text-2xl font-bold text-gray-900">Apply for Leave</h1>
+        <h1 className="theme-page-title text-2xl">Apply for Leave</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="theme-label">
               Leave Type *
             </label>
             <select
               required
               value={formData.leaveType}
               onChange={(e) => setFormData({ ...formData, leaveType: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="theme-select"
             >
               <option value="">Select Leave Type</option>
               {leaveTypes.map((type) => (
@@ -208,7 +230,7 @@ const LeaveRequestForm: React.FC = () => {
         </div>
 
         {selectedLeaveType && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="theme-info-box-blue">
             <div className="flex items-center space-x-2 mb-2">
               <AlertCircle className="w-4 h-4 text-blue-600" />
               <span className="text-sm font-medium text-blue-800">Leave Balance</span>
@@ -259,14 +281,14 @@ const LeaveRequestForm: React.FC = () => {
               reason: '',
               attachments: null
             })}
-            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+            className="theme-btn-secondary"
           >
             Reset
           </button>
           <button
             type="submit"
             disabled={isSubmitting}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="theme-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? 'Submitting...' : 'Submit Request'}
           </button>

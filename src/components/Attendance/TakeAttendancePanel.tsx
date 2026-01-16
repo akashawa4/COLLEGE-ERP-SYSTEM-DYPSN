@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { userService, attendanceService, subjectService, batchAttendanceService, batchService } from '../../firebase/firestore';
+import { userService, attendanceService, subjectService, batchAttendanceService, batchService, getCurrentBatchYear } from '../../firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
 import { User } from '../../types';
 import { getDepartmentCode } from '../../utils/departmentMapping';
@@ -57,7 +57,6 @@ const TakeAttendancePanel: React.FC<TakeAttendancePanelProps> = ({ addNotificati
   // Layout states
   const [attendanceLayout, setAttendanceLayout] = useState<'manual' | 'cards'>('manual');
   const [studentCards, setStudentCards] = useState<{rollNumber: string, name: string, status: 'present' | 'absent' | 'unmarked'}[]>([]);
-  const [cardsLoading, setCardsLoading] = useState(false);
 
   const todayDate = new Date();
   const todayStr = todayDate.toISOString().split('T')[0];
@@ -91,16 +90,27 @@ const TakeAttendancePanel: React.FC<TakeAttendancePanelProps> = ({ addNotificati
   useEffect(() => {
     // Fetch students from Firestore by year, sem, div
     const fetchStudents = async () => {
+      if (!user?.department) return; // Wait for user data
+      
       setLoading(true);
-      // Use batch structure to get students
-      const batch = '2025'; // Default batch year
-      const department = 'CSE'; // Default department
-      const filtered = await userService.getStudentsByBatchDeptYearSemDiv(batch, department, year, sem, div);
-      setStudents(filtered);
-      setLoading(false);
+      try {
+        // Use current/ongoing year's batch and user's department
+        const batch = getCurrentBatchYear(); // Use current year's batch (e.g., 2027, 2026)
+        const department = getDepartmentCode(user.department); // Use user's department
+        
+        console.log('TakeAttendance: Fetching students for batch:', batch, 'dept:', department, 'year:', year, 'sem:', sem, 'div:', div);
+        const filtered = await userService.getStudentsByBatchDeptYearSemDiv(batch, department, year, sem, div);
+        console.log('TakeAttendance: Fetched students:', filtered.length);
+        setStudents(filtered);
+      } catch (error) {
+        console.error('Error fetching students in TakeAttendance:', error);
+        setStudents([]);
+      } finally {
+        setLoading(false);
+      }
     };
     fetchStudents();
-  }, [year, sem, div]);
+  }, [user?.department, year, sem, div]);
 
   // Load subjects dynamically based on filters (ignore div for subjects)
   useEffect(() => {
@@ -137,7 +147,7 @@ const TakeAttendancePanel: React.FC<TakeAttendancePanelProps> = ({ addNotificati
       
       try {
         setBatchesLoading(true);
-        const batch = '2025'; // Default batch year
+        const batch = getCurrentBatchYear(); // Use current/ongoing year's batch
         const department = getDepartmentCode(user?.department || 'CSE');
         
         const batches = await batchService.getBatchesForDivision(
@@ -163,24 +173,26 @@ const TakeAttendancePanel: React.FC<TakeAttendancePanelProps> = ({ addNotificati
     loadBatches();
   }, [isBatchAttendance, year, sem, div, user?.department]);
 
-  // Generate student cards for card layout
-  const generateStudentCards = async () => {
-    setCardsLoading(true);
+  // Generate student cards from already loaded students (no need to fetch again)
+  const generateStudentCards = () => {
+    if (students.length === 0) {
+      setStudentCards([]);
+      return;
+    }
+
     try {
       let cards: {rollNumber: string, name: string, status: 'present' | 'absent' | 'unmarked'}[] = [];
 
       if (isBatchAttendance && selectedBatch) {
-        // For batch-wise attendance, get students from the selected batch
+        // For batch-wise attendance, filter students by selected batch
         const batch = availableBatches.find(b => b.batchName === selectedBatch);
         if (batch) {
-          // Get students from the batch range
-          const batchStudents = await userService.getStudentsByBatchDeptYearSemDiv('2025', getDepartmentCode(user?.department || 'CSE'), year, sem, div);
           const fromRoll = parseInt(batch.fromRollNo);
           const toRoll = parseInt(batch.toRollNo);
           
-          // Filter students within the batch roll number range
-          const batchStudentsInRange = batchStudents.filter(student => {
-            const studentRoll = parseInt(student.rollNumber || student.id);
+          // Filter students within the batch roll number range using already loaded students
+          const batchStudentsInRange = students.filter(student => {
+            const studentRoll = parseInt(student.rollNumber || student.id || '0');
             return studentRoll >= fromRoll && studentRoll <= toRoll;
           });
           
@@ -191,33 +203,31 @@ const TakeAttendancePanel: React.FC<TakeAttendancePanelProps> = ({ addNotificati
           }));
         }
       } else {
-        // For class-wise attendance, use all students in the class
-        const batch = '2025'; // Default batch year
-        const department = getDepartmentCode(user?.department || 'CSE');
-        const filteredStudents = await userService.getStudentsByBatchDeptYearSemDiv(batch, department, year, sem, div);
-        
-        cards = filteredStudents.map(student => ({
+        // For class-wise attendance, use all students from state
+        cards = students.map(student => ({
           rollNumber: student.rollNumber || student.id,
           name: student.name,
           status: 'unmarked' as const
         }));
       }
 
+      console.log('Generated student cards:', cards.length, 'from', students.length, 'students');
       setStudentCards(cards);
     } catch (error) {
       console.error('Error generating student cards:', error);
       setStudentCards([]);
-    } finally {
-      setCardsLoading(false);
     }
   };
 
-  // Load student cards when filters change
+  // Load student cards when students or filters change (use already loaded students)
   useEffect(() => {
-    if (attendanceLayout === 'cards') {
+    if (attendanceLayout === 'cards' && students.length > 0) {
       generateStudentCards();
+    } else if (attendanceLayout === 'cards') {
+      setStudentCards([]);
     }
-  }, [attendanceLayout, year, sem, div, isBatchAttendance, selectedBatch, user?.department]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attendanceLayout, isBatchAttendance, selectedBatch, students.length, availableBatches.length]);
 
   // Handle card click for marking attendance
   const handleCardClick = (rollNumber: string) => {
@@ -465,300 +475,267 @@ const TakeAttendancePanel: React.FC<TakeAttendancePanelProps> = ({ addNotificati
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-3 lg:p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Compact Header Section */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-4 lg:p-6 mb-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Take Attendance</h1>
-              <p className="text-sm text-gray-600 hidden sm:block">Mark student attendance for your class or batch</p>
-            </div>
-            <div className="flex items-center space-x-2 text-xs text-gray-500 bg-gray-50 px-3 py-1 rounded-lg">
-              <Calendar className="w-3 h-3" />
-              <span className="hidden sm:block">{new Date().toLocaleDateString('en-US', { 
-                weekday: 'short', 
-                month: 'short', 
-                day: 'numeric' 
-              })}</span>
-              <span className="sm:hidden">{new Date().toLocaleDateString('en-US', { 
-                month: 'short', 
-                day: 'numeric' 
-              })}</span>
-            </div>
+    <div className="space-y-3 px-4 sm:px-6 lg:px-8 py-3">
+      {/* Header */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Take Attendance</h1>
           </div>
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <Calendar className="w-4 h-4" />
+            <span>{new Date().toLocaleDateString('en-US', { 
+              weekday: 'short', 
+              month: 'short', 
+              day: 'numeric' 
+            })}</span>
+          </div>
+        </div>
 
-          {/* Compact Mode Selection */}
-      <div className="mb-4">
-            <div className="flex gap-2 mb-3">
-              <button
-                type="button"
-                onClick={() => setIsBatchAttendance(false)}
-                className={`flex-1 p-3 rounded-lg border-2 transition-all duration-200 ${
-                  !isBatchAttendance
-                    ? 'border-blue-500 bg-blue-50 shadow-md'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                    !isBatchAttendance ? 'bg-blue-500' : 'bg-gray-200'
-                  }`}>
-                    <Users className={`w-4 h-4 ${!isBatchAttendance ? 'text-white' : 'text-gray-500'}`} />
-                  </div>
-                  <div className="text-left">
-                    <h4 className={`font-semibold text-sm ${!isBatchAttendance ? 'text-blue-900' : 'text-gray-700'}`}>
-                      Class-wise
-                    </h4>
-                    <p className={`text-xs ${!isBatchAttendance ? 'text-blue-600' : 'text-gray-500'}`}>
-                      Entire class
-                    </p>
-                  </div>
+        {/* Attendance Type */}
+        <div className="mb-3">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Attendance Type</label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setIsBatchAttendance(false)}
+              className={`flex-1 p-3 rounded-lg border-2 transition-all ${
+                !isBatchAttendance
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 bg-white hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center space-x-2">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                  !isBatchAttendance ? 'bg-blue-500' : 'bg-gray-200'
+                }`}>
+                  <Users className={`w-5 h-5 ${!isBatchAttendance ? 'text-white' : 'text-gray-500'}`} />
                 </div>
-              </button>
+                <div className="text-left">
+                  <h4 className={`font-semibold text-sm ${!isBatchAttendance ? 'text-blue-900' : 'text-gray-700'}`}>
+                    Class-wise (Individual Students)
+                  </h4>
+                </div>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsBatchAttendance(true)}
+              className={`flex-1 p-3 rounded-lg border-2 transition-all ${
+                isBatchAttendance
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 bg-white hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center space-x-2">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                  isBatchAttendance ? 'bg-blue-500' : 'bg-gray-200'
+                }`}>
+                  <Layers className={`w-5 h-5 ${isBatchAttendance ? 'text-white' : 'text-gray-500'}`} />
+                </div>
+                <div className="text-left">
+                  <h4 className={`font-semibold text-sm ${isBatchAttendance ? 'text-blue-900' : 'text-gray-700'}`}>
+                    Batch-wise (Group Attendance)
+                  </h4>
+                </div>
+              </div>
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            {!isBatchAttendance ? 'Mark attendance for individual students using student cards.' : 'Mark attendance for entire batches at once.'}
+          </p>
+        </div>
+      </div>
 
-              <button
-                type="button"
-                onClick={() => setIsBatchAttendance(true)}
-                className={`flex-1 p-3 rounded-lg border-2 transition-all duration-200 ${
-                  isBatchAttendance
-                    ? 'border-purple-500 bg-purple-50 shadow-md'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                    isBatchAttendance ? 'bg-purple-500' : 'bg-gray-200'
-                  }`}>
-                    <Layers className={`w-4 h-4 ${isBatchAttendance ? 'text-white' : 'text-gray-500'}`} />
-                  </div>
-                  <div className="text-left">
-                    <h4 className={`font-semibold text-sm ${isBatchAttendance ? 'text-purple-900' : 'text-gray-700'}`}>
-                      Batch-wise
-                    </h4>
-                    <p className={`text-xs ${isBatchAttendance ? 'text-purple-600' : 'text-gray-500'}`}>
-                      Specific batch
-                    </p>
-                  </div>
-                </div>
-              </button>
+        {/* Class Details Section */}
+        {!isBatchAttendance && (
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3">
+            <div className="flex items-center space-x-2 mb-3">
+              <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                <Users className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">Class Details</h3>
+                <p className="text-xs text-gray-600">Select class details for attendance</p>
+              </div>
             </div>
 
-            {/* Layout Toggle */}
-            <div className="mb-3">
-              <h4 className="text-sm font-medium text-gray-700 mb-2">Attendance Method</h4>
-        <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-3">
+              {/* Left Column */}
+              <div className="space-y-3">
+                {/* Teacher */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Teacher</label>
+                  <input 
+                    type="text" 
+                    value={user?.name || ''} 
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 text-sm" 
+                    readOnly 
+                  />
+                </div>
+                {/* Semester */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Semester</label>
+                  <select 
+                    value={sem} 
+                    onChange={e => setSem(e.target.value)} 
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+                  >
+                    {availableSemesters.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                {/* Subject */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Subject</label>
+                  <select 
+                    value={subject} 
+                    onChange={e => setSubject(e.target.value)} 
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm" 
+                    disabled={subjectsLoading}
+                  >
+                    {subjectsLoading ? (
+                      <option value="">Loading...</option>
+                    ) : availableSubjects.length === 0 ? (
+                      <option value="">No subjects</option>
+                    ) : (
+                      availableSubjects.map((sub, idx) => <option key={`${sub}-${idx}`} value={sub}>{sub}</option>)
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              {/* Right Column */}
+              <div className="space-y-3">
+                {/* Year */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Year</label>
+                  <select 
+                    value={year} 
+                    onChange={e => handleYearChange(e.target.value)} 
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+                  >
+                    {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+                {/* Division */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Division</label>
+                  <select 
+                    value={div} 
+                    onChange={e => setDiv(e.target.value)} 
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+                  >
+                    {DIVS.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+                {/* Date */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Date</label>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      value={attendanceDate}
+                      onChange={e => setAttendanceDate(e.target.value)}
+                      className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm cursor-pointer pr-10"
+                      max={new Date().toISOString().split('T')[0]}
+                      onClick={(e) => {
+                        if (e.currentTarget.showPicker) {
+                          e.currentTarget.showPicker();
+                        }
+                      }}
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                      <Calendar className="w-4 h-4 text-gray-400" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Input Method */}
+            <div className="mb-3 mt-3 pt-3 border-t border-gray-200">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Input Method</label>
+              <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setAttendanceLayout('manual')}
-                  className={`px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 ${
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                     attendanceLayout === 'manual'
-                      ? 'bg-blue-500 text-white shadow-md'
+                      ? 'bg-blue-600 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
-                  <FileCheck className="w-3 h-3 inline mr-1" />
-                  Type Roll Numbers
+                  <FileCheck className="w-4 h-4 inline mr-1.5" />
+                  Type Roll No (Text Input)
                 </button>
                 <button
                   type="button"
                   onClick={() => setAttendanceLayout('cards')}
-                  className={`px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 ${
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                     attendanceLayout === 'cards'
-                      ? 'bg-purple-500 text-white shadow-md'
+                      ? 'bg-green-600 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
-                  <Users className="w-3 h-3 inline mr-1" />
-                  Click Cards
+                  <Users className="w-4 h-4 inline mr-1.5" />
+                  Tap Box (Student Cards)
                 </button>
               </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {attendanceLayout === 'cards' ? 'Tap on individual student cards to mark attendance - more visual and user-friendly.' : 'Type roll numbers manually in text fields - traditional method.'}
+              </p>
             </div>
 
-            {/* Compact Attendance Marking Mode */}
-            <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setAttendanceMode('present')}
-                className={`px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 ${
-              attendanceMode === 'present'
-                    ? 'bg-green-500 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-                <CheckCircle className="w-3 h-3 inline mr-1" />
-                Present Only
-          </button>
-          <button
-            type="button"
-            onClick={() => setAttendanceMode('absent')}
-                className={`px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 ${
-              attendanceMode === 'absent'
-                    ? 'bg-red-500 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-                <X className="w-3 h-3 inline mr-1" />
-                Absent Only
-          </button>
-          <button
-            type="button"
-            onClick={() => setAttendanceMode('both')}
-                className={`px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 ${
-              attendanceMode === 'both'
-                    ? 'bg-blue-500 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-                <FileCheck className="w-3 h-3 inline mr-1" />
-                Both
-          </button>
-        </div>
-            <div className="mt-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-xs text-blue-800">
-                {attendanceLayout === 'manual' && (
-                  <>
-                    {attendanceMode === 'present' && '✓ Mark only present students - others will be marked absent automatically'}
-                    {attendanceMode === 'absent' && '✓ Mark only absent students - others will be marked present automatically'}
-                    {attendanceMode === 'both' && '✓ Mark both present and absent students manually'}
-                  </>
-                )}
-                {attendanceLayout === 'cards' && (
-                  <>
-                    {attendanceMode === 'present' && '✓ Click cards to mark present - unmarked will be absent'}
-                    {attendanceMode === 'absent' && '✓ Click cards to mark absent - unmarked will be present'}
-                    {attendanceMode === 'both' && '✓ Click cards to cycle: unmarked → present → absent → unmarked'}
-                  </>
-                )}
+            {/* Attendance Mode */}
+            <div className="mb-3 pt-3 border-t border-gray-200">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Attendance Mode</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAttendanceMode('present')}
+                  className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    attendanceMode === 'present'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <CheckCircle className="w-4 h-4 inline mr-1.5" />
+                  Mark Present Only
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAttendanceMode('absent')}
+                  className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    attendanceMode === 'absent'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <X className="w-4 h-4 inline mr-1.5" />
+                  × Mark Absent Only
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAttendanceMode('both')}
+                  className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    attendanceMode === 'both'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <FileCheck className="w-4 h-4 inline mr-1.5" />
+                  Mark Both
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {attendanceMode === 'both' && 'Mark both present and absent students manually.'}
+                {attendanceMode === 'present' && 'Mark only present students - others will be marked absent automatically.'}
+                {attendanceMode === 'absent' && 'Mark only absent students - others will be marked present automatically.'}
               </p>
             </div>
           </div>
-      </div>
-
-        {/* Compact Class-wise Filters Section */}
-        {!isBatchAttendance && (
-          <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-4 lg:p-6 mb-4">
-            <div className="flex items-center space-x-2 mb-4">
-              <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                <Users className="w-4 h-4 text-white" />
-              </div>
-        <div>
-                <h3 className="text-lg font-semibold text-gray-900">Class Details</h3>
-                <p className="text-sm text-gray-600 hidden sm:block">Select class details for attendance</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-              {/* Teacher Name */}
-              <div className="space-y-1">
-                <label className="flex items-center space-x-1 text-xs font-medium text-gray-700">
-                  <UserIcon className="w-3 h-3" />
-                  <span>Teacher</span>
-                </label>
-          <input 
-            type="text" 
-            value={user?.name || ''} 
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent" 
-            readOnly 
-          />
-        </div>
-
-              {/* Year Selection */}
-              <div className="space-y-1">
-                <label className="flex items-center space-x-1 text-xs font-medium text-gray-700">
-                  <GraduationCap className="w-3 h-3" />
-                  <span>Year</span>
-                </label>
-                <select 
-                  value={year} 
-                  onChange={e => handleYearChange(e.target.value)} 
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white text-sm"
-                >
-            {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </div>
-
-              {/* Semester Selection */}
-              <div className="space-y-1">
-                <label className="flex items-center space-x-1 text-xs font-medium text-gray-700">
-                  <BookOpen className="w-3 h-3" />
-                  <span>Semester</span>
-                </label>
-                <select 
-                  value={sem} 
-                  onChange={e => setSem(e.target.value)} 
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white text-sm"
-                >
-                  {availableSemesters.map(s => <option key={s} value={s}>Sem {s}</option>)}
-          </select>
-        </div>
-
-              {/* Division Selection */}
-              <div className="space-y-1">
-                <label className="flex items-center space-x-1 text-xs font-medium text-gray-700">
-                  <Building2 className="w-3 h-3" />
-                  <span>Division</span>
-                </label>
-                <select 
-                  value={div} 
-                  onChange={e => setDiv(e.target.value)} 
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white text-sm"
-                >
-                  {DIVS.map(d => <option key={d} value={d}>Div {d}</option>)}
-          </select>
-        </div>
-            </div>
-
-            {/* Subject Selection */}
-        <div>
-              <label className="flex items-center space-x-1 text-xs font-medium text-gray-700 mb-2">
-                <BookOpen className="w-3 h-3" />
-                <span>Subject</span>
-              </label>
-              <select 
-                value={subject} 
-                onChange={e => setSubject(e.target.value)} 
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white text-sm" 
-                disabled={subjectsLoading}
-              >
-            {subjectsLoading ? (
-                  <option value="">Loading...</option>
-            ) : availableSubjects.length === 0 ? (
-              <option value="">No subjects</option>
-            ) : (
-              availableSubjects.map((sub, idx) => <option key={`${sub}-${idx}`} value={sub}>{sub}</option>)
-            )}
-          </select>
-        </div>
-
-            {/* Date Selection */}
-            <div>
-              <label className="flex items-center space-x-1 text-xs font-medium text-gray-700 mb-2">
-                <Calendar className="w-3 h-3" />
-                <span>Date</span>
-              </label>
-              <div className="relative">
-            <input
-                  type="date"
-                  value={attendanceDate}
-                  onChange={e => setAttendanceDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white text-sm cursor-pointer"
-                  max={new Date().toISOString().split('T')[0]}
-                  onClick={(e) => {
-                    // Ensure calendar opens on mobile and desktop
-                    if (e.currentTarget.showPicker) {
-                      e.currentTarget.showPicker();
-                    }
-                  }}
-                />
-                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                  <Calendar className="w-4 h-4 text-gray-400" />
-          </div>
-              </div>
-            </div>
-          </div>
         )}
-          
+
         {/* Compact Batch-wise Filters Section */}
           {isBatchAttendance && (
           <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-4 lg:p-6 mb-4">
@@ -958,298 +935,242 @@ const TakeAttendancePanel: React.FC<TakeAttendancePanelProps> = ({ addNotificati
 
         {/* Manual Input Layout */}
         {attendanceLayout === 'manual' && (
-          <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-4 lg:p-6 mb-4">
-            <div className="flex items-center space-x-2 mb-4">
-              <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
-                <ClipboardList className="w-4 h-4 text-white" />
-              </div>
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Present Students Input */}
+              {(attendanceMode === 'present' || attendanceMode === 'both') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Present Roll Numbers</label>
+                  <textarea
+                    value={presentRolls}
+                    onChange={e => setPresentRolls(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 text-sm"
+                    rows={3}
+                    placeholder="Enter roll numbers (e.g., 201, 202, 204)"
+                  />
+                </div>
+              )}
+
+              {/* Absent Students Input */}
+              {(attendanceMode === 'absent' || attendanceMode === 'both') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Absent Roll Numbers</label>
+                  <textarea
+                    value={absentRolls}
+                    onChange={e => setAbsentRolls(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 text-sm"
+                    rows={3}
+                    placeholder="Enter roll numbers (e.g., 203, 205, 206)"
+                  />
+                </div>
+              )}
+
+              {/* Quick Actions */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Mark Attendance</h3>
-                <p className="text-sm text-gray-600 hidden sm:block">Enter roll numbers for students</p>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Quick Actions</label>
+                <div className="flex gap-2">
+                  <button 
+                    type="button" 
+                    onClick={handleMarkAllPresent} 
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors"
+                  >
+                    Mark All Present
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={handleMarkAllAbsent} 
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium transition-colors"
+                  >
+                    Mark All Absent
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={handleClearAll} 
+                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium transition-colors"
+                  >
+                    Clear All
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Use these buttons to quickly mark all students as present or absent, then modify as needed.
+                </p>
               </div>
-        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Present Students Input */}
-        {(attendanceMode === 'present' || attendanceMode === 'both') && (
-              <div className="space-y-2">
-                <label className="flex items-center space-x-1 text-xs font-medium text-gray-700">
-                  <CheckCircle className="w-3 h-3 text-green-500" />
-                  <span>Present Roll Numbers</span>
-            </label>
-            <textarea
-              value={presentRolls}
-              onChange={e => setPresentRolls(e.target.value)}
-                  className="w-full px-3 py-2 border-2 border-green-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 bg-green-50/30 text-sm"
-              rows={2}
-                  placeholder="Enter roll numbers (e.g., 201, 202, 204)"
-            />
-                <p className="text-xs text-green-600">Separate with commas or spaces</p>
-          </div>
-        )}
-
-        {/* Absent Students Input */}
-        {(attendanceMode === 'absent' || attendanceMode === 'both') && (
-              <div className="space-y-2">
-                <label className="flex items-center space-x-1 text-xs font-medium text-gray-700">
-                  <X className="w-3 h-3 text-red-500" />
-                  <span>Absent Roll Numbers</span>
-            </label>
-            <textarea
-              value={absentRolls}
-              onChange={e => setAbsentRolls(e.target.value)}
-                  className="w-full px-3 py-2 border-2 border-red-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 bg-red-50/30 text-sm"
-              rows={2}
-                  placeholder="Enter roll numbers (e.g., 203, 205, 206)"
-            />
-                <p className="text-xs text-red-600">Separate with commas or spaces</p>
-          </div>
-        )}
-
-            {/* Compact Quick Action Buttons */}
-            <div className="bg-gray-50 rounded-lg p-3">
-              <h4 className="text-xs font-medium text-gray-700 mb-2">Quick Actions</h4>
-              <div className="flex flex-wrap gap-2">
-          <button 
-            type="button" 
-            onClick={handleMarkAllPresent} 
-                  className="px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 text-xs font-medium transition-colors flex items-center space-x-1"
-          >
-                  <CheckCircle className="w-3 h-3" />
-                  <span>All Present</span>
-          </button>
-          <button 
-            type="button" 
-            onClick={handleMarkAllAbsent} 
-                  className="px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 text-xs font-medium transition-colors flex items-center space-x-1"
-          >
-                  <X className="w-3 h-3" />
-                  <span>All Absent</span>
-          </button>
-          <button 
-            type="button" 
-            onClick={handleClearAll} 
-                  className="px-3 py-1.5 bg-gray-500 text-white rounded-lg hover:bg-gray-600 text-xs font-medium transition-colors flex items-center space-x-1"
-          >
-                  <X className="w-3 h-3" />
-                  <span>Clear</span>
-          </button>
+              {/* Session Note */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Session Note (Optional)</label>
+                <input
+                  type="text"
+                  value={note}
+                  onChange={e => setNote(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  placeholder="Topic covered, remarks, etc."
+                />
               </div>
-        </div>
 
-            {/* Session Note */}
-            <div className="space-y-2">
-              <label className="flex items-center space-x-1 text-xs font-medium text-gray-700">
-                <FileCheck className="w-3 h-3 text-blue-500" />
-                <span>Session Note (Optional)</span>
-              </label>
-          <input
-            type="text"
-            value={note}
-            onChange={e => setNote(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
-            placeholder="Topic covered, remarks, etc."
-          />
-        </div>
-
-            {/* Compact Submit Section */}
-            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
-                <div className="flex items-center space-x-3 text-xs text-gray-600">
-                  <div className="flex items-center space-x-1">
-                    <Calendar className="w-3 h-3" />
-                    <span>Date: <strong className="text-gray-900">{attendanceDate}</strong></span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Clock className="w-3 h-3" />
-                    <span>Time: <strong className="text-gray-900">{new Date().toLocaleTimeString()}</strong></span>
-                  </div>
+              {/* Submit Section */}
+              <div className="flex items-center justify-between pt-3 border-t border-gray-200">
+                <div className="text-sm text-gray-600">
+                  Date: <strong className="text-gray-900">{attendanceDate}</strong>
                 </div>
                 <button 
                   type="submit" 
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors flex items-center space-x-2 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm" 
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm" 
                   disabled={loading}
                 >
-                  {loading ? (
-                    <>
-                      <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Submitting...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-3 h-3" />
-                      <span>Submit</span>
-                    </>
-                  )}
+                  {loading ? 'Submitting...' : 'Submit Attendance'}
                 </button>
               </div>
-        </div>
-      </form>
+            </form>
           </div>
         )}
 
         {/* Card Layout */}
         {attendanceLayout === 'cards' && (
-          <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-4 lg:p-6 mb-4">
-            <div className="flex items-center space-x-2 mb-4">
-              <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
-                <Users className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Click to Mark Attendance</h3>
-                <p className="text-sm text-gray-600 hidden sm:block">Click on student cards to mark present/absent</p>
-              </div>
-            </div>
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3">
 
-            {cardsLoading ? (
+            {loading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
                 <span className="ml-2 text-sm text-gray-600">Loading students...</span>
               </div>
             ) : (
               <>
-                {/* Quick Actions for Cards */}
-                <div className="bg-gray-50 rounded-lg p-3 mb-4">
-                  <h4 className="text-xs font-medium text-gray-700 mb-2">Quick Actions</h4>
-                  <div className="flex flex-wrap gap-2">
+                {/* Quick Actions */}
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Quick Actions</label>
+                  <div className="flex gap-2">
                     <button 
                       type="button" 
                       onClick={handleMarkAllPresentCards} 
-                      className="px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 text-xs font-medium transition-colors flex items-center space-x-1"
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-colors"
                     >
-                      <CheckCircle className="w-3 h-3" />
-                      <span>All Present</span>
+                      Mark All Present
                     </button>
                     <button 
                       type="button" 
                       onClick={handleMarkAllAbsentCards} 
-                      className="px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 text-xs font-medium transition-colors flex items-center space-x-1"
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium transition-colors"
                     >
-                      <X className="w-3 h-3" />
-                      <span>All Absent</span>
+                      Mark All Absent
                     </button>
                     <button 
                       type="button" 
                       onClick={handleClearAllCards} 
-                      className="px-3 py-1.5 bg-gray-500 text-white rounded-lg hover:bg-gray-600 text-xs font-medium transition-colors flex items-center space-x-1"
+                      className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium transition-colors"
                     >
-                      <X className="w-3 h-3" />
-                      <span>Clear All</span>
+                      Clear All
                     </button>
                   </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Use these buttons to quickly mark all students as present or absent, then modify as needed.
+                  </p>
                 </div>
 
                 {/* Student Cards Grid */}
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 mb-4">
-                  {studentCards.map((card) => (
-                    <button
-                      key={card.rollNumber}
-                      onClick={() => handleCardClick(card.rollNumber)}
-                      className={`p-2 rounded-lg border-2 transition-all duration-200 text-center ${
-                        card.status === 'present'
-                          ? 'border-green-500 bg-green-50 shadow-md'
-                          : card.status === 'absent'
-                          ? 'border-red-500 bg-red-50 shadow-md'
-                          : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
-                      }`}
-                    >
-                      <div className="text-sm font-bold text-gray-900 mb-1">
-                        {card.rollNumber}
-                      </div>
-                      <div className="text-xs text-gray-600 truncate">
-                        {card.name}
-                      </div>
-                      {card.status === 'present' && (
-                        <CheckCircle className="w-3 h-3 text-green-500 mx-auto mt-1" />
-                      )}
-                      {card.status === 'absent' && (
-                        <X className="w-3 h-3 text-red-500 mx-auto mt-1" />
-                      )}
-                    </button>
-                  ))}
-                </div>
+                {loading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                    <p className="text-gray-600 text-xs">Loading students...</p>
+                  </div>
+                ) : studentCards.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <Users className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                    <p className="text-xs">No students found for the selected criteria.</p>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Student Attendance Cards - Tap to mark Present/Absent
+                    </label>
+                    <div className="grid grid-cols-6 gap-2">
+                      {studentCards.map((card) => (
+                        <button
+                          key={card.rollNumber}
+                          type="button"
+                          onClick={() => handleCardClick(card.rollNumber)}
+                          className={`p-3 rounded-lg border-2 transition-all text-center ${
+                            card.status === 'present'
+                              ? 'border-green-500 bg-green-50'
+                              : card.status === 'absent'
+                              ? 'border-red-500 bg-red-50'
+                              : 'border-gray-300 bg-white hover:border-gray-400'
+                          }`}
+                          title={`${card.name} - Roll: ${card.rollNumber}`}
+                        >
+                          <div className="text-base font-bold text-gray-900 mb-1">
+                            {card.rollNumber}
+                          </div>
+                          <div className="text-[10px] text-gray-600 mb-2 leading-tight min-h-[28px] line-clamp-2" title={card.name}>
+                            {card.name}
+                          </div>
+                          <div className={`text-[9px] font-medium ${
+                            card.status === 'present' ? 'text-green-700' :
+                            card.status === 'absent' ? 'text-red-700' :
+                            'text-gray-500'
+                          }`}>
+                            {card.status === 'present' ? 'Present' :
+                             card.status === 'absent' ? 'Absent' :
+                             'O Unmarked'}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Session Note */}
-                <div className="space-y-2 mb-4">
-                  <label className="flex items-center space-x-1 text-xs font-medium text-gray-700">
-                    <FileCheck className="w-3 h-3 text-blue-500" />
-                    <span>Session Note (Optional)</span>
-                  </label>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Session Note (Optional)</label>
                   <input
                     type="text"
                     value={note}
                     onChange={e => setNote(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
                     placeholder="Topic covered, remarks, etc."
                   />
                 </div>
 
-                {/* Submit Section */}
+                {/* Submit Button */}
                 <form onSubmit={handleSubmit}>
-                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
-                      <div className="flex items-center space-x-3 text-xs text-gray-600">
-                        <div className="flex items-center space-x-1">
-                          <Calendar className="w-3 h-3" />
-                          <span>Date: <strong className="text-gray-900">{attendanceDate}</strong></span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <Clock className="w-3 h-3" />
-                          <span>Time: <strong className="text-gray-900">{new Date().toLocaleTimeString()}</strong></span>
-                        </div>
-                      </div>
-                      <button 
-                        type="submit" 
-                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors flex items-center space-x-2 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm" 
-                        disabled={loading}
-                      >
-                        {loading ? (
-                          <>
-                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            <span>Submitting...</span>
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle className="w-3 h-3" />
-                            <span>Submit</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
+                  <div className="flex items-center justify-end pt-3 border-t border-gray-200">
+                    <button 
+                      type="submit" 
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm" 
+                      disabled={loading}
+                    >
+                      {loading ? 'Submitting...' : 'Submit Attendance'}
+                    </button>
                   </div>
                 </form>
               </>
             )}
           </div>
         )}
-        {/* Compact Results Section */}
-      {submitted && (
-          <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-4 lg:p-6">
-            {/* View Toggle for submitted summary */}
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-xs text-gray-500">View:</span>
-              <div className="inline-flex rounded-md border border-gray-200 overflow-hidden">
-                <button
-                  onClick={() => setAttendanceMode('both')}
-                  className={`px-3 py-1 text-xs ${attendanceMode==='both' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'}`}
-                >Both</button>
-                <button
-                  onClick={() => setAttendanceMode('present')}
-                  className={`px-3 py-1 text-xs border-l ${attendanceMode==='present' ? 'bg-green-600 text-white' : 'bg-white text-gray-700'}`}
-                >Present</button>
-                <button
-                  onClick={() => setAttendanceMode('absent')}
-                  className={`px-3 py-1 text-xs border-l ${attendanceMode==='absent' ? 'bg-red-600 text-white' : 'bg-white text-gray-700'}`}
-                >Absent</button>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2 mb-4">
-              <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
-                <CheckCircle className="w-4 h-4 text-white" />
-            </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Attendance Submitted!</h3>
-                <p className="text-sm text-gray-600 hidden sm:block">Summary of marked attendance</p>
+        {/* Results Section */}
+        {submitted && (
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold text-gray-900">Attendance Submitted Successfully!</h3>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">View:</span>
+                <div className="inline-flex rounded-md border border-gray-200 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setAttendanceMode('both')}
+                    className={`px-2 py-1 text-xs ${attendanceMode==='both' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'}`}
+                  >Both</button>
+                  <button
+                    type="button"
+                    onClick={() => setAttendanceMode('present')}
+                    className={`px-2 py-1 text-xs border-l ${attendanceMode==='present' ? 'bg-green-600 text-white' : 'bg-white text-gray-700'}`}
+                  >Present</button>
+                  <button
+                    type="button"
+                    onClick={() => setAttendanceMode('absent')}
+                    className={`px-2 py-1 text-xs border-l ${attendanceMode==='absent' ? 'bg-red-600 text-white' : 'bg-white text-gray-700'}`}
+                  >Absent</button>
+                </div>
               </div>
             </div>
 
@@ -1259,106 +1180,109 @@ const TakeAttendancePanel: React.FC<TakeAttendancePanelProps> = ({ addNotificati
               const presentList = present;
               const absentList = absent;
               return (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-              {/* Present Students */}
-              {showPresent && (
-              <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-semibold text-green-800 flex items-center">
-                    <CheckCircle className="w-4 h-4 mr-1" />
-                    Present ({presentList.length})
-                  </h4>
-                  <button 
-                    onClick={() => handleCopy(presentList)} 
-                    className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium hover:bg-green-200 transition-colors"
-                  >
-                    Copy
-                  </button>
-                </div>
-                <div className="max-h-32 overflow-y-auto">
-                  {presentList.length === 0 ? (
-                    <p className="text-green-600 text-xs">None</p>
-                  ) : (
-                    <div className="space-y-1">
-                  {uniqueStudents(presentList).map((s, idx) => (
-                        <div key={String(s.rollNumber || s.id)} className="flex items-center justify-between bg-white rounded p-2 border border-green-200">
-                          <div className="flex items-center space-x-2">
-                            <span className="w-4 h-4 bg-green-500 text-white rounded-full flex items-center justify-center text-xs font-semibold">
-                              {idx + 1}
-                            </span>
-                            <div>
-                              <p className="font-medium text-gray-900 text-xs">{s.name}</p>
-                              <p className="text-xs text-gray-500">Roll: {s.rollNumber || s.id}</p>
-                            </div>
-                          </div>
-                          <CheckCircle className="w-3 h-3 text-green-500" />
+                <>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                    {/* Present Students */}
+                    {showPresent && (
+                      <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-semibold text-green-800 flex items-center">
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Present ({presentList.length})
+                          </h4>
+                          <button 
+                            type="button"
+                            onClick={() => handleCopy(presentList)} 
+                            className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium hover:bg-green-200 transition-colors"
+                          >
+                            Copy
+                          </button>
                         </div>
-                      ))}
-                    </div>
-              )}
-            </div>
-          </div>) }
-
-              {/* Absent Students */}
-              {showAbsent && (
-              <div className="bg-red-50 rounded-lg p-4 border border-red-200">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-semibold text-red-800 flex items-center">
-                    <X className="w-4 h-4 mr-1" />
-                    Absent ({absentList.length})
-                  </h4>
-                  <button 
-                    onClick={() => handleCopy(absentList)} 
-                    className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors"
-                  >
-                    Copy
-                  </button>
-            </div>
-                <div className="max-h-32 overflow-y-auto">
-                  {absentList.length === 0 ? (
-                    <p className="text-red-600 text-xs">None</p>
-                  ) : (
-                    <div className="space-y-1">
-                  {uniqueStudents(absentList).map((s, idx) => (
-                        <div key={String(s.rollNumber || s.id)} className="flex items-center justify-between bg-white rounded p-2 border border-red-200">
-                          <div className="flex items-center space-x-2">
-                            <span className="w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-semibold">
-                              {idx + 1}
-                            </span>
-                            <div>
-                              <p className="font-medium text-gray-900 text-xs">{s.name}</p>
-                              <p className="text-xs text-gray-500">Roll: {s.rollNumber || s.id}</p>
-                            </div>
-                          </div>
-                          <X className="w-3 h-3 text-red-500" />
+                        <div className="max-h-32 overflow-y-auto space-y-1">
+                          {presentList.length === 0 ? (
+                            <p className="text-green-600 text-xs">None</p>
+                          ) : (
+                            uniqueStudents(presentList).map((s, idx) => (
+                              <div key={String(s.rollNumber || s.id)} className="flex items-center justify-between bg-white rounded p-1.5 border border-green-200">
+                                <div className="flex items-center space-x-2">
+                                  <span className="w-4 h-4 bg-green-500 text-white rounded-full flex items-center justify-center text-xs font-semibold">
+                                    {idx + 1}
+                                  </span>
+                                  <div>
+                                    <p className="font-medium text-gray-900 text-xs">{s.name}</p>
+                                    <p className="text-xs text-gray-500">Roll: {s.rollNumber || s.id}</p>
+                                  </div>
+                                </div>
+                                <CheckCircle className="w-3 h-3 text-green-500" />
+                              </div>
+                            ))
+                          )}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>) }
-            </div>); })()}
+                      </div>
+                    )}
 
-            {/* Compact Summary Stats */}
-            <div className="bg-gray-50 rounded-lg p-3">
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <p className="text-lg font-bold text-gray-900">{students.length}</p>
-                  <p className="text-xs text-gray-600">Total</p>
-                </div>
-                <div>
-                  <p className="text-lg font-bold text-green-600">{present.length}</p>
-                  <p className="text-xs text-gray-600">Present</p>
-                </div>
-                <div>
-                  <p className="text-lg font-bold text-red-600">{absent.length}</p>
-                  <p className="text-xs text-gray-600">Absent</p>
-                </div>
-            </div>
+                    {/* Absent Students */}
+                    {showAbsent && (
+                      <div className="bg-red-50 rounded-lg p-3 border border-red-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-semibold text-red-800 flex items-center">
+                            <X className="w-4 h-4 mr-1" />
+                            Absent ({absentList.length})
+                          </h4>
+                          <button 
+                            type="button"
+                            onClick={() => handleCopy(absentList)} 
+                            className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition-colors"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                        <div className="max-h-32 overflow-y-auto space-y-1">
+                          {absentList.length === 0 ? (
+                            <p className="text-red-600 text-xs">None</p>
+                          ) : (
+                            uniqueStudents(absentList).map((s, idx) => (
+                              <div key={String(s.rollNumber || s.id)} className="flex items-center justify-between bg-white rounded p-1.5 border border-red-200">
+                                <div className="flex items-center space-x-2">
+                                  <span className="w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-semibold">
+                                    {idx + 1}
+                                  </span>
+                                  <div>
+                                    <p className="font-medium text-gray-900 text-xs">{s.name}</p>
+                                    <p className="text-xs text-gray-500">Roll: {s.rollNumber || s.id}</p>
+                                  </div>
+                                </div>
+                                <X className="w-3 h-3 text-red-500" />
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Summary Stats */}
+                  <div className="bg-gray-50 rounded-lg p-3 mt-3">
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div>
+                        <p className="text-base font-bold text-gray-900">{students.length}</p>
+                        <p className="text-xs text-gray-600">Total</p>
+                      </div>
+                      <div>
+                        <p className="text-base font-bold text-green-600">{present.length}</p>
+                        <p className="text-xs text-gray-600">Present</p>
+                      </div>
+                      <div>
+                        <p className="text-base font-bold text-red-600">{absent.length}</p>
+                        <p className="text-xs text-gray-600">Absent</p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
-        </div>
-      )}
-      </div>
+        )}
     </div>
   );
 };

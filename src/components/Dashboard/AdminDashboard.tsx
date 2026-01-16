@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Users, 
-  GraduationCap, 
-  Building2, 
-  AlertTriangle, 
-  TrendingUp, 
+import {
+  Users,
+  GraduationCap,
+  Building2,
+  AlertTriangle,
+  TrendingUp,
   FileText,
   CheckCircle,
   Clock,
@@ -14,7 +14,8 @@ import {
   CreditCard,
   RefreshCw
 } from 'lucide-react';
-import { userService, leaveService, attendanceService } from '../../firebase/firestore';
+import { userService, leaveService, attendanceService, getCurrentBatchYear } from '../../firebase/firestore';
+import { getDepartmentCode } from '../../utils/departmentMapping';
 
 interface AdminStats {
   totalStudents: number;
@@ -107,6 +108,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onPageChange }) => {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const [showToast, setShowToast] = useState(false);
 
   // Load real-time data from Firebase
   const loadDashboardData = async (isRefresh = false) => {
@@ -116,24 +119,140 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onPageChange }) => {
       } else {
         setLoading(true);
       }
-      
-      // Fetch all data in parallel for better performance
+
+      // Get current batch year (ongoing year)
+      const currentBatch = getCurrentBatchYear();
+      console.log('Fetching students for current batch year:', currentBatch);
+
+      // Fetch students from batch structure for current batch year only - OPTIMIZED with parallel queries
+      const fetchStudentsFromCurrentBatch = async (): Promise<any[]> => {
+        try {
+          // Get all departments from the department mapping
+          const departments = ['Computer Science', 'Information Technology', 'Mechanical', 'Electrical', 'Civil', 'Electronics and Communication'];
+          const years = ['1st', '2nd', '3rd', '4th'];
+          const semsByYear: Record<string, string[]> = {
+            '1st': ['1', '2'],
+            '2nd': ['3', '4'],
+            '3rd': ['5', '6'],
+            '4th': ['7', '8']
+          };
+          const divs = ['A', 'B', 'C', 'D'];
+
+          // Build all query promises in parallel (not sequential)
+          const queryPromises: Promise<any[]>[] = [];
+          
+          for (const dept of departments) {
+            const deptCode = getDepartmentCode(dept);
+            for (const year of years) {
+              const sems = semsByYear[year] || [];
+              for (const sem of sems) {
+                for (const div of divs) {
+                  // Create promise for each query - all will run in parallel
+                  const promise = userService.getStudentsByBatchDeptYearSemDiv(
+                    currentBatch,
+                    deptCode,
+                    year,
+                    sem,
+                    div
+                  ).catch(() => {
+                    // Return empty array if collection doesn't exist
+                    return [];
+                  });
+                  queryPromises.push(promise);
+                }
+              }
+            }
+          }
+
+          // Execute queries in batches to avoid overwhelming Firestore
+          // Process 30 queries at a time for better performance
+          const batchSize = 30;
+          const allResults: any[][] = [];
+          console.log(`Fallback: Executing ${queryPromises.length} queries in batches of ${batchSize} for batch ${currentBatch}...`);
+          
+          for (let i = 0; i < queryPromises.length; i += batchSize) {
+            const batch = queryPromises.slice(i, i + batchSize);
+            const batchResults = await Promise.all(batch);
+            allResults.push(...batchResults);
+            // Small delay between batches to avoid rate limiting
+            if (i + batchSize < queryPromises.length) {
+              await new Promise(resolve => setTimeout(resolve, 50));
+            }
+          }
+          
+          // Flatten results into single array
+          const allStudents = allResults.flat().filter(s => s && s.id);
+
+          // Remove duplicates by student ID
+          const uniqueStudents = new Map<string, any>();
+          for (const student of allStudents) {
+            if (student.id && !uniqueStudents.has(student.id)) {
+              uniqueStudents.set(student.id, student);
+            }
+          }
+
+          console.log(`Fetched ${uniqueStudents.size} unique students from batch structure (${queryPromises.length} parallel queries)`);
+          return Array.from(uniqueStudents.values());
+        } catch (error) {
+          console.error('Error fetching students from batch structure:', error);
+          return [];
+        }
+      };
+
+      // Fetch all data in parallel for better performance - use specific queries for accuracy
       const [
+        allStudents,
+        allTeachers,
         allUsers,
         allLeaveRequests,
         todayAttendance
       ] = await Promise.all([
-        userService.getAllUsers().catch(() => []),
-        leaveService.getAllLeaveRequests().catch(() => []),
-        attendanceService.getTodayAttendance().catch(() => [])
+        fetchStudentsFromCurrentBatch().catch((err) => {
+          console.error('Error fetching students from current batch:', err);
+          return [];
+        }),
+        userService.getAllTeachers().catch((err) => {
+          console.error('Error fetching teachers:', err);
+          return [];
+        }),
+        userService.getAllUsers().catch((err) => {
+          console.error('Error fetching all users:', err);
+          return [];
+        }),
+        leaveService.getAllLeaveRequests().catch((err) => {
+          console.error('Error fetching leave requests:', err);
+          return [];
+        }),
+        attendanceService.getTodayAttendance().catch((err) => {
+          console.error('Error fetching today attendance:', err);
+          return [];
+        })
       ]);
 
-      // Calculate statistics
-      const students = allUsers.filter(user => user.role === 'student');
-      const teachers = allUsers.filter(user => user.role === 'teacher' || user.role === 'hod');
-      const departments = [...new Set(allUsers.map(user => user.department).filter(Boolean))];
-      const pendingLeaves = allLeaveRequests.filter(leave => leave.status === 'pending');
+      // Calculate statistics using fetched data
+      const students = allStudents || [];
+      const teachers = allTeachers || [];
       
+      console.log('AdminDashboard Stats Calculation:');
+      console.log('- Current batch year:', currentBatch);
+      console.log('- Students fetched from batch structure:', students.length);
+      console.log('- Teachers fetched:', teachers.length);
+      console.log('- All users fetched:', allUsers.length);
+      console.log('- Leave requests fetched:', allLeaveRequests.length);
+      console.log('- Today attendance records:', todayAttendance.length);
+      
+      // Get unique departments from all users (students + teachers)
+      const allUserDepartments = [
+        ...allStudents.map(user => user.department),
+        ...allTeachers.map(user => user.department)
+      ].filter(Boolean);
+      const departments = [...new Set(allUserDepartments)];
+      
+      console.log('- Unique departments:', departments.length, departments);
+      
+      const pendingLeaves = allLeaveRequests.filter(leave => leave.status === 'pending');
+      console.log('- Pending leaves:', pendingLeaves.length);
+
       // Calculate active users (users who have logged in today or have recent activity)
       const today = new Date().toISOString().split('T')[0];
       const activeUserIds = new Set([
@@ -220,8 +339,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onPageChange }) => {
   }, []);
 
   // Refresh function
-  const handleRefresh = () => {
-    loadDashboardData(true);
+  const handleRefresh = async () => {
+    console.log('Refresh button clicked - starting data reload...');
+    await loadDashboardData(true);
+    setLastRefreshed(new Date());
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+    console.log('Dashboard data refreshed successfully');
   };
 
   const getAlertIcon = (type: string) => {
@@ -252,213 +376,251 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onPageChange }) => {
   };
 
   return (
-    <div className="space-y-4 lg:space-y-6">
+    <div className="space-y-4 lg:space-y-6 px-4 sm:px-6 lg:px-8 py-4">
+      {/* Toast Notification */}
+      {showToast && (
+        <div className="fixed top-4 right-4 z-50 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg shadow-lg flex items-center space-x-2 animate-fade-in">
+          <CheckCircle className="w-5 h-5" />
+          <span className="text-sm font-medium">Data refreshed successfully!</span>
+        </div>
+      )}
+
       {/* Header with Refresh Button */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Admin Dashboard</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 font-heading">Admin Dashboard</h2>
+          {lastRefreshed && (
+            <p className="text-xs sm:text-sm text-gray-500 mt-1">
+              Last updated: {lastRefreshed.toLocaleTimeString()}
+            </p>
+          )}
+        </div>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
-          className="flex items-center space-x-2 text-sm text-gray-600 bg-white px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 border border-gray-200"
+          className="flex items-center justify-center space-x-2 text-sm font-medium text-gray-700 bg-white px-4 py-2 rounded-lg hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200 shadow-sm hover:shadow transition-shadow"
         >
           <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          <span className="hidden sm:block">Refresh</span>
+          <span>Refresh</span>
         </button>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 lg:gap-6">
+        {/* Total Students Card */}
+        <div className="bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-200 transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Students</p>
-              <div className="text-2xl font-bold text-gray-900">
-                {loading ? (
-                  <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Total Students</p>
+              <div className="text-2xl sm:text-3xl font-bold text-gray-900">
+                {(loading || refreshing) ? (
+                  <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
                 ) : (
                   stats.totalStudents.toLocaleString()
                 )}
               </div>
             </div>
-            <Users className="w-8 h-8 text-blue-600" />
-          </div>
-          <div className="mt-2 flex items-center text-sm text-green-600">
-            <TrendingUp className="w-4 h-4 mr-1" />
-            <span>Real-time data</span>
+            <div className="p-2.5 sm:p-3 bg-indigo-50 rounded-lg flex-shrink-0 ml-3">
+              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
+            </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        {/* Total Teachers Card */}
+        <div className="bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-200 transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Teachers</p>
-              <div className="text-2xl font-bold text-gray-900">
-                {loading ? (
-                  <div className="w-8 h-8 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Total Teachers</p>
+              <div className="text-2xl sm:text-3xl font-bold text-gray-900">
+                {(loading || refreshing) ? (
+                  <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
                 ) : (
                   stats.totalTeachers
                 )}
               </div>
             </div>
-            <GraduationCap className="w-8 h-8 text-green-600" />
-          </div>
-          <div className="mt-2 flex items-center text-sm text-green-600">
-            <TrendingUp className="w-4 h-4 mr-1" />
-            <span>Real-time data</span>
+            <div className="p-2.5 sm:p-3 bg-indigo-50 rounded-lg flex-shrink-0 ml-3">
+              <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
+            </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        {/* Departments Card */}
+        <div className="bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-200 transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Departments</p>
-              <div className="text-2xl font-bold text-gray-900">
-                {loading ? (
-                  <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Departments</p>
+              <div className="text-2xl sm:text-3xl font-bold text-gray-900">
+                {(loading || refreshing) ? (
+                  <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
                 ) : (
                   stats.totalDepartments
                 )}
               </div>
             </div>
-            <Building2 className="w-8 h-8 text-purple-600" />
-          </div>
-          <div className="mt-2 flex items-center text-sm text-gray-600">
-            <span>All active</span>
+            <div className="p-2.5 sm:p-3 bg-indigo-50 rounded-lg flex-shrink-0 ml-3">
+              <Building2 className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
+            </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        {/* Pending Leaves Card */}
+        <div className="bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-amber-200 transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Pending Leaves</p>
-              <div className="text-2xl font-bold text-gray-900">
-                {loading ? (
-                  <div className="w-8 h-8 border-2 border-yellow-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Pending Leaves</p>
+              <div className="text-2xl sm:text-3xl font-bold text-gray-900">
+                {(loading || refreshing) ? (
+                  <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
                 ) : (
                   stats.pendingLeaves
                 )}
               </div>
             </div>
-            <Clock className="w-8 h-8 text-yellow-600" />
-          </div>
-          <div className="mt-2 flex items-center text-sm text-yellow-600">
-            <span>Requires attention</span>
+            <div className="p-2.5 sm:p-3 bg-amber-50 rounded-lg flex-shrink-0 ml-3">
+              <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600" />
+            </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        {/* Active Users Card */}
+        <div className="bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-200 transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Active Users</p>
-              <div className="text-2xl font-bold text-gray-900">
-                {loading ? (
-                  <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Active Users</p>
+              <div className="text-2xl sm:text-3xl font-bold text-gray-900">
+                {(loading || refreshing) ? (
+                  <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
                 ) : (
                   stats.activeUsers
                 )}
               </div>
             </div>
-            <BarChart3 className="w-8 h-8 text-indigo-600" />
-          </div>
-          <div className="mt-2 flex items-center text-sm text-green-600">
-            <span>Online now</span>
+            <div className="p-2.5 sm:p-3 bg-indigo-50 rounded-lg flex-shrink-0 ml-3">
+              <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
         {/* Alerts Section */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="p-4 sm:p-6 border-b border-gray-200 bg-gray-50">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-900">System Alerts</h2>
-              <span className="px-2 py-1 text-xs font-medium text-red-600 bg-red-100 rounded-full">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900">System Alerts</h2>
+              <span className="px-2.5 py-1 text-xs font-semibold text-red-700 bg-red-100 rounded-full border border-red-200">
                 {alerts.length} alerts
               </span>
             </div>
           </div>
-          <div className="p-6 space-y-4">
-            {alerts.map((alert) => (
-              <div
-                key={alert.id}
-                className={`p-4 rounded-lg border-l-4 ${getAlertColor(alert.type)}`}
-              >
-                <div className="flex items-start space-x-3">
-                  {getAlertIcon(alert.type)}
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-medium text-gray-900">{alert.title}</h3>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(alert.priority)}`}>
-                        {alert.priority}
-                      </span>
+          <div className="p-4 sm:p-6 space-y-3">
+            {alerts.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                <p className="text-sm">No alerts at this time</p>
+              </div>
+            ) : (
+              alerts.map((alert) => (
+                <div
+                  key={alert.id}
+                  className={`p-4 rounded-lg border-l-4 ${getAlertColor(alert.type)} hover:shadow-sm transition-shadow`}
+                >
+                  <div className="flex items-start space-x-3">
+                    <div className="flex-shrink-0 mt-0.5">
+                      {getAlertIcon(alert.type)}
                     </div>
-                    <p className="mt-1 text-sm text-gray-600">{alert.message}</p>
-                    <p className="mt-2 text-xs text-gray-500">{alert.timestamp}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-1">
+                        <h3 className="text-sm font-semibold text-gray-900">{alert.title}</h3>
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap ${getPriorityColor(alert.priority)}`}>
+                          {alert.priority}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-700 mb-2">{alert.message}</p>
+                      <p className="text-xs text-gray-500">{alert.timestamp}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
         {/* Recent Activities */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">Recent Activities</h2>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="p-4 sm:p-6 border-b border-gray-200 bg-gray-50">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Recent Activities</h2>
           </div>
-          <div className="p-6 space-y-4">
-            {recentActivities.map((activity) => (
-              <div key={activity.id} className="flex items-center space-x-3">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <FileText className="w-4 h-4 text-blue-600" />
+          <div className="p-4 sm:p-6 space-y-4">
+            {recentActivities.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <FileText className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                <p className="text-sm">No recent activities</p>
+              </div>
+            ) : (
+              recentActivities.map((activity) => (
+                <div key={activity.id} className="flex items-start space-x-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
+                  <div className="flex-shrink-0 mt-0.5">
+                    <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center">
+                      <FileText className="w-4 h-4 text-blue-600" />
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 mb-0.5">{activity.action}</p>
+                    <p className="text-sm text-gray-600 mb-1">{activity.user}</p>
+                    <p className="text-xs text-gray-500">{activity.timestamp}</p>
                   </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">{activity.action}</p>
-                  <p className="text-sm text-gray-600">{activity.user}</p>
-                  <p className="text-xs text-gray-500">{activity.timestamp}</p>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Quick Actions</h2>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="p-4 sm:p-6 border-b border-gray-200 bg-gray-50">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Quick Actions</h2>
         </div>
-        <div className="p-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <button 
+        <div className="p-4 sm:p-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <button
               onClick={() => onPageChange?.('user-management')}
-              className="flex flex-col items-center p-4 text-center hover:bg-gray-50 rounded-lg transition-colors active:scale-95"
+              className="flex flex-col items-center p-4 text-center bg-gray-50 hover:bg-indigo-50 rounded-lg transition-all duration-200 active:scale-95 border border-gray-100 hover:border-indigo-300 hover:shadow-sm"
             >
-              <UserPlus className="w-8 h-8 text-blue-600 mb-2" />
-              <span className="text-sm font-medium text-gray-900">Add User</span>
+              <div className="p-2.5 bg-white rounded-lg mb-2.5 shadow-sm">
+                <UserPlus className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
+              </div>
+              <span className="text-xs sm:text-sm font-medium text-gray-700">Add User</span>
             </button>
-            <button 
+            <button
               onClick={() => onPageChange?.('department-management')}
-              className="flex flex-col items-center p-4 text-center hover:bg-gray-50 rounded-lg transition-colors active:scale-95"
+              className="flex flex-col items-center p-4 text-center bg-gray-50 hover:bg-indigo-50 rounded-lg transition-all duration-200 active:scale-95 border border-gray-100 hover:border-indigo-300 hover:shadow-sm"
             >
-              <Building2 className="w-8 h-8 text-green-600 mb-2" />
-              <span className="text-sm font-medium text-gray-900">Manage Departments</span>
+              <div className="p-2.5 bg-white rounded-lg mb-2.5 shadow-sm">
+                <Building2 className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
+              </div>
+              <span className="text-xs sm:text-sm font-medium text-gray-700">Manage Departments</span>
             </button>
-            <button 
+            <button
               onClick={() => onPageChange?.('institution-settings')}
-              className="flex flex-col items-center p-4 text-center hover:bg-gray-50 rounded-lg transition-colors active:scale-95"
+              className="flex flex-col items-center p-4 text-center bg-gray-50 hover:bg-indigo-50 rounded-lg transition-all duration-200 active:scale-95 border border-gray-100 hover:border-indigo-300 hover:shadow-sm"
             >
-              <Settings className="w-8 h-8 text-purple-600 mb-2" />
-              <span className="text-sm font-medium text-gray-900">Institution Settings</span>
+              <div className="p-2.5 bg-white rounded-lg mb-2.5 shadow-sm">
+                <Settings className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
+              </div>
+              <span className="text-xs sm:text-sm font-medium text-gray-700">Institution Settings</span>
             </button>
-            <button 
+            <button
               onClick={() => onPageChange?.('financial-admin')}
-              className="flex flex-col items-center p-4 text-center hover:bg-gray-50 rounded-lg transition-colors active:scale-95"
+              className="flex flex-col items-center p-4 text-center bg-gray-50 hover:bg-indigo-50 rounded-lg transition-all duration-200 active:scale-95 border border-gray-100 hover:border-indigo-300 hover:shadow-sm"
             >
-              <CreditCard className="w-8 h-8 text-red-600 mb-2" />
-              <span className="text-sm font-medium text-gray-900">Financial Admin</span>
+              <div className="p-2.5 bg-white rounded-lg mb-2.5 shadow-sm">
+                <CreditCard className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
+              </div>
+              <span className="text-xs sm:text-sm font-medium text-gray-700">Financial Admin</span>
             </button>
           </div>
         </div>

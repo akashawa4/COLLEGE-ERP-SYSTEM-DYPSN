@@ -3,6 +3,7 @@ import { Clock, CheckCircle, XCircle, AlertTriangle, X, Filter, Calendar, FileTe
 import { useAuth } from '../../contexts/AuthContext';
 import { leaveService, attendanceService } from '../../firebase/firestore';
 import { LeaveRequest } from '../../types';
+import { injectDummyData, getDummyDataForUser, USE_DUMMY_DATA } from '../../utils/dummyData';
 
 interface ActivityDetailModalProps {
   isOpen: boolean;
@@ -199,7 +200,13 @@ const RecentActivity: React.FC = () => {
         
         if (user.role === 'student') {
           // Students can only see their own activities
-          const leaveRequests = await leaveService.getLeaveRequestsByUser(user.id);
+          let leaveRequests = [];
+          if (USE_DUMMY_DATA) {
+            leaveRequests = getDummyDataForUser(user.id).leaveRequests;
+          } else {
+            leaveRequests = await leaveService.getLeaveRequestsByUser(user.id);
+          }
+          leaveRequests = injectDummyData.leaveRequests(leaveRequests);
           
           // Convert leave requests to activity format
           const activities = leaveRequests.slice(0, 5).map((request, index) => ({
@@ -218,7 +225,13 @@ const RecentActivity: React.FC = () => {
           setRecentActivities(activities);
         } else if (user.role === 'teacher' || user.role === 'hod') {
           // Teachers and HODs can see department-wide activities
-          const leaveRequests = await leaveService.getLeaveRequestsByUser(user.id);
+          let leaveRequests = [];
+          if (USE_DUMMY_DATA) {
+            leaveRequests = getDummyDataForUser(user.id).leaveRequests;
+          } else {
+            leaveRequests = await leaveService.getLeaveRequestsByUser(user.id);
+          }
+          leaveRequests = injectDummyData.leaveRequests(leaveRequests);
           
           // Convert leave requests to activity format
           const activities = leaveRequests.slice(0, 5).map((request, index) => ({

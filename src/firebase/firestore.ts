@@ -387,6 +387,17 @@ export const getDepartmentDisplayName = (department: string): string => {
   return DEPARTMENT_NAMES[department as keyof typeof DEPARTMENT_NAMES] || department;
 };
 
+// Helper function to filter out undefined values
+const filterUndefinedValues = (obj: any): any => {
+  const filtered: any = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      filtered[key] = value;
+    }
+  }
+  return filtered;
+};
+
 // User Management
 export const userService = {
   // Create or update user with role-based structure
@@ -414,9 +425,16 @@ export const userService = {
         }
       }
 
+      // Calculate batchYear for students to include in main collection
+      let batchYearForMain: string | undefined;
+      if (userData.role === 'student' && userData.year) {
+        batchYearForMain = getBatchYear(userData.year);
+      }
+      
       // Update main user document in role-based structure
       await setDoc(userRef, {
-        ...userData,
+        ...filterUndefinedValues(userData),
+        ...(batchYearForMain ? { batchYear: batchYearForMain } : {}),
         updatedAt: serverTimestamp(),
         createdAt: serverTimestamp()
       }, { merge: true });
@@ -456,7 +474,7 @@ export const userService = {
       // Save/update student in department structure
       const studentRef = doc(db, batchPath, userData.rollNumber || userData.id);
       await setDoc(studentRef, {
-        ...userData,
+        ...filterUndefinedValues(userData),
         batchYear: batch,
         department: department,
         updatedAt: serverTimestamp(),
@@ -479,7 +497,7 @@ export const userService = {
       const batchPath = buildBatchPath.teacher(batch, department, userData.sem, userData.div);
       const teacherRef = doc(db, batchPath, userData.id);
       await setDoc(teacherRef, {
-        ...userData,
+        ...filterUndefinedValues(userData),
         batchYear: batch,
         department: department,
         updatedAt: serverTimestamp(),
@@ -866,6 +884,61 @@ export const userService = {
     }
   },
 
+  // Search students by name or roll number
+  async searchStudents(query: string, filters?: {
+    year?: string;
+    sem?: string;
+    div?: string;
+    department?: string;
+    limit?: number;
+  }): Promise<User[]> {
+    try {
+      const usersRef = collection(db, COLLECTIONS.USERS);
+      const q = query(
+        usersRef,
+        where('role', '==', 'student'),
+        orderBy('name')
+      );
+      const querySnapshot = await getDocs(q);
+      
+      let students = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as User));
+
+      // Filter by search query (name or roll number)
+      const searchLower = query.toLowerCase();
+      students = students.filter(student => 
+        student.name.toLowerCase().includes(searchLower) ||
+        (student.rollNumber && student.rollNumber.toString().includes(query))
+      );
+
+      // Apply additional filters
+      if (filters) {
+        if (filters.year) {
+          students = students.filter(s => (s as any).year === filters.year);
+        }
+        if (filters.sem) {
+          students = students.filter(s => (s as any).sem === filters.sem);
+        }
+        if (filters.div) {
+          students = students.filter(s => (s as any).div === filters.div);
+        }
+        if (filters.department) {
+          students = students.filter(s => s.department === filters.department);
+        }
+        if (filters.limit) {
+          students = students.slice(0, filters.limit);
+        }
+      }
+
+      return students;
+    } catch (error) {
+      console.error('[userService] Error searching students:', error);
+      return [];
+    }
+  },
+
   // TEACHERS: dedicated collection helpers
   async createTeacher(teacher: User): Promise<void> {
     // Write to teachers collection
@@ -1005,14 +1078,41 @@ export const userService = {
 
   // Get all students (flat structure)
   async getAllStudents(): Promise<User[]> {
-    const usersRef = collection(db, COLLECTIONS.USERS);
-    const q = query(usersRef, where('role', '==', 'student'), orderBy('name'));
-    const querySnapshot = await getDocs(q);
-    
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as User[];
+    try {
+      const usersRef = collection(db, COLLECTIONS.USERS);
+      
+      // Try query with orderBy first, but fall back to just where clause if index doesn't exist
+      let querySnapshot;
+      try {
+        const q = query(usersRef, where('role', '==', 'student'), orderBy('name'));
+        querySnapshot = await getDocs(q);
+      } catch (orderByError: any) {
+        // If orderBy fails (likely missing index), try without orderBy
+        console.log('[userService.getAllStudents] OrderBy query failed, trying without orderBy:', orderByError.message);
+        const q = query(usersRef, where('role', '==', 'student'));
+        querySnapshot = await getDocs(q);
+        
+        // Sort manually in memory
+        const students = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as User[];
+        
+        return students.sort((a, b) => {
+          const nameA = (a.name || '').toLowerCase();
+          const nameB = (b.name || '').toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+      }
+      
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as User[];
+    } catch (error: any) {
+      console.error('[userService.getAllStudents] Error fetching students:', error);
+      throw error;
+    }
   },
 
   // Check if student exists by email (flat structure)
@@ -1636,9 +1736,13 @@ export const userService = {
     try {
       console.log(`🔍 Validating driver credentials for email: ${email}, phone: ${phoneNumber}`);
       
-      // Search for driver by email or phone in the driver role collection
-      const driversRef = collection(db, COLLECTIONS.USERS, 'driver');
-      const q = query(driversRef, where('isActive', '==', true));
+      // Clean the email to remove any trailing spaces
+      const cleanEmail = email.trim();
+      console.log(`🔍 Cleaned email: "${cleanEmail}"`);
+      
+      // Search for driver by email or phone in the main users collection
+      const usersRef = collection(db, COLLECTIONS.USERS);
+      const q = query(usersRef, where('role', '==', 'driver'), where('isActive', '==', true));
       
       const querySnapshot = await getDocs(q);
       console.log(`📊 Found ${querySnapshot.docs.length} driver users`);
@@ -1648,13 +1752,13 @@ export const userService = {
         console.log(`🔍 Checking driver: ${userData.email} (${userData.phone})`);
         
         // Check if email or phone matches
-        if (userData.email === email || userData.phone === phoneNumber) {
+        if (userData.email === cleanEmail || userData.phone === phoneNumber) {
           console.log(`✅ Driver credentials validated for: ${userData.email}`);
           return userData;
         }
       }
       
-      console.log(`❌ No matching driver found for email: ${email}, phone: ${phoneNumber}`);
+      console.log(`❌ No matching driver found for email: ${cleanEmail}, phone: ${phoneNumber}`);
       return null;
     } catch (error) {
       console.log(`❌ Error in validateDriverCredentials:`, error);
@@ -1751,8 +1855,8 @@ export const leaveService = {
 
         // Approver inbox mirror for instant teacher visibility
         if (assignedTo?.id) {
-          const approverInboxPath = `leaveApprovals/${assignedTo.id}`;
-          const approverRef = doc(collection(db, approverInboxPath));
+          const inboxCol = collection(db, 'leaveApprovals', assignedTo.id, 'inbox');
+          const approverRef = doc(inboxCol);
           await setDoc(approverRef, {
             leaveId: docRef.id,
             approverId: assignedTo.id,
@@ -2043,22 +2147,46 @@ export const leaveService = {
       const leaveData = leaveDoc.data() as LeaveRequest;
       console.log('[updateLeaveRequestStatus] Found leave data:', leaveData);
       
-      // Two-step approval logic: Teacher -> HOD
+      // Authorization: Only current approval level can act
+      if (approvedBy) {
+        try {
+          const approver = await userService.getUser(approvedBy);
+          // Map user roles to approval levels
+          let approverLevel = '';
+          if (approver?.role === 'hod') approverLevel = 'HOD';
+          else if (approver?.role === 'teacher') approverLevel = 'Teacher';
+          else if (approver?.role === 'registrar') approverLevel = 'Registrar';
+          else if (approver?.role === 'principal') approverLevel = 'Principal';
+          else if (approver?.role === 'admin') approverLevel = 'Admin';
+          
+          const currentLevel = leaveData.currentApprovalLevel || 'Teacher';
+          const isPending = (leaveData.status || 'pending') === 'pending';
+          if (!isPending || !approverLevel || approverLevel !== currentLevel) {
+            throw new Error('Not authorized to act on this request at the current stage');
+          }
+        } catch (authErr) {
+          console.error('[updateLeaveRequestStatus] Authorization failed:', authErr);
+          throw authErr;
+        }
+      }
+      
+      // Multi-step approval logic: HOD → Registrar → Principal → Admin (for teachers)
+      // Or Teacher → HOD (for students - default flow)
       let newStatus = status;
       let nextApprovalLevel = leaveData.currentApprovalLevel || 'Teacher';
 
       const flow = leaveData.approvalFlow && leaveData.approvalFlow.length > 0
         ? leaveData.approvalFlow
-        : ['Teacher', 'HOD'];
+        : ['Teacher', 'HOD']; // Default flow for students
 
       if (status === 'approved') {
         const currentIndex = Math.max(0, flow.indexOf(nextApprovalLevel));
         const isLast = currentIndex >= flow.length - 1;
         if (isLast) {
-          newStatus = 'approved'; // Final approval by HOD
-          nextApprovalLevel = 'HOD';
+          newStatus = 'approved'; // Final approval
+          nextApprovalLevel = flow[currentIndex]; // Keep final approver level
         } else {
-          nextApprovalLevel = flow[currentIndex + 1]; // Move to HOD
+          nextApprovalLevel = flow[currentIndex + 1]; // Move to next approval level
           newStatus = 'pending';
         }
       }
@@ -2168,8 +2296,8 @@ export const leaveService = {
           try {
             const hod = await getDepartmentHead(leaveData.department || DEPARTMENTS.CSE);
             if (hod?.id) {
-              const approverInboxPath = `leaveApprovals/${hod.id}`;
-              const approverRef = doc(collection(db, approverInboxPath));
+              const inboxCol = collection(db, 'leaveApprovals', hod.id, 'inbox');
+              const approverRef = doc(inboxCol);
               await setDoc(approverRef, {
                 leaveId: requestId,
                 approverId: hod.id,
@@ -2270,7 +2398,7 @@ export const leaveService = {
       }
 
       // Optimized path: approver inbox mirror
-      const inboxRef = collection(db, `leaveApprovals/${approverId}`);
+      const inboxRef = collection(db, 'leaveApprovals', approverId, 'inbox');
       const inboxSnap = await getDocs(inboxRef);
       const inbox = inboxSnap.docs.map(d => ({ id: (d.data() as any).leaveId })) as { id: string }[];
 
@@ -6006,6 +6134,20 @@ export const complaintService = {
   async updateComplaintStatus(complaintId: string, status: Complaint['status'], resolution?: string): Promise<void> {
     try {
       const complaintRef = doc(db, COLLECTIONS.COMPLAINTS, complaintId);
+      
+      // Get current complaint data to check current status
+      const complaintDoc = await getDoc(complaintRef);
+      if (!complaintDoc.exists()) {
+        throw new Error('Complaint not found');
+      }
+      
+      const currentData = complaintDoc.data() as Complaint;
+      
+      // Prevent reopening rejected complaints
+      if (currentData.status === 'Rejected' && status !== 'Rejected') {
+        throw new Error('Rejected complaints cannot be reopened');
+      }
+      
       const updateData: any = {
         status,
         lastUpdated: new Date().toISOString(),
@@ -6209,6 +6351,28 @@ export const busService = {
     }
   },
 
+  // Get bus assigned to a specific driver
+  async getBusByDriver(driverId: string): Promise<Bus | null> {
+    try {
+      const busesRef = collection(db, COLLECTIONS.BUSES);
+      const q = query(busesRef, where('driverId', '==', driverId));
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        return null;
+      }
+      
+      const busDoc = querySnapshot.docs[0];
+      return {
+        id: busDoc.id,
+        ...busDoc.data()
+      } as Bus;
+    } catch (error) {
+      console.error('[busService] Error getting bus by driver:', error);
+      throw error;
+    }
+  },
+
   // Update bus
   async updateBus(busId: string, updateData: Partial<Bus>): Promise<void> {
     try {
@@ -6325,6 +6489,117 @@ export const busService = {
       } as Bus));
       callback(buses);
     });
+  },
+
+  // Location tracking methods
+  async updateBusLocation(busId: string, locationData: {
+    latitude: number;
+    longitude: number;
+    timestamp: number;
+    accuracy?: number;
+  }): Promise<void> {
+    try {
+      const busRef = doc(db, COLLECTIONS.BUSES, busId);
+      const locationRef = collection(busRef, 'locations');
+      
+      // Add new location
+      await addDoc(locationRef, {
+        ...locationData,
+        createdAt: serverTimestamp()
+      });
+      
+      // Get current locations count
+      const locationsSnapshot = await getDocs(locationRef);
+      const locations = locationsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // If more than 10 locations, remove the oldest one
+      if (locations.length > 10) {
+        // Sort by timestamp to find the oldest
+        const sortedLocations = locations.sort((a, b) => 
+          (a.timestamp || 0) - (b.timestamp || 0)
+        );
+        
+        // Delete the oldest location
+        const oldestLocation = sortedLocations[0];
+        if (oldestLocation.id) {
+          await deleteDoc(doc(locationRef, oldestLocation.id));
+        }
+      }
+      
+      console.log('[busService] Location updated for bus:', busId);
+    } catch (error) {
+      console.error('[busService] Error updating bus location:', error);
+      throw error;
+    }
+  },
+
+  async getBusLocations(busId: string): Promise<any[]> {
+    try {
+      const busRef = doc(db, COLLECTIONS.BUSES, busId);
+      const locationRef = collection(busRef, 'locations');
+      const q = query(locationRef, orderBy('timestamp', 'desc'), limit(10));
+      
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (error) {
+      console.error('[busService] Error getting bus locations:', error);
+      throw error;
+    }
+  },
+
+  async getLatestBusLocation(busId: string): Promise<any | null> {
+    try {
+      const busRef = doc(db, COLLECTIONS.BUSES, busId);
+      const locationRef = collection(busRef, 'locations');
+      const q = query(locationRef, orderBy('timestamp', 'desc'), limit(1));
+      
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) {
+        return null;
+      }
+      
+      return {
+        id: snapshot.docs[0].id,
+        ...snapshot.docs[0].data()
+      };
+    } catch (error) {
+      console.error('[busService] Error getting latest bus location:', error);
+      throw error;
+    }
+  },
+
+  async getAllBusLocations(): Promise<Map<string, any>> {
+    try {
+      const buses = await this.getAllBuses();
+      const locationsMap = new Map();
+      
+      for (const bus of buses) {
+        if (bus.driverId) {
+          const latestLocation = await this.getLatestBusLocation(bus.id);
+          if (latestLocation) {
+            locationsMap.set(bus.id, {
+              busId: bus.id,
+              busNumber: bus.busNumber,
+              driverName: bus.driverName || 'Unknown Driver',
+              location: latestLocation,
+              isOnline: Date.now() - latestLocation.timestamp < 30000, // 30 seconds threshold
+              lastUpdate: latestLocation.timestamp
+            });
+          }
+        }
+      }
+      
+      return locationsMap;
+    } catch (error) {
+      console.error('[busService] Error getting all bus locations:', error);
+      throw error;
+    }
   }
 };
 

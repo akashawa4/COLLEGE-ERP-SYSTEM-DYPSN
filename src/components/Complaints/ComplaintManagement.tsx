@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   AlertTriangle,
   Plus,
-  Edit,
   Trash2,
   Eye,
   Search,
@@ -17,6 +16,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { complaintService } from '../../firebase/firestore';
 import { Complaint } from '../../types';
+import { injectDummyData, USE_DUMMY_DATA } from '../../utils/dummyData';
 
 const ComplaintManagement: React.FC = () => {
   const { user } = useAuth();
@@ -28,7 +28,6 @@ const ComplaintManagement: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
-  const [editingComplaint, setEditingComplaint] = useState<Complaint | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -43,7 +42,6 @@ const ComplaintManagement: React.FC = () => {
     complainantName: '',
     complainantEmail: '',
     complainantPhone: '',
-    complainantRole: 'Student' as Complaint['complainantRole'],
     assignedTo: '',
     assignedToEmail: '',
     anonymous: false
@@ -53,7 +51,13 @@ const ComplaintManagement: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const complaintsData = await complaintService.getAllComplaints();
+      let complaintsData: Complaint[] = [];
+      if (USE_DUMMY_DATA) {
+        complaintsData = injectDummyData.complaints([]);
+      } else {
+        complaintsData = await complaintService.getAllComplaints();
+      }
+      complaintsData = injectDummyData.complaints(complaintsData);
       setComplaints(complaintsData);
     } catch (error) {
       console.error('Error loading complaints:', error);
@@ -74,23 +78,25 @@ const ComplaintManagement: React.FC = () => {
       setSaving(true);
       setError(null);
 
+      // Auto-detect role from user profile
+      const complainantRole = user?.role === 'student' ? 'Student' :
+                             user?.role === 'teacher' ? 'Teacher' :
+                             user?.role === 'hod' ? 'Teacher' : // HODs are also teachers
+                             user?.role === 'admin' ? 'Staff' : 'Other';
+
       const complaintData = {
         ...formData,
+        complainantRole: complainantRole as Complaint['complainantRole'],
         status: 'Open' as Complaint['status'],
-        submittedDate: editingComplaint?.submittedDate || new Date().toISOString(),
+        submittedDate: new Date().toISOString(),
         lastUpdated: new Date().toISOString(),
         attachments: []
       };
 
-      if (editingComplaint) {
-        await complaintService.updateComplaint(editingComplaint.id, complaintData);
-      } else {
-        await complaintService.createComplaint(complaintData);
-      }
+      await complaintService.createComplaint(complaintData);
 
       await loadData();
       setShowForm(false);
-      setEditingComplaint(null);
       resetForm();
     } catch (error) {
       console.error('Error saving complaint:', error);
@@ -100,23 +106,6 @@ const ComplaintManagement: React.FC = () => {
     }
   };
 
-  const handleEdit = (complaint: Complaint) => {
-    setEditingComplaint(complaint);
-    setFormData({
-      title: complaint.title,
-      description: complaint.description,
-      category: complaint.category,
-      priority: complaint.priority,
-      complainantName: complaint.complainantName,
-      complainantEmail: complaint.complainantEmail,
-      complainantPhone: complaint.complainantPhone,
-      complainantRole: complaint.complainantRole,
-      assignedTo: complaint.assignedTo || '',
-      assignedToEmail: complaint.assignedToEmail || '',
-      anonymous: complaint.anonymous
-    });
-    setShowForm(true);
-  };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this complaint?')) return;
@@ -134,15 +123,28 @@ const ComplaintManagement: React.FC = () => {
     }
   };
 
+  // Check if current user can delete this complaint
+  const canDeleteComplaint = (complaint: Complaint) => {
+    if (isAdmin) return true; // Admin can delete any complaint
+    if (!user) return false;
+    
+    // Check if current user is the complainant
+    if (complaint.complainantEmail === user.email) return true;
+    if (complaint.complainantName === user.name) return true;
+    
+    return false;
+  };
+
   const handleStatusChange = async (id: string, newStatus: Complaint['status'], resolution?: string) => {
     try {
       setSaving(true);
       setError(null);
       await complaintService.updateComplaintStatus(id, newStatus, resolution);
       await loadData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating complaint status:', error);
-      setError('Failed to update complaint status. Please try again.');
+      const errorMessage = error.message || 'Failed to update complaint status. Please try again.';
+      setError(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -157,7 +159,6 @@ const ComplaintManagement: React.FC = () => {
       complainantName: '',
       complainantEmail: '',
       complainantPhone: '',
-      complainantRole: 'Student',
       assignedTo: '',
       assignedToEmail: '',
       anonymous: false
@@ -209,7 +210,9 @@ const ComplaintManagement: React.FC = () => {
     }
   };
 
-  const isAdmin = user?.role && user.role !== 'student' && user.role !== 'visitor';
+  const isAdmin = user?.role === 'admin';
+  const isHOD = user?.role === 'hod';
+  const isTeacher = user?.role === 'teacher';
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6">
@@ -383,23 +386,14 @@ const ComplaintManagement: React.FC = () => {
                 >
                   <Eye className="w-4 h-4" />
                 </button>
-                {isAdmin && (
-                  <>
-                    <button
-                      onClick={() => handleEdit(complaint)}
-                      className="p-2.5 text-gray-500 hover:text-blue-600 transition-colors rounded-md"
-                      title="Edit"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(complaint.id)}
-                      className="p-2.5 text-gray-500 hover:text-red-600 transition-colors rounded-md"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </>
+                {canDeleteComplaint(complaint) && (
+                  <button
+                    onClick={() => handleDelete(complaint.id)}
+                    className="p-2.5 text-gray-500 hover:text-red-600 transition-colors rounded-md"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 )}
               </div>
             </div>
@@ -428,12 +422,13 @@ const ComplaintManagement: React.FC = () => {
             )}
 
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-              {isAdmin && (
+              {(isAdmin || isHOD || isTeacher) && (
                 <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                   <select
                     value={complaint.status}
                     onChange={(e) => handleStatusChange(complaint.id, e.target.value as Complaint['status'])}
                     className="text-sm px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 w-full sm:w-auto"
+                    disabled={complaint.status === 'Rejected'}
                   >
                     <option value="Open">Open</option>
                     <option value="In Progress">In Progress</option>
@@ -441,6 +436,9 @@ const ComplaintManagement: React.FC = () => {
                     <option value="Closed">Closed</option>
                     <option value="Rejected">Rejected</option>
                   </select>
+                  {complaint.status === 'Rejected' && (
+                    <span className="text-xs text-red-600 font-medium">Cannot be reopened</span>
+                  )}
                 </div>
               )}
               <span className="text-xs text-gray-500">Last updated: {new Date(complaint.lastUpdated).toLocaleDateString()}</span>
@@ -464,10 +462,10 @@ const ComplaintManagement: React.FC = () => {
             <div className="p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg sm:text-2xl font-bold text-gray-900">
-                  {editingComplaint ? 'Edit Complaint' : 'Submit New Complaint'}
+                  Submit New Complaint
                 </h2>
                 <button
-                  onClick={() => { setShowForm(false); setEditingComplaint(null); resetForm(); }}
+                  onClick={() => { setShowForm(false); resetForm(); }}
                   className="text-gray-500 hover:text-gray-700 p-2"
                   aria-label="Close form"
                 >
@@ -546,31 +544,15 @@ const ComplaintManagement: React.FC = () => {
 
                 {!formData.anonymous && (
                   <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
-                        <input
-                          type="text"
-                          required={!formData.anonymous}
-                          value={formData.complainantName}
-                          onChange={(e) => setFormData({ ...formData, complainantName: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Your Role</label>
-                        <select
-                          value={formData.complainantRole}
-                          onChange={(e) => setFormData({ ...formData, complainantRole: e.target.value as Complaint['complainantRole'] })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        >
-                          <option value="Student">Student</option>
-                          <option value="Teacher">Teacher</option>
-                          <option value="Staff">Staff</option>
-                          <option value="Parent">Parent</option>
-                          <option value="Other">Other</option>
-                        </select>
-                      </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
+                      <input
+                        type="text"
+                        required={!formData.anonymous}
+                        value={formData.complainantName}
+                        onChange={(e) => setFormData({ ...formData, complainantName: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -626,7 +608,6 @@ const ComplaintManagement: React.FC = () => {
                     type="button"
                     onClick={() => {
                       setShowForm(false);
-                      setEditingComplaint(null);
                       resetForm();
                     }}
                     className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors w-full sm:w-auto text-sm"
@@ -641,10 +622,10 @@ const ComplaintManagement: React.FC = () => {
                     {saving ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        {editingComplaint ? 'Updating...' : 'Submitting...'}
+                        Submitting...
                       </>
                     ) : (
-                      editingComplaint ? 'Update Complaint' : 'Submit Complaint'
+                      'Submit Complaint'
                     )}
                   </button>
                 </div>
@@ -720,17 +701,6 @@ const ComplaintManagement: React.FC = () => {
                   </div>
                 )}
 
-                <div className="flex justify-end space-x-3 pt-4 border-t">
-                  <button
-                    onClick={() => {
-                      setShowDetails(false);
-                      handleEdit(selectedComplaint);
-                    }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Edit Complaint
-                  </button>
-                </div>
               </div>
             </div>
           </div>

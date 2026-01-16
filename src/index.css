@@ -1,11 +1,290 @@
+/* Leaflet CSS */
+@import 'leaflet/dist/leaflet.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================
+   UNIFIED THEME SYSTEM - DYPSN ERP
+   ========================================== */
+
+/* CSS Custom Properties for consistent theming */
+:root {
+  /* Primary Theme - Blue/Indigo */
+  --theme-primary-50: #eef2ff;
+  --theme-primary-100: #e0e7ff;
+  --theme-primary-500: #6366f1;
+  --theme-primary-600: #4f46e5;
+  --theme-primary-700: #4338ca;
+
+  /* Secondary Theme - Slate */
+  --theme-secondary-50: #f8fafc;
+  --theme-secondary-100: #f1f5f9;
+  --theme-secondary-500: #64748b;
+  --theme-secondary-600: #475569;
+  --theme-secondary-900: #0f172a;
+
+  /* Status Colors */
+  --theme-success: #22c55e;
+  --theme-warning: #f59e0b;
+  --theme-danger: #ef4444;
+  --theme-info: #3b82f6;
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(to right, #3b82f6, #6366f1);
+  --gradient-primary-hover: linear-gradient(to right, #2563eb, #4f46e5);
+  --gradient-header: linear-gradient(to right, #eef2ff, #e0e7ff);
+  --gradient-card: linear-gradient(to bottom right, #ffffff, #f8fafc);
+
+  /* Shadows */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-card-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-btn: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+
+  /* Border Radius */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+}
+
+/* Theme Component Classes */
+@layer components {
+
+  /* Unified Page Header */
+  .theme-page-header {
+    @apply bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 lg:p-8 border border-blue-100;
+  }
+
+  /* Unified Card Styles */
+  .theme-card {
+    @apply bg-white rounded-xl shadow-card border border-gray-200 transition-all duration-200;
+  }
+
+  .theme-card:hover {
+    @apply shadow-card-hover;
+  }
+
+  .theme-card-header {
+    @apply p-6 border-b border-gray-200;
+  }
+
+  .theme-card-body {
+    @apply p-6;
+  }
+
+  /* Unified Button Styles */
+  .theme-btn {
+    @apply inline-flex items-center justify-center space-x-2 px-4 py-2.5 rounded-btn font-semibold transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+
+  .theme-btn-primary {
+    @apply theme-btn bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 focus:ring-blue-500 shadow-btn hover:shadow-btn-hover;
+  }
+
+  .theme-btn-secondary {
+    @apply theme-btn bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-gray-500;
+  }
+
+  .theme-btn-success {
+    @apply theme-btn bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 focus:ring-green-500;
+  }
+
+  .theme-btn-danger {
+    @apply theme-btn bg-gradient-to-r from-red-500 to-rose-600 text-white hover:from-red-600 hover:to-rose-700 focus:ring-red-500;
+  }
+
+  .theme-btn-warning {
+    @apply theme-btn bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 focus:ring-amber-500;
+  }
+
+  /* Unified Stats Card */
+  .theme-stats-card {
+    @apply bg-white p-6 rounded-xl shadow-card border border-gray-200 transition-all duration-200 hover:shadow-card-hover;
+  }
+
+  /* Unified Quick Action Button */
+  .theme-action-btn {
+    @apply flex flex-col items-center p-4 rounded-xl transition-all duration-200 active:scale-95 border;
+  }
+
+  .theme-action-btn-blue {
+    @apply theme-action-btn bg-blue-50 hover:bg-blue-100 border-blue-100 text-blue-700;
+  }
+
+  .theme-action-btn-green {
+    @apply theme-action-btn bg-green-50 hover:bg-green-100 border-green-100 text-green-700;
+  }
+
+  .theme-action-btn-amber {
+    @apply theme-action-btn bg-amber-50 hover:bg-amber-100 border-amber-100 text-amber-700;
+  }
+
+  .theme-action-btn-purple {
+    @apply theme-action-btn bg-purple-50 hover:bg-purple-100 border-purple-100 text-purple-700;
+  }
+
+  .theme-action-btn-red {
+    @apply theme-action-btn bg-red-50 hover:bg-red-100 border-red-100 text-red-700;
+  }
+
+  /* Unified Status Badges */
+  .theme-badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold;
+  }
+
+  .theme-badge-success {
+    @apply theme-badge bg-green-100 text-green-700;
+  }
+
+  .theme-badge-warning {
+    @apply theme-badge bg-amber-100 text-amber-700;
+  }
+
+  .theme-badge-danger {
+    @apply theme-badge bg-red-100 text-red-700;
+  }
+
+  .theme-badge-info {
+    @apply theme-badge bg-blue-100 text-blue-700;
+  }
+
+  .theme-badge-neutral {
+    @apply theme-badge bg-gray-100 text-gray-700;
+  }
+
+  /* Unified Form Inputs */
+  .theme-input {
+    @apply w-full px-4 py-3 border border-gray-300 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200;
+  }
+
+  .theme-select {
+    @apply theme-input appearance-none bg-no-repeat bg-right pr-10;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    background-size: 1.5rem 1.5rem;
+    background-position: right 0.75rem center;
+  }
+
+  .theme-label {
+    @apply block text-sm font-medium text-gray-700 mb-2;
+  }
+
+  /* Unified Section Title */
+  .theme-section-title {
+    @apply text-lg font-semibold text-gray-900;
+  }
+
+  /* Unified Page Title */
+  .theme-page-title {
+    @apply text-2xl lg:text-3xl font-bold text-gray-900;
+  }
+
+  /* Unified Info Boxes */
+  .theme-info-box {
+    @apply rounded-xl p-4 border;
+  }
+
+  .theme-info-box-blue {
+    @apply theme-info-box bg-blue-50 border-blue-200 text-blue-800;
+  }
+
+  .theme-info-box-green {
+    @apply theme-info-box bg-green-50 border-green-200 text-green-800;
+  }
+
+  .theme-info-box-amber {
+    @apply theme-info-box bg-amber-50 border-amber-200 text-amber-800;
+  }
+
+  .theme-info-box-red {
+    @apply theme-info-box bg-red-50 border-red-200 text-red-800;
+  }
+
+  /* Unified Sidebar Navigation */
+  .theme-nav-item {
+    @apply w-full flex items-center space-x-4 px-4 py-4 rounded-xl text-left transition-all duration-200 active:scale-95;
+  }
+
+  .theme-nav-item-active {
+    @apply theme-nav-item bg-gradient-to-r from-blue-50 to-indigo-50 text-indigo-700 border-l-4 border-indigo-600 shadow-mobile;
+  }
+
+  .theme-nav-item-inactive {
+    @apply theme-nav-item text-gray-700 hover:bg-gray-50 hover:shadow-mobile;
+  }
+
+  /* Unified Avatar */
+  .theme-avatar {
+    @apply rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold;
+  }
+
+  .theme-avatar-sm {
+    @apply theme-avatar w-8 h-8 text-sm;
+  }
+
+  .theme-avatar-md {
+    @apply theme-avatar w-10 h-10 text-base;
+  }
+
+  .theme-avatar-lg {
+    @apply theme-avatar w-12 h-12 text-lg;
+  }
+
+  .theme-avatar-xl {
+    @apply theme-avatar w-16 h-16 text-xl;
+  }
+
+  /* Unified Table Styles */
+  .theme-table {
+    @apply w-full text-sm;
+  }
+
+  .theme-table thead {
+    @apply bg-gray-50;
+  }
+
+  .theme-table th {
+    @apply px-4 py-3 text-left font-semibold text-gray-700;
+  }
+
+  .theme-table td {
+    @apply px-4 py-3 border-t border-gray-100;
+  }
+
+  .theme-table tbody tr {
+    @apply hover:bg-gray-50 transition-colors;
+  }
+
+  /* Unified Modal */
+  .theme-modal-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm;
+  }
+
+  .theme-modal-content {
+    @apply bg-white rounded-2xl shadow-mobile-lg max-w-lg w-full max-h-[90vh] overflow-y-auto animate-scale-in;
+  }
+
+  /* Unified Loading Spinner */
+  .theme-spinner {
+    @apply inline-block w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin;
+  }
+
+  .theme-spinner-sm {
+    @apply inline-block w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin;
+  }
+
+  .theme-spinner-lg {
+    @apply inline-block w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin;
+  }
+}
+
+
+
 /* Mobile-first base styles */
 @layer base {
   html {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
       'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
       sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -17,6 +296,8 @@
   body {
     margin: 0;
     padding: 0;
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
     /* Mobile-specific body styles */
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
@@ -27,6 +308,51 @@
     user-select: none;
     /* Enable smooth scrolling on mobile */
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* Apply Playfair Display to all headings - STRONG RULE */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', serif !important;
+  }
+
+  /* Apply Inter Regular (400) to all other text elements */
+  p, span, div, a, button, input, textarea, select, label, li, td, th, small {
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 400;
+  }
+
+  /* Override for buttons and inputs to ensure Inter */
+  button, input, textarea, select {
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 400;
+  }
+
+  /* Utility classes for explicit font usage */
+  .font-heading {
+    font-family: 'Playfair Display', serif !important;
+  }
+
+  .font-body {
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 400;
+  }
+
+  /* Ensure all large text sizes use Playfair Display for headings */
+  h1.text-2xl, h1.text-3xl, h1.text-xl, h1.text-lg,
+  h2.text-2xl, h2.text-3xl, h2.text-xl, h2.text-lg,
+  h3.text-2xl, h3.text-3xl, h3.text-xl, h3.text-lg,
+  h4.text-2xl, h4.text-3xl, h4.text-xl, h4.text-lg,
+  h5.text-2xl, h5.text-3xl, h5.text-xl, h5.text-lg,
+  h6.text-2xl, h6.text-3xl, h6.text-xl, h6.text-lg {
+    font-family: 'Playfair Display', serif !important;
+  }
+
+  /* Sidebar - All text uses Playfair Display */
+  [class*="sidebar"] *,
+  nav[class*="sidebar"] *,
+  aside[class*="sidebar"] *,
+  .sidebar * {
+    font-family: 'Playfair Display', serif !important;
   }
 
   /* Safe area support for devices with notches */
@@ -60,6 +386,7 @@
 
 /* Mobile-specific component styles */
 @layer components {
+
   /* Touch-friendly buttons */
   .btn-mobile {
     @apply min-h-[44px] min-w-[44px] px-4 py-3 rounded-xl font-medium transition-all duration-200;
@@ -220,6 +547,7 @@
 
 /* Mobile-specific utility styles */
 @layer utilities {
+
   /* Mobile spacing utilities */
   .space-mobile {
     @apply space-y-4 lg:space-y-6;
@@ -349,6 +677,7 @@
     transform: translateY(100%);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -360,6 +689,7 @@
     transform: translateY(-100%);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -370,6 +700,7 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -380,6 +711,7 @@
     transform: scale(0.95);
     opacity: 0;
   }
+
   to {
     transform: scale(1);
     opacity: 1;

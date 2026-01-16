@@ -4,6 +4,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { attendanceService } from '../../firebase/firestore';
 import { saveAs } from 'file-saver';
 import { getDepartmentCode } from '../../utils/departmentMapping';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../../firebase/firebase';
 
 interface StudentAttendanceData {
   date: string;
@@ -52,9 +54,6 @@ const StudentMyAttendance: React.FC = () => {
       
       // Query subjects directly from Firestore using the new path structure
       // New Path: /subjects/2025/CSE/year/4th/sems/7
-      const { collection, getDocs } = await import('firebase/firestore');
-      const { db } = await import('../../firebase/firebase');
-      
       const batchYear = '2025'; // Default batch year
       const collectionPath = `subjects/${batchYear}/${deptCode}/year/${user.year}/sems/${user.sem}`;
       

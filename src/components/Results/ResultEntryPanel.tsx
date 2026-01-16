@@ -4,6 +4,7 @@ import { userService, subjectService, resultService, getBatchYear } from '../../
 import { User } from '../../types';
 import { getDepartmentCode } from '../../utils/departmentMapping';
 import { getAvailableSemesters, getDefaultSemesterForYear, isValidSemesterForYear } from '../../utils/semesterMapping';
+import StudentAutocomplete from './StudentAutocomplete';
 
 const YEARS = ['1st', '2nd', '3rd', '4th'];
 const DIVS = ['A', 'B', 'C'];
@@ -38,6 +39,7 @@ const ResultEntryPanel: React.FC = () => {
     marksObtained: 0,
     maxMarks: 20,
   });
+  const [selectedStudent, setSelectedStudent] = React.useState<User | null>(null);
   const [formAvailableSemesters, setFormAvailableSemesters] = React.useState<string[]>(getAvailableSemesters('1'));
   const [formAvailableSubjects, setFormAvailableSubjects] = React.useState<string[]>([]);
   const [formSubjectsLoading, setFormSubjectsLoading] = React.useState<boolean>(false);
@@ -357,6 +359,34 @@ const ResultEntryPanel: React.FC = () => {
     }
   };
 
+  const handleStudentSelect = (student: User) => {
+    setSelectedStudent(student);
+    setNewResult({
+      ...newResult,
+      name: student.name,
+      rollNumber: student.rollNumber || student.id,
+      year: (student as any).year || newResult.year,
+      sem: (student as any).sem || newResult.sem,
+      div: (student as any).div || newResult.div,
+    });
+  };
+
+  const handleNameChange = (name: string) => {
+    setNewResult({ ...newResult, name });
+    // Clear selected student if name is manually changed
+    if (selectedStudent && selectedStudent.name !== name) {
+      setSelectedStudent(null);
+    }
+  };
+
+  const handleRollNumberChange = (rollNumber: string) => {
+    setNewResult({ ...newResult, rollNumber });
+    // Clear selected student if roll number is manually changed
+    if (selectedStudent && selectedStudent.rollNumber !== rollNumber) {
+      setSelectedStudent(null);
+    }
+  };
+
   // Load subjects for the modal form based on selected year and semester
   React.useEffect(() => {
     const loadFormSubjects = async () => {
@@ -524,12 +554,27 @@ const ResultEntryPanel: React.FC = () => {
             <h3 className="text-lg font-semibold mb-4 sticky top-0 bg-white pb-2">Add Result</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                <input type="text" value={newResult.name} onChange={e => setNewResult({ ...newResult, name: e.target.value })} className="w-full border rounded p-2" placeholder="Student Name" />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Student</label>
+                <StudentAutocomplete
+                  value={newResult.name}
+                  onChange={handleNameChange}
+                  onStudentSelect={handleStudentSelect}
+                  placeholder="Type student name or roll number..."
+                  year={newResult.year}
+                  sem={newResult.sem}
+                  div={newResult.div}
+                  department={user?.department}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Roll Number</label>
-                <input type="text" value={newResult.rollNumber} onChange={e => setNewResult({ ...newResult, rollNumber: e.target.value })} className="w-full border rounded p-2" placeholder="e.g. 201" />
+                <input 
+                  type="text" 
+                  value={newResult.rollNumber} 
+                  onChange={e => handleRollNumberChange(e.target.value)} 
+                  className="w-full border rounded p-2" 
+                  placeholder="e.g. 201" 
+                />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>

@@ -13,24 +13,15 @@ import {
   Wrench,
   Bell
 } from 'lucide-react';
-import { attendanceService, notificationService, userService } from '../../firebase/firestore';
+import { attendanceService, notificationService, userService, busService } from '../../firebase/firestore';
+import { Bus as BusType } from '../../types';
+import { locationService } from '../../services/locationService';
 
 const DriverDashboard: React.FC<{ user: any; onPageChange: (page: string) => void }> = ({ user, onPageChange }) => {
-  const [assignedBus, setAssignedBus] = useState({
-    id: '1',
-    busNumber: 'DYPSN-001',
-    busName: 'College Bus 1',
-    type: 'AC',
-    capacity: 50,
-    status: 'active',
-    routeName: 'Route A - Central City',
-    registrationNumber: 'MH-12-AB-1234',
-    model: 'Tata Starbus',
-    year: 2022,
-    fuelType: 'Diesel',
-    lastServiceDate: '2024-01-15',
-    nextServiceDate: '2024-04-15'
-  });
+  const [assignedBus, setAssignedBus] = useState<BusType | null>(null);
+  const [busLoading, setBusLoading] = useState(true);
+  const [isLocationSharing, setIsLocationSharing] = useState(false);
+  const [locationSharingLoading, setLocationSharingLoading] = useState(false);
 
   const [todaySchedule, setTodaySchedule] = useState([
     { time: '08:00', location: 'College Campus', type: 'pickup', students: 25 },
@@ -53,6 +44,11 @@ const DriverDashboard: React.FC<{ user: any; onPageChange: (page: string) => voi
     const loadDriverData = async () => {
       try {
         setLoading(true);
+        setBusLoading(true);
+        
+        // Load assigned bus
+        const bus = await busService.getBusByDriver(user?.id || '');
+        setAssignedBus(bus);
         
         // Load today's attendance for passengers count
         const todayAttendance = await attendanceService.getTodayAttendance();
@@ -86,6 +82,7 @@ const DriverDashboard: React.FC<{ user: any; onPageChange: (page: string) => voi
         ]);
       } finally {
         setLoading(false);
+        setBusLoading(false);
       }
     };
 
@@ -93,6 +90,40 @@ const DriverDashboard: React.FC<{ user: any; onPageChange: (page: string) => voi
       loadDriverData();
     }
   }, [user]);
+
+  // Check if location sharing is active on component mount
+  useEffect(() => {
+    setIsLocationSharing(locationService.isLocationSharing());
+  }, []);
+
+  const handleStartLocationSharing = async () => {
+    if (!assignedBus || !user?.id) {
+      alert('No bus assigned or user not found');
+      return;
+    }
+
+    setLocationSharingLoading(true);
+    try {
+      const success = await locationService.startLocationSharing(user.id, assignedBus.id);
+      if (success) {
+        setIsLocationSharing(true);
+        alert('Location sharing started successfully!');
+      } else {
+        alert('Failed to start location sharing. Please check your location permissions.');
+      }
+    } catch (error) {
+      console.error('Error starting location sharing:', error);
+      alert('Error starting location sharing. Please try again.');
+    } finally {
+      setLocationSharingLoading(false);
+    }
+  };
+
+  const handleStopLocationSharing = async () => {
+    await locationService.stopLocationSharing();
+    setIsLocationSharing(false);
+    alert('Location sharing stopped.');
+  };
 
   // Helper function to format time ago
   const formatTimeAgo = (date: Date): string => {
@@ -122,7 +153,13 @@ const DriverDashboard: React.FC<{ user: any; onPageChange: (page: string) => voi
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Assigned Bus</p>
-              <p className="text-2xl font-bold text-gray-900">{assignedBus.busNumber}</p>
+              {busLoading ? (
+                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              ) : assignedBus ? (
+                <p className="text-2xl font-bold text-gray-900">{assignedBus?.busNumber || 'Not Assigned'}</p>
+              ) : (
+                <p className="text-lg font-medium text-gray-500">Not Assigned</p>
+              )}
             </div>
           </div>
         </div>
@@ -134,13 +171,13 @@ const DriverDashboard: React.FC<{ user: any; onPageChange: (page: string) => voi
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Today's Passengers</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <div className="text-2xl font-bold text-gray-900">
                 {loading ? (
                   <div className="w-8 h-8 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
                 ) : (
                   todayPassengers
                 )}
-              </p>
+              </div>
             </div>
           </div>
         </div>
@@ -175,41 +212,56 @@ const DriverDashboard: React.FC<{ user: any; onPageChange: (page: string) => voi
         <div className="lg:col-span-2">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Bus Information</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <div className="flex items-center mb-4">
-                  <div className="text-3xl mr-3">🚌</div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{assignedBus.busName}</h3>
-                    <p className="text-gray-600">{assignedBus.busNumber}</p>
+            
+            {busLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <span className="ml-2 text-gray-600">Loading bus information...</span>
+              </div>
+            ) : assignedBus ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <div className="flex items-center mb-4">
+                    <div className="text-3xl mr-3">🚌</div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">{assignedBus?.busName || 'Bus Not Assigned'}</h3>
+                      <p className="text-gray-600">{assignedBus?.busNumber || 'N/A'}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p><span className="font-medium text-gray-700">Type:</span> {assignedBus?.type || 'N/A'}</p>
+                    <p><span className="font-medium text-gray-700">Capacity:</span> {assignedBus?.capacity || 'N/A'} seats</p>
+                    <p><span className="font-medium text-gray-700">Model:</span> {assignedBus?.model || 'N/A'}</p>
+                    <p><span className="font-medium text-gray-700">Year:</span> {assignedBus?.year || 'N/A'}</p>
+                    <p><span className="font-medium text-gray-700">Registration:</span> {assignedBus?.registrationNumber || 'N/A'}</p>
+                    <p><span className="font-medium text-gray-700">Fuel Type:</span> {assignedBus?.fuelType || 'N/A'}</p>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <p><span className="font-medium text-gray-700">Type:</span> {assignedBus.type}</p>
-                  <p><span className="font-medium text-gray-700">Capacity:</span> {assignedBus.capacity} seats</p>
-                  <p><span className="font-medium text-gray-700">Model:</span> {assignedBus.model}</p>
-                  <p><span className="font-medium text-gray-700">Year:</span> {assignedBus.year}</p>
-                  <p><span className="font-medium text-gray-700">Registration:</span> {assignedBus.registrationNumber}</p>
-                  <p><span className="font-medium text-gray-700">Fuel Type:</span> {assignedBus.fuelType}</p>
-                </div>
-              </div>
-              <div>
-                <h4 className="font-semibold text-gray-900 mb-3">Maintenance Info</h4>
-                <div className="space-y-2">
-                  <p><span className="font-medium text-gray-700">Last Service:</span> {assignedBus.lastServiceDate}</p>
-                  <p><span className="font-medium text-gray-700">Next Service:</span> {assignedBus.nextServiceDate}</p>
-                  <div className="mt-4">
-                    <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${
-                      assignedBus.status === 'active' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {assignedBus.status === 'active' ? 'Active' : 'Inactive'}
-                    </span>
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-3">Maintenance Info</h4>
+                  <div className="space-y-2">
+                    <p><span className="font-medium text-gray-700">Last Service:</span> {assignedBus?.lastServiceDate || 'N/A'}</p>
+                    <p><span className="font-medium text-gray-700">Next Service:</span> {assignedBus?.nextServiceDate || 'N/A'}</p>
+                    <div className="mt-4">
+                      <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${
+                        assignedBus?.status === 'active' 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {assignedBus?.status === 'active' ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="text-6xl mb-4">🚫</div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Bus Not Assigned</h3>
+                <p className="text-gray-600 mb-4">You are not currently assigned to any bus.</p>
+                <p className="text-sm text-gray-500">Please contact the transport manager for bus assignment.</p>
+              </div>
+            )}
           </div>
 
           {/* Today's Schedule */}
@@ -246,27 +298,29 @@ const DriverDashboard: React.FC<{ user: any; onPageChange: (page: string) => voi
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Route Information */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Route Information</h3>
-            <div className="space-y-3">
-              <div className="flex items-center">
-                <MapPin className="w-4 h-4 text-gray-400 mr-2" />
-                <span className="text-sm text-gray-600">{assignedBus.routeName}</span>
-              </div>
-              <div className="flex items-center">
-                <Navigation className="w-4 h-4 text-gray-400 mr-2" />
-                <span className="text-sm text-gray-600">15 km total distance</span>
-              </div>
-              <div className="flex items-center">
-                <Clock className="w-4 h-4 text-gray-400 mr-2" />
-                <span className="text-sm text-gray-600">60 minutes estimated time</span>
-              </div>
-              <div className="flex items-center">
-                <Users className="w-4 h-4 text-gray-400 mr-2" />
-                <span className="text-sm text-gray-600">40 students assigned</span>
+          {assignedBus && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Route Information</h3>
+              <div className="space-y-3">
+                <div className="flex items-center">
+                  <MapPin className="w-4 h-4 text-gray-400 mr-2" />
+                  <span className="text-sm text-gray-600">{assignedBus.routeName || 'No route assigned'}</span>
+                </div>
+                <div className="flex items-center">
+                  <Navigation className="w-4 h-4 text-gray-400 mr-2" />
+                  <span className="text-sm text-gray-600">15 km total distance</span>
+                </div>
+                <div className="flex items-center">
+                  <Clock className="w-4 h-4 text-gray-400 mr-2" />
+                  <span className="text-sm text-gray-600">60 minutes estimated time</span>
+                </div>
+                <div className="flex items-center">
+                  <Users className="w-4 h-4 text-gray-400 mr-2" />
+                  <span className="text-sm text-gray-600">40 students assigned</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Quick Actions */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -286,6 +340,24 @@ const DriverDashboard: React.FC<{ user: any; onPageChange: (page: string) => voi
                 <Calendar className="w-4 h-4 mr-2" />
                 My Attendance
               </button>
+              {assignedBus && (
+                <button
+                  onClick={isLocationSharing ? handleStopLocationSharing : handleStartLocationSharing}
+                  disabled={locationSharingLoading}
+                  className={`w-full flex items-center justify-center px-4 py-2 rounded-lg transition-colors ${
+                    isLocationSharing
+                      ? 'bg-red-600 hover:bg-red-700 text-white'
+                      : 'bg-green-600 hover:bg-green-700 text-white'
+                  } ${locationSharingLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {locationSharingLoading ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                  ) : (
+                    <MapPin className="w-4 h-4 mr-2" />
+                  )}
+                  {isLocationSharing ? 'Stop Location Sharing' : 'Start Location Sharing'}
+                </button>
+              )}
               <button className="w-full flex items-center justify-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
                 <Phone className="w-4 h-4 mr-2" />
                 Emergency Contact

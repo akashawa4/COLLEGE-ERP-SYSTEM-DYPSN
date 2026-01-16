@@ -11,12 +11,12 @@ interface HeaderProps {
   isOnline?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ 
-  onMenuClick, 
-  onProfileClick, 
+const Header: React.FC<HeaderProps> = ({
+  onMenuClick,
+  onProfileClick,
   notifications = [],
   showNotifications = false,
-  setShowNotifications = () => {},
+  setShowNotifications = () => { },
   isOnline = true
 }) => {
   const { user, logout } = useAuth();
@@ -35,13 +35,13 @@ const Header: React.FC<HeaderProps> = ({
           >
             <Menu className="w-6 h-6" />
           </button>
-          
+
           {/* Logo for mobile */}
           <div className="lg:hidden flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-sky-500 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">D</span>
             </div>
-            <span className="text-lg font-bold text-gray-900">DYPSN</span>
+            <span className="text-lg font-bold text-gray-900 font-heading">DYPSN</span>
           </div>
         </div>
 
@@ -87,8 +87,8 @@ const Header: React.FC<HeaderProps> = ({
             {/* Profile Dropdown */}
             {showProfileMenu && (
               <>
-                <div 
-                  className="fixed inset-0 z-30" 
+                <div
+                  className="fixed inset-0 z-30"
                   onClick={() => setShowProfileMenu(false)}
                 />
                 <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-mobile-lg border border-gray-200 z-40 animate-scale-in">
@@ -104,9 +104,9 @@ const Header: React.FC<HeaderProps> = ({
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="p-2">
-                    <button 
+                    <button
                       onClick={() => {
                         onProfileClick && onProfileClick();
                         setShowProfileMenu(false);
@@ -116,8 +116,8 @@ const Header: React.FC<HeaderProps> = ({
                       <User className="w-4 h-4" />
                       <span>Profile</span>
                     </button>
-                    
-                    <button 
+
+                    <button
                       onClick={() => {
                         logout();
                         setShowProfileMenu(false);

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Users, 
-  GraduationCap, 
-  Building2, 
-  AlertTriangle, 
-  TrendingUp, 
+import {
+  Users,
+  GraduationCap,
+  Building2,
+  AlertTriangle,
+  TrendingUp,
   Calendar,
   FileText,
   CheckCircle,
@@ -40,110 +40,110 @@ const AdminDashboard: React.FC = () => {
       } else {
         setLoading(true);
       }
-        
-        // Load all data in parallel for better performance
-        const [
-          allUsers,
-          allLeaveRequests,
-          todayAttendance,
-          allNotifications
-        ] = await Promise.all([
-          userService.getAllUsers().catch(() => []),
-          leaveService.getAllLeaveRequests().catch(() => []),
-          attendanceService.getTodayAttendance().catch(() => []),
-          notificationService.getAllNotifications().catch(() => [])
-        ]);
 
-        // Filter users by role
-        const students = allUsers.filter(user => user.role === 'student');
-        const teachers = allUsers.filter(user => user.role === 'teacher' || user.role === 'hod');
-        const nonTeaching = allUsers.filter(user => user.role === 'non-teaching');
-        
-        // Get unique departments from all users
-        const departments = [...new Set(allUsers.map(user => user.department).filter(Boolean))];
-        
-        // Filter pending leave requests
-        const pendingLeaves = allLeaveRequests.filter(leave => leave.status === 'pending');
-        
-        // Calculate active users from today's attendance
-        const activeUserIds = [...new Set(todayAttendance.map(att => att.userId))];
-        
-        // Process notifications for alerts
-        const recentNotifications = allNotifications
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-          .slice(0, 5);
-        
-        // Convert notifications to system alerts
-        const systemAlerts = recentNotifications.map(notif => ({
-          id: notif.id,
-          type: notif.category === 'urgent' ? 'warning' : notif.category === 'success' ? 'success' : 'info',
-          title: notif.title,
-          message: notif.message,
+      // Load all data in parallel for better performance
+      const [
+        allUsers,
+        allLeaveRequests,
+        todayAttendance,
+        allNotifications
+      ] = await Promise.all([
+        userService.getAllUsers().catch(() => []),
+        leaveService.getAllLeaveRequests().catch(() => []),
+        attendanceService.getTodayAttendance().catch(() => []),
+        notificationService.getAllNotifications().catch(() => [])
+      ]);
+
+      // Filter users by role
+      const students = allUsers.filter(user => user.role === 'student');
+      const teachers = allUsers.filter(user => user.role === 'teacher' || user.role === 'hod');
+      const nonTeaching = allUsers.filter(user => user.role === 'non-teaching');
+
+      // Get unique departments from all users
+      const departments = [...new Set(allUsers.map(user => user.department).filter(Boolean))];
+
+      // Filter pending leave requests
+      const pendingLeaves = allLeaveRequests.filter(leave => leave.status === 'pending');
+
+      // Calculate active users from today's attendance
+      const activeUserIds = [...new Set(todayAttendance.map(att => att.userId))];
+
+      // Process notifications for alerts
+      const recentNotifications = allNotifications
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 5);
+
+      // Convert notifications to system alerts
+      const systemAlerts = recentNotifications.map(notif => ({
+        id: notif.id,
+        type: notif.category === 'urgent' ? 'warning' : notif.category === 'success' ? 'success' : 'info',
+        title: notif.title,
+        message: notif.message,
+        timestamp: formatTimeAgo(new Date(notif.createdAt)),
+        priority: notif.category === 'urgent' ? 'high' : notif.category === 'success' ? 'low' : 'medium'
+      }));
+
+      // Generate recent activities from multiple sources
+      const activities = [
+        // Recent leave requests
+        ...allLeaveRequests.slice(0, 3).map(leave => ({
+          id: `leave-${leave.id}`,
+          action: `Leave request ${leave.status}`,
+          user: leave.userName || 'Unknown User',
+          timestamp: formatTimeAgo(new Date(leave.submittedAt)),
+          type: 'leave'
+        })),
+        // Recent notifications
+        ...recentNotifications.slice(0, 2).map(notif => ({
+          id: `notif-${notif.id}`,
+          action: notif.title,
+          user: 'System',
           timestamp: formatTimeAgo(new Date(notif.createdAt)),
-          priority: notif.category === 'urgent' ? 'high' : notif.category === 'success' ? 'low' : 'medium'
-        }));
-        
-        // Generate recent activities from multiple sources
-        const activities = [
-          // Recent leave requests
-          ...allLeaveRequests.slice(0, 3).map(leave => ({
-            id: `leave-${leave.id}`,
-            action: `Leave request ${leave.status}`,
-            user: leave.userName || 'Unknown User',
-            timestamp: formatTimeAgo(new Date(leave.submittedAt)),
-            type: 'leave'
-          })),
-          // Recent notifications
-          ...recentNotifications.slice(0, 2).map(notif => ({
-            id: `notif-${notif.id}`,
-            action: notif.title,
-            user: 'System',
-            timestamp: formatTimeAgo(new Date(notif.createdAt)),
-            type: 'notification'
-          })),
-          // Recent user registrations
-          ...allUsers
-            .filter(user => user.createdAt)
-            .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
-            .slice(0, 2)
-            .map(user => ({
-              id: `user-${user.id}`,
-              action: `New ${user.role} registered`,
-              user: user.name,
-              timestamp: formatTimeAgo(new Date(user.createdAt!)),
-              type: 'user'
-            }))
-        ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 5);
+          type: 'notification'
+        })),
+        // Recent user registrations
+        ...allUsers
+          .filter(user => user.createdAt)
+          .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
+          .slice(0, 2)
+          .map(user => ({
+            id: `user-${user.id}`,
+            action: `New ${user.role} registered`,
+            user: user.name,
+            timestamp: formatTimeAgo(new Date(user.createdAt!)),
+            type: 'user'
+          }))
+      ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 5);
 
-        // Update stats with real Firebase data
-        setStats({
-          totalStudents: students.length,
-          totalTeachers: teachers.length,
-          totalDepartments: departments.length,
-          pendingLeaves: pendingLeaves.length,
-          activeUsers: activeUserIds.length
-        });
+      // Update stats with real Firebase data
+      setStats({
+        totalStudents: students.length,
+        totalTeachers: teachers.length,
+        totalDepartments: departments.length,
+        pendingLeaves: pendingLeaves.length,
+        activeUsers: activeUserIds.length
+      });
 
-        setAlerts(systemAlerts);
-        setRecentActivities(activities);
-        
-      } catch (error) {
-        console.error('Error loading admin dashboard data:', error);
-        // Set fallback data on error
-        setStats({
-          totalStudents: 0,
-          totalTeachers: 0,
-          totalDepartments: 0,
-          pendingLeaves: 0,
-          activeUsers: 0
-        });
-        setAlerts([]);
-        setRecentActivities([]);
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    };
+      setAlerts(systemAlerts);
+      setRecentActivities(activities);
+
+    } catch (error) {
+      console.error('Error loading admin dashboard data:', error);
+      // Set fallback data on error
+      setStats({
+        totalStudents: 0,
+        totalTeachers: 0,
+        totalDepartments: 0,
+        pendingLeaves: 0,
+        activeUsers: 0
+      });
+      setAlerts([]);
+      setRecentActivities([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   // Load data on component mount
   useEffect(() => {
@@ -159,7 +159,7 @@ const AdminDashboard: React.FC = () => {
   const formatTimeAgo = (date: Date): string => {
     const now = new Date();
     const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
+
     if (diffInMinutes < 1) return 'Just now';
     if (diffInMinutes < 60) return `${diffInMinutes} minutes ago`;
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} hours ago`;
@@ -217,15 +217,15 @@ const AdminDashboard: React.FC = () => {
             </button>
             <div className="flex items-center space-x-2 text-sm text-gray-500 bg-white/60 px-4 py-2 rounded-xl">
               <Calendar className="w-4 h-4" />
-              <span className="hidden sm:block">{new Date().toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
+              <span className="hidden sm:block">{new Date().toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
               })}</span>
-              <span className="sm:hidden">{new Date().toLocaleDateString('en-US', { 
-                month: 'short', 
-                day: 'numeric' 
+              <span className="sm:hidden">{new Date().toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
               })}</span>
             </div>
           </div>

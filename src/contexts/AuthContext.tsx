@@ -54,7 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Listen for Firebase Auth state changes
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setFirebaseUser(firebaseUser);
-      
+
       // Ignore anonymous auth for app role/state to prevent role switches
       if (firebaseUser && (firebaseUser as any).isAnonymous) {
         setIsLoading(false);
@@ -66,7 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           // Try to get user data from Firestore
           const userData = await userService.getUser(firebaseUser.uid);
-          
+
           if (userData) {
             setUser(userData);
             localStorage.setItem('dypsn_user', JSON.stringify(userData));
@@ -84,7 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               lastLogin: new Date().toISOString(),
               loginCount: 1
             };
-            
+
             // Save to Firestore
             await userService.createUser(basicUserData);
             setUser(basicUserData);
@@ -100,7 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(JSON.parse(storedUser));
         }
       }
-      
+
       setIsLoading(false);
     });
 
@@ -112,10 +112,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // First check if it's the default HOD user
       if (email === defaultHOD.email && password === 'hodcse2025@attendance') {
-        
+
         // Check if user already exists in Firestore
         const existingHOD = await userService.getUser(defaultHOD.id);
-        
+
         if (existingHOD) {
           // Update existing user with new login info
           await userService.updateUser(defaultHOD.id, {
@@ -133,29 +133,93 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         setUser(defaultHOD);
         localStorage.setItem('dypsn_user', JSON.stringify(defaultHOD));
+        // Clear old page state and set to dashboard on login
+        localStorage.removeItem('dypsn_current_page');
         localStorage.setItem('dypsn_current_page', 'dashboard');
         return;
       }
 
-      // Check if it's an admin user first (no Firebase Auth needed)
-      if (email === 'admin@dypsn.edu' && password === '9876543212') {
-        const adminUser: User = {
-          id: 'admin001',
-          name: 'Dr. Principal Admin',
-          email: 'admin@dypsn.edu',
-          phone: '9876543212',
-          role: 'admin',
-          department: 'Administration',
-          accessLevel: 'full',
-          isActive: true,
-          rollNumber: 'ADMIN001',
-          joiningDate: '2019-01-01',
-          designation: 'Principal/Administrator',
-          gender: 'Male',
-          year: '1',
-          sem: '1',
-          div: 'A'
-        };
+      // Check if it's an admin user (no Firebase Auth needed)
+      // Admin hierarchy: Principal > Director > Registrar > Admin
+      const adminUsers: { [key: string]: { password: string; user: User } } = {
+        'principal@dypsn.edu': {
+          password: 'principal@2025',
+          user: {
+            id: 'principal001',
+            name: 'Dr. Rajesh Sharma',
+            email: 'principal@dypsn.edu',
+            phone: '9876543200',
+            role: 'admin',
+            adminRole: 'principal',
+            department: 'Administration',
+            accessLevel: 'full',
+            isActive: true,
+            rollNumber: 'PRIN001',
+            joiningDate: '2015-01-01',
+            designation: 'Principal',
+            gender: 'Male'
+          }
+        },
+        'director@dypsn.edu': {
+          password: 'director@2025',
+          user: {
+            id: 'director001',
+            name: 'Dr. Sunita Patil',
+            email: 'director@dypsn.edu',
+            phone: '9876543201',
+            role: 'admin',
+            adminRole: 'director',
+            department: 'Administration',
+            accessLevel: 'full',
+            isActive: true,
+            rollNumber: 'DIR001',
+            joiningDate: '2016-01-01',
+            designation: 'Director',
+            gender: 'Female'
+          }
+        },
+        'registrar@dypsn.edu': {
+          password: 'registrar@2025',
+          user: {
+            id: 'registrar001',
+            name: 'Mr. Anil Kumar',
+            email: 'registrar@dypsn.edu',
+            phone: '9876543202',
+            role: 'admin',
+            adminRole: 'registrar',
+            department: 'Academic Administration',
+            accessLevel: 'full',
+            isActive: true,
+            rollNumber: 'REG001',
+            joiningDate: '2018-01-01',
+            designation: 'Registrar',
+            gender: 'Male'
+          }
+        },
+        'admin@dypsn.edu': {
+          password: 'admin@2025',
+          user: {
+            id: 'admin001',
+            name: 'Mr. Vijay Deshmukh',
+            email: 'admin@dypsn.edu',
+            phone: '9876543212',
+            role: 'admin',
+            adminRole: 'admin',
+            department: 'System Administration',
+            accessLevel: 'full',
+            isActive: true,
+            rollNumber: 'ADMIN001',
+            joiningDate: '2020-01-01',
+            designation: 'System Administrator',
+            gender: 'Male'
+          }
+        }
+      };
+
+      // Check if email matches any admin user
+      if (adminUsers[email] && password === adminUsers[email].password) {
+        const adminData = adminUsers[email];
+        const adminUser = adminData.user;
 
         // Check if admin user exists in Firestore, create if not
         try {
@@ -181,13 +245,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         setUser(adminUser);
         localStorage.setItem('dypsn_user', JSON.stringify(adminUser));
-        // Set dashboard as default page (admin dashboard is integrated)
+        // Clear old page state and set to dashboard on login
+        localStorage.removeItem('dypsn_current_page');
         localStorage.setItem('dypsn_current_page', 'dashboard');
         return;
       }
 
       // Run student, teacher, non-teaching staff, library staff, and driver validation in parallel using Promise.all - much faster!
-      
+
       const [studentResult, teacherResult, nonTeachingResult, libraryStaffResult, driverResult] = await Promise.all([
         userService.validateStudentCredentials(email, password).catch(() => {
           // Handle error silently
@@ -220,6 +285,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         setUser(studentResult);
         localStorage.setItem('dypsn_user', JSON.stringify(studentResult));
+        // Clear old page state and set to dashboard on login
+        localStorage.removeItem('dypsn_current_page');
         localStorage.setItem('dypsn_current_page', 'dashboard');
         return;
       }
@@ -233,6 +300,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         setUser(teacherResult);
         localStorage.setItem('dypsn_user', JSON.stringify(teacherResult));
+        // Clear old page state and set to dashboard on login
+        localStorage.removeItem('dypsn_current_page');
         localStorage.setItem('dypsn_current_page', 'dashboard');
         return;
       } else {
@@ -248,6 +317,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         setUser(nonTeachingResult);
         localStorage.setItem('dypsn_user', JSON.stringify(nonTeachingResult));
+        // Clear old page state and set to dashboard on login
+        localStorage.removeItem('dypsn_current_page');
         localStorage.setItem('dypsn_current_page', 'dashboard');
         return;
       } else {
@@ -263,6 +334,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         setUser(libraryStaffResult);
         localStorage.setItem('dypsn_user', JSON.stringify(libraryStaffResult));
+        // Clear old page state and set to dashboard on login
+        localStorage.removeItem('dypsn_current_page');
         localStorage.setItem('dypsn_current_page', 'dashboard');
         return;
       } else {
@@ -278,7 +351,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         setUser(driverResult);
         localStorage.setItem('dypsn_user', JSON.stringify(driverResult));
-        localStorage.setItem('dypsn_current_page', 'dashboard');
+        // Clear old page state and set to driver dashboard on login
+        localStorage.removeItem('dypsn_current_page');
+        localStorage.setItem('dypsn_current_page', 'driver-dashboard');
         return;
       } else {
         console.log('[AuthContext] Driver validation returned null for:', email);
@@ -384,7 +459,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.setItem('dypsn_visitor', JSON.stringify({ name: cloud.name, phone: cloud.phone, purpose: cloud.purpose }));
             hasDetails = true;
           }
-        } catch {}
+        } catch { }
       }
 
       setUser(visitor);
@@ -401,7 +476,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Error signing out from Firebase:', error);
     }
-    
+
     setUser(null);
     setFirebaseUser(null);
     localStorage.removeItem('dypsn_user');
@@ -411,7 +486,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const ensureDemoUsersInFirestore = async () => {
     console.log('[AuthContext] Ensuring demo users are in Firestore...');
-    
+
     // Demo users data
     const demoUsers = [
       {
@@ -448,22 +523,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sem: '1',
         div: 'A'
       },
+      // Admin Users - Hierarchy: Principal > Director > Registrar > Admin
       {
-        id: 'admin001',
-        name: 'Dr. Principal Admin',
-        email: 'admin@dypsn.edu',
-        phone: '9876543212',
+        id: 'principal001',
+        name: 'Dr. Rajesh Sharma',
+        email: 'principal@dypsn.edu',
+        phone: '9876543200',
         role: 'admin' as const,
+        adminRole: 'principal' as const,
         department: 'Administration',
         accessLevel: 'full' as const,
         isActive: true,
+        rollNumber: 'PRIN001',
+        joiningDate: '2015-01-01',
+        designation: 'Principal',
+        gender: 'Male'
+      },
+      {
+        id: 'director001',
+        name: 'Dr. Sunita Patil',
+        email: 'director@dypsn.edu',
+        phone: '9876543201',
+        role: 'admin' as const,
+        adminRole: 'director' as const,
+        department: 'Administration',
+        accessLevel: 'full' as const,
+        isActive: true,
+        rollNumber: 'DIR001',
+        joiningDate: '2016-01-01',
+        designation: 'Director',
+        gender: 'Female'
+      },
+      {
+        id: 'registrar001',
+        name: 'Mr. Anil Kumar',
+        email: 'registrar@dypsn.edu',
+        phone: '9876543202',
+        role: 'admin' as const,
+        adminRole: 'registrar' as const,
+        department: 'Academic Administration',
+        accessLevel: 'full' as const,
+        isActive: true,
+        rollNumber: 'REG001',
+        joiningDate: '2018-01-01',
+        designation: 'Registrar',
+        gender: 'Male'
+      },
+      {
+        id: 'admin001',
+        name: 'Mr. Vijay Deshmukh',
+        email: 'admin@dypsn.edu',
+        phone: '9876543212',
+        role: 'admin' as const,
+        adminRole: 'admin' as const,
+        department: 'System Administration',
+        accessLevel: 'full' as const,
+        isActive: true,
         rollNumber: 'ADMIN001',
-        joiningDate: '2019-01-01',
-        designation: 'Principal/Administrator',
-        gender: 'Male',
-        year: '1',
-        sem: '1',
-        div: 'A'
+        joiningDate: '2020-01-01',
+        designation: 'System Administrator',
+        gender: 'Male'
       },
       // Non-Teaching Staff Demo Users
       {

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { leaveService } from '../../firebase/firestore';
+import { userService } from '../../firebase/firestore';
 import { LeaveRequest } from '../../types';
 
 interface ApprovalModalProps {
@@ -64,7 +65,10 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({
   };
 
   const getNextApprovalLevel = () => {
-    const hierarchy = ['Teacher', 'HOD'];
+    // Support both old flow (Teacher → HOD) and new flow (HOD → Registrar → Principal → Admin)
+    const hierarchy = request.approvalFlow && request.approvalFlow.length > 0
+      ? request.approvalFlow
+      : ['Teacher', 'HOD']; // Default for student leaves
     const currentLevel = request.currentApprovalLevel || '';
     const currentIndex = hierarchy.indexOf(currentLevel);
     return currentIndex < hierarchy.length - 1 && currentIndex !== -1 ? hierarchy[currentIndex + 1] : null;
@@ -273,7 +277,25 @@ const LeaveApprovalPanel: React.FC = () => {
     const fetchLeaveRequests = async () => {
       try {
         const requests = await leaveService.getLeaveRequestsByApprover(user?.id || '');
-        if (!cancelled) setLeaveRequests(requests);
+        // Enrich with student details if missing (name, roll no, class info)
+        const enriched = await Promise.all(requests.map(async (req) => {
+          const r: any = { ...req };
+          if (!r.userName || !r.rollNumber || !r.year || !r.sem || !r.div) {
+            try {
+              const student = await userService.getUser(req.userId);
+              if (student) {
+                if (!r.userName) r.userName = student.name || r.userName;
+                if (!r.rollNumber) r.rollNumber = student.rollNumber || r.rollNumber;
+                if (!r.year) r.year = (student as any).year;
+                if (!r.sem) r.sem = (student as any).sem;
+                if (!r.div) r.div = (student as any).div;
+                if (!r.department) r.department = student.department || r.department;
+              }
+            } catch {}
+          }
+          return r as LeaveRequest;
+        }));
+        if (!cancelled) setLeaveRequests(enriched);
       } catch (error) {
         if (!cancelled) {
           setBanner({ type: 'reject', message: 'Failed to fetch leave requests.' });
@@ -303,6 +325,21 @@ const LeaveApprovalPanel: React.FC = () => {
     if (!selectedRequest.id) return;
 
     try {
+      // Enforce UI-level guard: only current level can act
+      const currentLevel = selectedRequest.currentApprovalLevel || 'Teacher';
+      // Map user roles to approval levels
+      let myLevel = '';
+      if (user?.role === 'hod') myLevel = 'HOD';
+      else if (user?.role === 'teacher') myLevel = 'Teacher';
+      else if (user?.role === 'registrar') myLevel = 'Registrar';
+      else if (user?.role === 'principal') myLevel = 'Principal';
+      else if (user?.role === 'admin') myLevel = 'Admin';
+      
+      if (!myLevel || myLevel !== currentLevel || selectedRequest.status !== 'pending') {
+        setBanner({ type: 'reject', message: 'You are not authorized to act at this stage.' });
+        setTimeout(() => setBanner(null), 3000);
+        return;
+      }
       await leaveService.updateLeaveRequestStatus(selectedRequest.id!, backendStatus, user.id, remarks);
       setBanner({
         type: action,
@@ -572,8 +609,12 @@ const LeaveApprovalPanel: React.FC = () => {
                 </div>
                 <div>
                   <p className="font-semibold text-gray-900">{request.userName}</p>
-                  <p className="text-xs text-gray-500">ID: {request.userId}</p>
-                  <p className="text-xs text-gray-500">{request.department}</p>
+                  <p className="text-xs text-gray-500">Roll: {(request as any).rollNumber || request.userId}</p>
+                  <p className="text-xs text-gray-500">
+                    {((request as any).year && (request as any).sem && (request as any).div)
+                      ? `${(request as any).year} • Sem ${(request as any).sem} • Div ${(request as any).div}`
+                      : (request.department || '')}
+                  </p>
                 </div>
               </div>
               <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
@@ -637,8 +678,12 @@ const LeaveApprovalPanel: React.FC = () => {
                       </div>
                       <div>
                         <p className="font-medium text-gray-900">{request.userName}</p>
-                        <p className="text-sm text-gray-600">{user?.designation || 'Employee'}</p>
-                        <p className="text-sm text-gray-500">{request.department}</p>
+                        <p className="text-sm text-gray-600">Roll: {(request as any).rollNumber || request.userId}</p>
+                        <p className="text-sm text-gray-500">
+                          {((request as any).year && (request as any).sem && (request as any).div)
+                            ? `${(request as any).year} • Sem ${(request as any).sem} • Div ${(request as any).div}`
+                            : (request.department || '')}
+                        </p>
                         <p className="text-xs text-gray-400">ID: {request.userId}</p>
                       </div>
                     </div>

@@ -30,15 +30,19 @@ const LoginForm: React.FC = () => {
     }
   };
 
-  const handleDemoLogin = async (role: 'hod' | 'teacher' | 'student' | 'admin' | 'cleaner' | 'peon' | 'lab-assistant' | 'security' | 'library-staff' | 'driver') => {
+  const handleDemoLogin = async (role: 'hod' | 'teacher' | 'student' | 'principal' | 'director' | 'registrar' | 'admin' | 'cleaner' | 'peon' | 'lab-assistant' | 'security' | 'library-staff' | 'driver') => {
     setError('');
     setSuccess('');
-    
+
     const demoCredentials = {
       hod: { email: 'hodcse@gmail.com', password: 'hodcse2025@attendance' },
       teacher: { email: 'sarah.johnson@dypsn.edu', password: '9876543211' },
       student: { email: 'student.demo@dypsn.edu', password: '9876543210' },
-      admin: { email: 'admin@dypsn.edu', password: '9876543212' },
+      // Admin hierarchy: Principal > Director > Registrar > Admin
+      principal: { email: 'principal@dypsn.edu', password: 'principal@2025' },
+      director: { email: 'director@dypsn.edu', password: 'director@2025' },
+      registrar: { email: 'registrar@dypsn.edu', password: 'registrar@2025' },
+      admin: { email: 'admin@dypsn.edu', password: 'admin@2025' },
       cleaner: { email: 'cleaner.demo@dypsn.edu', password: '9876543213' },
       peon: { email: 'peon.demo@dypsn.edu', password: '9876543214' },
       'lab-assistant': { email: 'labassistant.demo@dypsn.edu', password: '9876543215' },
@@ -50,7 +54,7 @@ const LoginForm: React.FC = () => {
     const credentials = demoCredentials[role];
     setEmail(credentials.email);
     setPassword(credentials.password);
-    
+
     try {
       await login(credentials.email, credentials.password);
       setSuccess(`Demo ${role.toUpperCase()} login successful!`);
@@ -65,12 +69,12 @@ const LoginForm: React.FC = () => {
       <div className="max-w-md w-full space-y-6">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mb-4 shadow-mobile">
+          <div className="mx-auto w-20 h-20 bg-sky-500 rounded-2xl flex items-center justify-center mb-4 shadow-mobile">
             <span className="text-white font-bold text-3xl">D</span>
           </div>
-          <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">DYPSN Portal</h2>
-          <p className="text-gray-600 text-sm lg:text-base">Digital Leave & Attendance System</p>
-          
+          <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2 font-heading">DYPSN Portal</h2>
+          <p className="text-gray-600 text-sm lg:text-base font-body">Digital Leave & Attendance System</p>
+
           {/* Mobile indicator */}
           <div className="mt-4 flex items-center justify-center space-x-2 text-xs text-gray-500">
             <Smartphone className="w-4 h-4" />
@@ -95,7 +99,7 @@ const LoginForm: React.FC = () => {
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="label-mobile">
                   Password
@@ -114,19 +118,19 @@ const LoginForm: React.FC = () => {
                   <span className="text-blue-600">Format: 10-digit number (e.g., 9876543210)</span>
                 </p>
               </div>
-              
+
               {error && (
                 <div className="error-mobile">
                   <p className="text-sm">{error}</p>
                 </div>
               )}
-              
+
               {success && (
                 <div className="success-mobile">
                   <p className="text-sm">{success}</p>
                 </div>
               )}
-              
+
               <button
                 type="submit"
                 disabled={isLoading}
@@ -172,39 +176,80 @@ const LoginForm: React.FC = () => {
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Quick Demo Access</h3>
               <p className="text-sm text-gray-600">Most commonly used demo accounts</p>
             </div>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => handleDemoLogin('admin')}
-                disabled={isLoading}
-                className="flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-red-600 to-pink-600 text-white font-medium rounded-lg hover:from-red-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-              >
-                <Shield className="w-4 h-4" />
-                <span>Admin</span>
-              </button>
 
-              <button
-                onClick={() => handleDemoLogin('hod')}
-                disabled={isLoading}
-                className="flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-medium rounded-lg hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-              >
-                <Crown className="w-4 h-4" />
-                <span>HOD</span>
-              </button>
+            {/* Admin Hierarchy Section */}
+            <div className="mb-4">
+              <h4 className="text-xs font-medium text-gray-500 mb-2 text-center uppercase tracking-wide">Admin Hierarchy</h4>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => handleDemoLogin('principal')}
+                  disabled={isLoading}
+                  className="flex items-center justify-center space-x-2 px-3 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 text-white text-sm font-medium rounded-lg hover:from-red-700 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
+                >
+                  <Crown className="w-4 h-4" />
+                  <span>Principal</span>
+                </button>
 
-              <button
-                onClick={() => handleDemoLogin('teacher')}
-                disabled={isLoading}
-                className="flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-green-600 to-teal-600 text-white font-medium rounded-lg hover:from-green-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-              >
-                <GraduationCap className="w-4 h-4" />
-                <span>Teacher</span>
-              </button>
+                <button
+                  onClick={() => handleDemoLogin('director')}
+                  disabled={isLoading}
+                  className="flex items-center justify-center space-x-2 px-3 py-2.5 bg-gradient-to-r from-purple-600 to-violet-600 text-white text-sm font-medium rounded-lg hover:from-purple-700 hover:to-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
+                >
+                  <Shield className="w-4 h-4" />
+                  <span>Director</span>
+                </button>
 
+                <button
+                  onClick={() => handleDemoLogin('registrar')}
+                  disabled={isLoading}
+                  className="flex items-center justify-center space-x-2 px-3 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
+                >
+                  <GraduationCap className="w-4 h-4" />
+                  <span>Registrar</span>
+                </button>
+
+                <button
+                  onClick={() => handleDemoLogin('admin')}
+                  disabled={isLoading}
+                  className="flex items-center justify-center space-x-2 px-3 py-2.5 bg-gradient-to-r from-gray-600 to-slate-600 text-white text-sm font-medium rounded-lg hover:from-gray-700 hover:to-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
+                >
+                  <Wrench className="w-4 h-4" />
+                  <span>Admin</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Faculty Section */}
+            <div className="mb-4">
+              <h4 className="text-xs font-medium text-gray-500 mb-2 text-center uppercase tracking-wide">Faculty</h4>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => handleDemoLogin('hod')}
+                  disabled={isLoading}
+                  className="flex items-center justify-center space-x-2 px-3 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white text-sm font-medium rounded-lg hover:from-amber-700 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
+                >
+                  <Crown className="w-4 h-4" />
+                  <span>HOD</span>
+                </button>
+
+                <button
+                  onClick={() => handleDemoLogin('teacher')}
+                  disabled={isLoading}
+                  className="flex items-center justify-center space-x-2 px-3 py-2.5 bg-gradient-to-r from-green-600 to-teal-600 text-white text-sm font-medium rounded-lg hover:from-green-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
+                >
+                  <GraduationCap className="w-4 h-4" />
+                  <span>Teacher</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Student Section */}
+            <div>
+              <h4 className="text-xs font-medium text-gray-500 mb-2 text-center uppercase tracking-wide">Student</h4>
               <button
                 onClick={() => handleDemoLogin('student')}
                 disabled={isLoading}
-                className="flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
+                className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
               >
                 <User className="w-4 h-4" />
                 <span>Student</span>
@@ -220,12 +265,12 @@ const LoginForm: React.FC = () => {
               <h3 className="text-lg font-semibold text-gray-900 mb-2">All Demo Accounts</h3>
               <p className="text-sm text-gray-600">Complete list of available demo accounts</p>
             </div>
-            
+
             <div className="space-y-3">
               {/* Non-Teaching Staff Demo Buttons */}
               <div>
                 <h4 className="text-sm font-medium text-gray-700 mb-3 text-center">Non-Teaching Staff</h4>
-                
+
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => handleDemoLogin('cleaner')}
@@ -286,7 +331,7 @@ const LoginForm: React.FC = () => {
 
             <div className="mt-4 p-3 bg-gray-50 rounded-lg">
               <p className="text-xs text-gray-600 text-center">
-                <strong>Note:</strong> Demo accounts are for testing purposes only. 
+                <strong>Note:</strong> Demo accounts are for testing purposes only.
                 Some demo accounts may not be available if not set up in the system.
               </p>
             </div>

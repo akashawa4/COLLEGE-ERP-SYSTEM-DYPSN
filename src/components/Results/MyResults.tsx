@@ -3,6 +3,7 @@ import { resultService, subjectService } from '../../firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
 import { ResultRecord } from '../../types';
 import { getDepartmentCode } from '../../utils/departmentMapping';
+import { injectDummyData, getDummyDataForUser, USE_DUMMY_DATA } from '../../utils/dummyData';
 
 const EXAM_TYPES = ['UT1', 'UT2', 'Practical', 'Viva', 'Midterm', 'Endsem'];
 
@@ -13,14 +14,20 @@ const MyResults: React.FC = () => {
   const [loading, setLoading] = React.useState<boolean>(true);
   const [availableSubjects, setAvailableSubjects] = React.useState<string[]>([]);
   const [subjectsLoading, setSubjectsLoading] = React.useState<boolean>(false);
-  const [selectedSubject, setSelectedSubject] = React.useState<string>('Advanced Database Systems');
-  const [selectedExamType, setSelectedExamType] = React.useState<string>('UT1');
+  const [selectedSubject, setSelectedSubject] = React.useState<string>('All');
+  const [selectedExamType, setSelectedExamType] = React.useState<string>('All');
 
   React.useEffect(() => {
     const run = async () => {
       if (!user) return;
       setLoading(true);
-      const data = await resultService.getMyResults(user.id);
+      let data: ResultRecord[] = [];
+      if (USE_DUMMY_DATA) {
+        data = getDummyDataForUser(user.id).results;
+      } else {
+        data = await resultService.getMyResults(user.id);
+      }
+      data = injectDummyData.results(data);
       setResults(data);
       setFilteredResults(data);
       setLoading(false);
@@ -52,11 +59,14 @@ const MyResults: React.FC = () => {
   React.useEffect(() => {
     let filtered = results;
     
-    // Only show results if both subject and exam type are selected
-    if (selectedSubject && selectedExamType) {
-      filtered = filtered.filter(r => r.subject === selectedSubject && r.examType === selectedExamType);
-    } else {
-      filtered = []; // Show no results if filters are not complete
+    // Filter by subject if selected and not "All"
+    if (selectedSubject && selectedSubject !== 'All') {
+      filtered = filtered.filter(r => r.subject === selectedSubject);
+    }
+    
+    // Filter by exam type if selected and not "All"
+    if (selectedExamType && selectedExamType !== 'All') {
+      filtered = filtered.filter(r => r.examType === selectedExamType);
     }
     
     setFilteredResults(filtered);
@@ -97,6 +107,7 @@ const MyResults: React.FC = () => {
             className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
             disabled={subjectsLoading}
           >
+            <option value="All">All Subjects</option>
             {subjectsLoading ? (
               <option value="">Loading subjects...</option>
             ) : availableSubjects.length > 0 ? (
@@ -115,6 +126,7 @@ const MyResults: React.FC = () => {
             onChange={(e) => setSelectedExamType(e.target.value)}
             className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
           >
+            <option value="All">All Exam Types</option>
             {EXAM_TYPES.map(type => (
               <option key={type} value={type}>{type}</option>
             ))}
