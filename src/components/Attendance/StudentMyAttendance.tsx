@@ -485,7 +485,7 @@ const StudentMyAttendance: React.FC = () => {
               className="flex items-center justify-center space-x-2 px-3 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm touch-manipulation transition-colors"
             >
               <Download className="w-4 h-4" />
-              <span>{exporting ? 'Exporting...' : 'Export Daily'}</span>
+              <span>{exporting ? 'Downloading...' : 'Download Report'}</span>
             </button>
             
             <button 
@@ -494,7 +494,7 @@ const StudentMyAttendance: React.FC = () => {
               className="flex items-center justify-center space-x-2 px-3 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm touch-manipulation transition-colors"
             >
               <Download className="w-4 h-4" />
-              <span>{exporting ? 'Exporting...' : 'Month Report'}</span>
+              <span>{exporting ? 'Downloading...' : 'Download Report'}</span>
             </button>
             
             <button 
@@ -512,7 +512,7 @@ const StudentMyAttendance: React.FC = () => {
       {/* Custom Range Inputs - Mobile Optimized */}
       {showCustomRangeInputs && (
         <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 mt-4 shadow-sm">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">Export Custom Date Range</h3>
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">Download Custom Date Range Report</h3>
           <div className="space-y-4">
             <div>
               <label htmlFor="customRangeFrom" className="block text-sm font-medium text-gray-700 mb-2">From Date</label>
@@ -554,7 +554,7 @@ const StudentMyAttendance: React.FC = () => {
               className="w-full sm:w-auto flex items-center justify-center space-x-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-colors touch-manipulation"
             >
               <Download className="w-4 h-4" />
-              <span>{exporting ? 'Exporting...' : 'Export Custom Range'}</span>
+              <span>{exporting ? 'Downloading...' : 'Download Report'}</span>
             </button>
           </div>
         </div>

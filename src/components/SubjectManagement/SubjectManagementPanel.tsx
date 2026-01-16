@@ -16,6 +16,7 @@ import { Subject } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { getDepartmentCode } from '../../utils/departmentMapping';
 import { getAvailableSemesters, formatYear, isValidSemesterForYear, getDefaultSemesterForYear } from '../../utils/semesterMapping';
+import { injectDummyData, USE_DUMMY_DATA } from '../../utils/dummyData';
 
 interface SubjectFormData {
   subjectCode: string;
@@ -36,8 +37,8 @@ const SubjectManagementPanel: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('all');
-  const [filterYear, setFilterYear] = useState('1'); // Default to Year 1 (where subjects exist)
-  const [filterSem, setFilterSem] = useState('2'); // Default to Semester 2 (where subjects exist)
+  const [filterYear, setFilterYear] = useState('1'); // Default to Year 1
+  const [filterSem, setFilterSem] = useState('1'); // Default to Semester 1
   const [filterDiv, setFilterDiv] = useState('A'); // Default to Division A
   const [availableSemesters, setAvailableSemesters] = useState<string[]>(getAvailableSemesters('1'));
   const [formAvailableSemesters, setFormAvailableSemesters] = useState<string[]>(getAvailableSemesters('1'));
@@ -53,7 +54,7 @@ const SubjectManagementPanel: React.FC = () => {
     subjectType: 'Theory',
     department: 'CSE',
     year: '1', // Default to Year 1
-    sem: '2' // Default to Semester 2
+    sem: '1' // Default to Semester 1
   });
 
   const departments = ['CSE', 'IT', 'ECE', 'EEE', 'ME', 'CE', 'AI&ML', 'Data Science'];
@@ -139,6 +140,47 @@ const SubjectManagementPanel: React.FC = () => {
 
       console.log('[SubjectManagement] Raw subjects data:', subjectsData.length, subjectsData);
 
+      // Inject dummy data if enabled and real data is empty
+      if (USE_DUMMY_DATA && subjectsData.length === 0) {
+        console.log('[SubjectManagement] No real data found, injecting dummy data');
+        const allDummySubjects = injectDummyData.subjects([]);
+        
+        // Filter dummy subjects by department, year, and semester
+        const deptName = user?.department || 'Computer Science';
+        const yearMapping: Record<string, string> = {
+          '1': '1st',
+          '2': '2nd',
+          '3': '3rd',
+          '4': '4th'
+        };
+        const targetYear = yearMapping[filterYear] || mappedYear;
+        
+        subjectsData = allDummySubjects.filter(subject => {
+          // Match department (handle both full name and code)
+          const subjectDept = subject.department || '';
+          const matchesDept = subjectDept === deptName || 
+                             subjectDept === deptCode ||
+                             (deptCode === 'CSE' && subjectDept === 'Computer Science') ||
+                             (deptCode === 'IT' && subjectDept === 'Information Technology') ||
+                             (deptCode === 'ME' && subjectDept === 'Mechanical') ||
+                             (deptCode === 'EE' && subjectDept === 'Electronics') ||
+                             (deptCode === 'CE' && subjectDept === 'Civil');
+          
+          // Match year
+          const matchesYear = subject.year === targetYear || subject.year === mappedYear;
+          
+          // Match semester
+          const matchesSem = subject.sem === filterSem;
+          
+          // Match division (if specified)
+          const matchesDiv = !filterDiv || filterDiv === 'all' || subject.div === filterDiv;
+          
+          return matchesDept && matchesYear && matchesSem && matchesDiv;
+        });
+        
+        console.log('[SubjectManagement] Filtered dummy subjects:', subjectsData.length, subjectsData);
+      }
+
       // Apply type filter (client-side for both roles)
       if (filterType) {
         subjectsData = subjectsData.filter(subject => subject.subjectType === filterType);
@@ -148,6 +190,31 @@ const SubjectManagementPanel: React.FC = () => {
       return subjectsData;
     } catch (error) {
       console.error('[SubjectManagement] Error loading subjects:', error);
+      // Return dummy data on error if enabled
+      if (USE_DUMMY_DATA) {
+        const allDummySubjects = injectDummyData.subjects([]);
+        const deptName = user?.department || 'Computer Science';
+        const yearMapping: Record<string, string> = {
+          '1': '1st',
+          '2': '2nd',
+          '3': '3rd',
+          '4': '4th'
+        };
+        const targetYear = yearMapping[filterYear] || formatYear(filterYear);
+        
+        return allDummySubjects.filter(subject => {
+          const subjectDept = subject.department || '';
+          const matchesDept = subjectDept === deptName || 
+                             (getDepartmentCode(deptName) === 'CSE' && subjectDept === 'Computer Science') ||
+                             (getDepartmentCode(deptName) === 'IT' && subjectDept === 'Information Technology') ||
+                             (getDepartmentCode(deptName) === 'ME' && subjectDept === 'Mechanical') ||
+                             (getDepartmentCode(deptName) === 'EE' && subjectDept === 'Electronics') ||
+                             (getDepartmentCode(deptName) === 'CE' && subjectDept === 'Civil');
+          const matchesYear = subject.year === targetYear;
+          const matchesSem = subject.sem === filterSem;
+          return matchesDept && matchesYear && matchesSem;
+        });
+      }
       return [];
     }
   };
@@ -429,7 +496,7 @@ const SubjectManagementPanel: React.FC = () => {
             className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-colors text-sm font-medium"
           >
             <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">Export</span>
+            <span className="hidden sm:inline">Download Report</span>
           </button>
 
           <button

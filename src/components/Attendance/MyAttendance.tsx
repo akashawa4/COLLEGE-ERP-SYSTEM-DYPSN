@@ -589,13 +589,13 @@ const MyAttendance: React.FC = () => {
         {/* Export/Download Controls */}
         <button onClick={handleDownloadMonth} disabled={exporting} className="flex items-center space-x-1 px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 h-9 disabled:opacity-50">
           <Download className="w-4 h-4" />
-          <span>{exporting ? 'Exporting...' : 'Export Month'}</span>
+          <span>{exporting ? 'Downloading...' : 'Download Report'}</span>
         </button>
         <div className="flex items-center space-x-1">
           <input type="date" value={customRange.from} onChange={e => setCustomRange(r => ({...r, from: e.target.value}))} className="border rounded px-1 text-xs h-9" />
           <span>-</span>
           <input type="date" value={customRange.to} onChange={e => setCustomRange(r => ({...r, to: e.target.value}))} className="border rounded px-1 text-xs h-9" />
-          <button onClick={handleDownloadCustom} disabled={exporting} className="px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs h-9 disabled:opacity-50">{exporting ? 'Exporting...' : 'Export Custom'}</button>
+          <button onClick={handleDownloadCustom} disabled={exporting} className="px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs h-9 disabled:opacity-50">{exporting ? 'Downloading...' : 'Download Report'}</button>
         </div>
       </div>
       {/* Page Title and rest of the content */}

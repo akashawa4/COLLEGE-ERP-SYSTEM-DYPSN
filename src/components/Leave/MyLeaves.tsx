@@ -530,7 +530,7 @@ const MyLeaves: React.FC = () => {
           onClick={handleExportLeaves}
         >
           <Download className="w-4 h-4" />
-          <span>Export Leaves</span>
+          <span>Download Report</span>
         </button>
       </div>
       {/* Year/Sem/Div dropdowns for teacher/HOD only - Mobile Optimized */}

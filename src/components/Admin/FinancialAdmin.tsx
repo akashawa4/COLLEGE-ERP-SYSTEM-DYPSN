@@ -470,7 +470,7 @@ const FinancialAdmin: React.FC = () => {
                 <div className="flex space-x-3 mt-4 sm:mt-0">
                   <button className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
                     <Download className="w-4 h-4 mr-2" />
-                    Export
+                    Download Report
                   </button>
                 </div>
               </div>
@@ -594,7 +594,7 @@ const FinancialAdmin: React.FC = () => {
                 <div className="flex space-x-3 mt-4 sm:mt-0">
                   <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                     <Download className="w-4 h-4 mr-2" />
-                    Export Ledger
+                    Download Report
                   </button>
                 </div>
               </div>

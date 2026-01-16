@@ -3201,6 +3201,137 @@ export const attendanceService = {
 
     console.log(`🎉 ULTRA-FAST parallel export completed successfully!`);
     return result;
+  },
+
+  // Edit attendance with reason
+  async editAttendance(
+    attendanceId: string,
+    attendanceData: AttendanceLog,
+    newStatus: 'present' | 'absent' | 'late' | 'leave' | 'half-day',
+    reason: string,
+    editedBy: string,
+    editedByName: string
+  ): Promise<void> {
+    if (!reason || reason.trim().length === 0) {
+      throw new Error('Reason is required to edit attendance');
+    }
+
+    const { year, sem, div, subject, date, userId, userName, rollNumber, status: oldStatus } = attendanceData;
+    
+    if (!year || !sem || !div || !subject || !date) {
+      throw new Error('Missing required attendance data');
+    }
+
+    // Ensure date is a string in YYYY-MM-DD format
+    let dateString = '';
+    if (typeof date === 'string') {
+      dateString = date.length > 10 ? date.split('T')[0] : date;
+    } else if (date instanceof Date) {
+      dateString = date.toISOString().split('T')[0];
+    } else if (date && typeof date === 'object' && typeof (date as any).toDate === 'function') {
+      dateString = (date as any).toDate().toISOString().split('T')[0];
+    }
+
+    const dateObj = new Date(dateString);
+    const batch = getBatchYear(year);
+    const department = (attendanceData as any).department || DEPARTMENTS.CSE;
+    const studentYear = (attendanceData as any).studentYear || year;
+    
+    // Update or create attendance record
+    const collectionPath = buildBatchPath.attendance(batch, department, studentYear, sem, div, subject, dateObj);
+    const attendanceRef = doc(collection(db, collectionPath), attendanceId);
+    
+    // Check if attendance exists
+    const attendanceDoc = await getDoc(attendanceRef);
+    const wasEdited = attendanceDoc.exists() && (attendanceDoc.data()?.isEdited || false);
+    const previousStatus = attendanceDoc.exists() ? (attendanceDoc.data()?.status || oldStatus || 'absent') : (oldStatus || 'absent');
+    
+    // Use setDoc with merge to create or update
+    await setDoc(attendanceRef, {
+      ...attendanceData,
+      id: attendanceId,
+      status: newStatus,
+      isEdited: true,
+      editedAt: serverTimestamp(),
+      editedBy: editedBy,
+      updatedAt: serverTimestamp(),
+      batchYear: batch,
+      department: department,
+      rollNumber: rollNumber || userId,
+      userName: userName || '',
+      date: dateString,
+      createdAt: attendanceDoc.exists() ? attendanceDoc.data()?.createdAt : serverTimestamp()
+    }, { merge: true });
+
+    // Save edit reason to editAttendance collection
+    const editReasonData = {
+      attendanceId,
+      userId,
+      userName: userName || '',
+      rollNumber: rollNumber || userId,
+      oldStatus: previousStatus,
+      newStatus,
+      reason: reason.trim(),
+      date: dateString,
+      subject,
+      year,
+      sem,
+      div,
+      editedBy,
+      editedByName,
+      editedAt: serverTimestamp(),
+      createdAt: serverTimestamp()
+    };
+
+    const editReasonRef = doc(collection(db, 'editAttendance'));
+    await setDoc(editReasonRef, editReasonData);
+  },
+
+  // Get edit reason for attendance
+  async getEditReason(attendanceId: string): Promise<any | null> {
+    try {
+      const editReasonRef = collection(db, 'editAttendance');
+      const q = query(editReasonRef, where('attendanceId', '==', attendanceId), orderBy('editedAt', 'desc'), limit(1));
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        return null;
+      }
+      
+      return {
+        id: querySnapshot.docs[0].id,
+        ...querySnapshot.docs[0].data()
+      };
+    } catch (error) {
+      console.error('[attendanceService] Error getting edit reason:', error);
+      return null;
+    }
+  },
+
+  // Get all edit reasons for a student
+  async getEditReasonsByStudent(
+    rollNumber: string,
+    year?: string,
+    sem?: string,
+    div?: string
+  ): Promise<any[]> {
+    try {
+      const editReasonRef = collection(db, 'editAttendance');
+      let q = query(editReasonRef, where('rollNumber', '==', rollNumber), orderBy('editedAt', 'desc'));
+      
+      if (year) {
+        q = query(editReasonRef, where('rollNumber', '==', rollNumber), where('year', '==', year), orderBy('editedAt', 'desc'));
+      }
+      
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (error) {
+      console.error('[attendanceService] Error getting edit reasons:', error);
+      return [];
+    }
   }
 };
 
@@ -4362,6 +4493,185 @@ export const batchMigrationService = {
     } catch (error) {
       console.error('[batchMigrationService] Error checking migration status:', error);
       return { migrated: false };
+    }
+  }
+};
+
+// Dummy Data Population Service
+export const dummyDataService = {
+  // Populate dummy students to Firestore in batch structure
+  async populateDummyStudentsToFirestore(batch: string = '2026'): Promise<{ success: boolean; added: number; errors: string[] }> {
+    try {
+      console.log(`[dummyDataService] Starting to populate dummy students to batch ${batch}...`);
+      const errors: string[] = [];
+      let added = 0;
+      
+      // Import dummy students
+      const { dummyStudents } = await import('../utils/dummyData');
+      
+      // Group students by batch path to optimize writes
+      const studentsByPath: { [path: string]: User[] } = {};
+      
+      for (const student of dummyStudents) {
+        if (!student.year || !student.sem || !student.div || !student.rollNumber) {
+          errors.push(`Skipping student ${student.id}: missing year, sem, div, or rollNumber`);
+          continue;
+        }
+        
+        try {
+          // Get department code from department name
+          const deptCode = getDepartmentCode(student.department);
+          
+          // Build batch path: students/batch/{batch}/{department}/year/{year}/sems/{sem}/divs/{div}/students
+          const batchPath = buildBatchPath.student(batch, deptCode, student.year, student.sem, student.div);
+          
+          // Group by path for batch writes
+          if (!studentsByPath[batchPath]) {
+            studentsByPath[batchPath] = [];
+          }
+          studentsByPath[batchPath].push(student);
+        } catch (error) {
+          errors.push(`Error processing student ${student.id}: ${(error as any).message}`);
+        }
+      }
+      
+      // Write students in batches (Firestore batch limit is 500)
+      for (const [path, students] of Object.entries(studentsByPath)) {
+        try {
+          let currentBatch = writeBatch(db);
+          let batchCount = 0;
+          
+          for (const student of students) {
+            const studentRef = doc(db, path, student.rollNumber || student.id);
+            
+            // Prepare student data with timestamps
+            const studentData: any = {
+              ...student,
+              batchYear: batch,
+              department: student.department,
+              updatedAt: serverTimestamp()
+            };
+            
+            // Add createdAt if available
+            if (student.createdAt) {
+              try {
+                studentData.createdAt = Timestamp.fromDate(new Date(student.createdAt));
+              } catch {
+                studentData.createdAt = serverTimestamp();
+              }
+            } else {
+              studentData.createdAt = serverTimestamp();
+            }
+            
+            // Add lastLogin if available
+            if (student.lastLogin) {
+              try {
+                studentData.lastLogin = Timestamp.fromDate(new Date(student.lastLogin));
+              } catch {
+                // Skip lastLogin if invalid
+              }
+            }
+            
+            currentBatch.set(studentRef, studentData, { merge: true });
+            batchCount++;
+            
+            // Firestore batch limit is 500, commit and start new batch if needed
+            if (batchCount >= 500) {
+              await currentBatch.commit();
+              added += batchCount;
+              batchCount = 0;
+              currentBatch = writeBatch(db);
+            }
+          }
+          
+          // Commit remaining writes
+          if (batchCount > 0) {
+            await currentBatch.commit();
+            added += batchCount;
+          }
+          
+          console.log(`[dummyDataService] Added ${students.length} students to path: ${path}`);
+        } catch (error) {
+          errors.push(`Error writing students to path ${path}: ${(error as any).message}`);
+          console.error(`[dummyDataService] Error writing to ${path}:`, error);
+        }
+      }
+      
+      console.log(`[dummyDataService] Populated ${added} dummy students to batch ${batch}`);
+      return {
+        success: added > 0,
+        added,
+        errors
+      };
+    } catch (error) {
+      console.error('[dummyDataService] Error populating dummy students:', error);
+      return {
+        success: false,
+        added: 0,
+        errors: [`Failed to populate dummy students: ${(error as any).message}`]
+      };
+    }
+  },
+  
+  // Populate dummy subjects to Firestore
+  async populateDummySubjectsToFirestore(batch: string = '2026'): Promise<{ success: boolean; added: number; errors: string[] }> {
+    try {
+      console.log(`[dummyDataService] Starting to populate dummy subjects to batch ${batch}...`);
+      const errors: string[] = [];
+      let added = 0;
+      
+      // Import dummy subjects
+      const { dummySubjects } = await import('../utils/dummyData');
+      
+      // Group subjects by path
+      const subjectsByPath: { [path: string]: Subject[] } = {};
+      
+      for (const subject of dummySubjects) {
+        try {
+          const deptCode = getDepartmentCode(subject.department);
+          const path = `${COLLECTIONS.SUBJECTS}/${batch}/${deptCode}/year/${subject.year}/sems/${subject.sem}`;
+          
+          if (!subjectsByPath[path]) {
+            subjectsByPath[path] = [];
+          }
+          subjectsByPath[path].push(subject);
+        } catch (error) {
+          errors.push(`Error processing subject ${subject.id}: ${(error as any).message}`);
+        }
+      }
+      
+      // Write subjects
+      for (const [path, subjects] of Object.entries(subjectsByPath)) {
+        try {
+          for (const subject of subjects) {
+            const subjectRef = doc(db, path, subject.id);
+            await setDoc(subjectRef, {
+              ...subject,
+              batch: batch,
+              updatedAt: serverTimestamp(),
+              createdAt: subject.createdAt ? Timestamp.fromDate(new Date(subject.createdAt)) : serverTimestamp()
+            }, { merge: true });
+            added++;
+          }
+          console.log(`[dummyDataService] Added ${subjects.length} subjects to path: ${path}`);
+        } catch (error) {
+          errors.push(`Error writing subjects to path ${path}: ${(error as any).message}`);
+        }
+      }
+      
+      console.log(`[dummyDataService] Populated ${added} dummy subjects to batch ${batch}`);
+      return {
+        success: added > 0,
+        added,
+        errors
+      };
+    } catch (error) {
+      console.error('[dummyDataService] Error populating dummy subjects:', error);
+      return {
+        success: false,
+        added: 0,
+        errors: [`Failed to populate dummy subjects: ${(error as any).message}`]
+      };
     }
   }
 };

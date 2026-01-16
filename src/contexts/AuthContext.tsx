@@ -486,6 +486,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const ensureDemoUsersInFirestore = async () => {
     console.log('[AuthContext] Ensuring demo users are in Firestore...');
+    
+    // Populate dummy students to Firestore in batch structure
+    try {
+      const { dummyDataService, getCurrentBatchYear } = await import('../firebase/firestore');
+      const batch = getCurrentBatchYear();
+      console.log(`[AuthContext] Populating dummy students to batch ${batch}...`);
+      const result = await dummyDataService.populateDummyStudentsToFirestore(batch);
+      if (result.success) {
+        console.log(`[AuthContext] Successfully populated ${result.added} dummy students`);
+      } else {
+        console.warn(`[AuthContext] Failed to populate dummy students:`, result.errors);
+      }
+    } catch (error) {
+      console.error('[AuthContext] Error populating dummy students:', error);
+    }
 
     // Demo users data
     const demoUsers = [

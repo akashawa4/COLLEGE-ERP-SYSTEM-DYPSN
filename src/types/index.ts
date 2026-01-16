@@ -111,6 +111,29 @@ export interface AttendanceLog {
   sem?: string;
   div?: string;
   studentYear?: string; // Student's academic year (2nd, 3rd, 4th) for batch path
+  isEdited?: boolean; // Flag to indicate if attendance was edited
+  editedAt?: any; // Firestore timestamp when edited
+  editedBy?: string; // User ID who edited
+}
+
+export interface EditAttendanceReason {
+  id: string;
+  attendanceId: string;
+  userId: string;
+  userName: string;
+  rollNumber?: string;
+  oldStatus: 'present' | 'absent' | 'late' | 'leave' | 'half-day';
+  newStatus: 'present' | 'absent' | 'late' | 'leave' | 'half-day';
+  reason: string;
+  date: string;
+  subject?: string;
+  year?: string;
+  sem?: string;
+  div?: string;
+  editedBy: string;
+  editedByName: string;
+  editedAt: any; // Firestore timestamp
+  createdAt: any; // Firestore timestamp
 }
 
 export interface LeaveBalance {

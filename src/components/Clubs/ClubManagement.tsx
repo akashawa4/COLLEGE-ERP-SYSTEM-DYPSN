@@ -663,8 +663,8 @@ const ClubManagement: React.FC = () => {
           {/* Footer - Fixed */}
           <div className="p-5 border-t flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 flex-shrink-0">
             <div className="flex items-center gap-2">
-              <button onClick={() => exportMembersCSV(club.id)} className="px-3 py-2 bg-blue-600 text-white rounded-md flex items-center gap-2" aria-label="Export members">
-                <BookOpen className="w-4 h-4" /> Export Members
+              <button onClick={() => exportMembersCSV(club.id)} className="px-3 py-2 bg-blue-600 text-white rounded-md flex items-center gap-2" aria-label="Download report">
+                <BookOpen className="w-4 h-4" /> Download Report
               </button>
               <button onClick={() => openMembersModal(club.id)} className="px-3 py-2 bg-green-600 text-white rounded-md flex items-center gap-2" aria-label="Manage members">
                 <UserPlus className="w-4 h-4" /> Manage Members
@@ -702,7 +702,7 @@ const ClubManagement: React.FC = () => {
             </div>
             <div className="flex items-center gap-2">
               <button onClick={() => exportMembersCSV(clubId)} className="px-3 py-2 bg-blue-600 text-white rounded-md flex items-center gap-2">
-                <BookOpen className="w-4 h-4" /> Export CSV
+                <BookOpen className="w-4 h-4" /> Download Report
               </button>
               <button onClick={() => { openAddMemberForm(clubId); }} className="px-3 py-2 bg-green-600 text-white rounded-md flex items-center gap-2">
                 <UserPlus className="w-4 h-4" /> Add Member

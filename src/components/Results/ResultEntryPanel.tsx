@@ -499,7 +499,7 @@ const ResultEntryPanel: React.FC = () => {
             onClick={handleExport}
             className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2.5 sm:py-2 rounded-lg hover:bg-indigo-700 touch-manipulation active:scale-95 transition-transform"
           >
-            <span className="text-sm font-medium">Export CSV</span>
+            <span className="text-sm font-medium">Download Report</span>
           </button>
           <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={onImportFile} />
         </div>

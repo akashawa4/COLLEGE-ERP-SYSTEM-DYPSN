@@ -970,7 +970,7 @@ const LibraryManagement: React.FC = () => {
             <Download className="w-5 h-5 text-blue-600" />
             <div className="text-left">
               <p className="font-medium text-gray-900">Book Inventory Report</p>
-              <p className="text-sm text-gray-600">Export complete book list</p>
+              <p className="text-sm text-gray-600">Download complete book list</p>
             </div>
           </button>
 
@@ -978,7 +978,7 @@ const LibraryManagement: React.FC = () => {
             <Download className="w-5 h-5 text-green-600" />
             <div className="text-left">
               <p className="font-medium text-gray-900">Member Report</p>
-              <p className="text-sm text-gray-600">Export member details</p>
+              <p className="text-sm text-gray-600">Download member details</p>
             </div>
           </button>
 
@@ -986,7 +986,7 @@ const LibraryManagement: React.FC = () => {
             <Download className="w-5 h-5 text-purple-600" />
             <div className="text-left">
               <p className="font-medium text-gray-900">Transaction Report</p>
-              <p className="text-sm text-gray-600">Export transaction history</p>
+              <p className="text-sm text-gray-600">Download transaction history</p>
             </div>
           </button>
         </div>

@@ -784,7 +784,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
                 className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 font-medium text-sm transition-colors"
               >
                 <Download size={16} />
-                <span>Export</span>
+                <span>Download Report</span>
               </button>
             </div>
           </div>
@@ -1315,7 +1315,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
         {showExportModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-              <h3 className="text-lg font-semibold mb-4 sticky top-0 bg-white pb-2">Export Student Data</h3>
+              <h3 className="text-lg font-semibold mb-4 sticky top-0 bg-white pb-2">Download Report</h3>
               <div className="space-y-4">
                 {/* Always show Year, Semester, Division dropdowns */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1358,7 +1358,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
                 </div>
                 {/* Export Type and other filters remain below */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Export Type</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Report Type</label>
                   <select
                     value={exportType}
                     onChange={(e) => setExportType(e.target.value as any)}
@@ -1428,16 +1428,16 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
                 )}
                 <div className="text-sm text-gray-600">
                   {exportType === 'basic' && (
-                    <p>Export basic student information including contact details and academic info.</p>
+                    <p>Download basic student information including contact details and academic info.</p>
                   )}
                   {exportType === 'monthly' && (
-                    <p>Export student attendance data for the selected month with attendance statistics.</p>
+                    <p>Download student attendance data for the selected month with attendance statistics.</p>
                   )}
                   {exportType === 'custom' && (
-                    <p>Export student attendance data for the custom date range with attendance statistics.</p>
+                    <p>Download student attendance data for the custom date range with attendance statistics.</p>
                   )}
                   {exportType === 'subject' && (
-                    <p>Export student attendance data for the selected subject for the current academic year.</p>
+                    <p>Download student attendance data for the selected subject for the current academic year.</p>
                   )}
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 sticky bottom-0 bg-white pt-2">
@@ -1453,7 +1453,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
                     disabled={exporting}
                     className="flex-1 bg-purple-600 text-white px-4 py-2.5 sm:py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 touch-manipulation active:scale-95 transition-transform"
                   >
-                    {exporting ? 'Exporting...' : 'Export'}
+                    {exporting ? 'Downloading...' : 'Download Report'}
                   </button>
                 </div>
               </div>

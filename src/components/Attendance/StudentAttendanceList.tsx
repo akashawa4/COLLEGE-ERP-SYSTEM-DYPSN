@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Calendar, Users, TrendingUp } from 'lucide-react';
+import { Download, Calendar, Users, TrendingUp, Edit2, X, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { userService, attendanceService, subjectService, batchAttendanceService, batchService, getCurrentBatchYear } from '../../firebase/firestore';
-import { User, AttendanceLog } from '../../types';
+import { User, AttendanceLog, EditAttendanceReason } from '../../types';
 import { saveAs } from 'file-saver';
 import { getDepartmentCode } from '../../utils/departmentMapping';
 import { getAvailableSemesters, isValidSemesterForYear, getDefaultSemesterForYear } from '../../utils/semesterMapping';
+import { injectDummyData, USE_DUMMY_DATA } from '../../utils/dummyData';
 
 const YEARS = ['1st', '2nd', '3rd', '4th'];
 const DIVS = ['A', 'B', 'C', 'D'];
@@ -45,6 +46,15 @@ const StudentAttendanceList: React.FC = () => {
   const [customRangeFrom, setCustomRangeFrom] = useState<string>('');
   const [customRangeTo, setCustomRangeTo] = useState<string>('');
   const [showCustomRangeInputs, setShowCustomRangeInputs] = useState(false);
+  
+  // Edit attendance states
+  const [editingAttendance, setEditingAttendance] = useState<{ student: User; attendance: AttendanceLog } | null>(null);
+  const [editReason, setEditReason] = useState<string>('');
+  const [newStatus, setNewStatus] = useState<'present' | 'absent' | 'late' | 'leave' | 'half-day'>('present');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showReasonModal, setShowReasonModal] = useState(false);
+  const [selectedEditReason, setSelectedEditReason] = useState<EditAttendanceReason | null>(null);
+  const [editReasons, setEditReasons] = useState<{ [attendanceId: string]: EditAttendanceReason }>({});
   
   // Available subjects and batches
   const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
@@ -109,14 +119,45 @@ const StudentAttendanceList: React.FC = () => {
           selectedDiv
         );
         
-        setStudents(studentsList);
+        // Inject dummy students if enabled and real data is empty
+        const finalStudents = injectDummyData.students(studentsList, {
+          year: selectedYear,
+          sem: selectedSem,
+          div: selectedDiv,
+          department: department
+        });
+        
+        setStudents(finalStudents);
         
         // Load subjects dynamically for selected filters
         try {
           setSubjectsLoading(true);
           const deptCode = getDepartmentCode(user.department);
           
-          const subs = await subjectService.getSubjectsByDepartment(deptCode, normalizeYear(selectedYear), selectedSem);
+          let subs = await subjectService.getSubjectsByDepartment(deptCode, normalizeYear(selectedYear), selectedSem);
+          
+          // Inject dummy subjects if enabled and real data is empty
+          if (USE_DUMMY_DATA && subs.length === 0) {
+            const allDummySubjects = injectDummyData.subjects([]);
+            const normalizedYear = normalizeYear(selectedYear);
+            
+            // Filter dummy subjects by department, year, and semester
+            subs = allDummySubjects.filter(subject => {
+              const subjectDept = subject.department || '';
+              const matchesDept = subjectDept === user.department || 
+                                 subjectDept === deptCode ||
+                                 (deptCode === 'CSE' && subjectDept === 'Computer Science') ||
+                                 (deptCode === 'IT' && subjectDept === 'Information Technology') ||
+                                 (deptCode === 'ME' && subjectDept === 'Mechanical') ||
+                                 (deptCode === 'EE' && subjectDept === 'Electronics') ||
+                                 (deptCode === 'CE' && subjectDept === 'Civil');
+              
+              const matchesYear = subject.year === normalizedYear || subject.year === selectedYear;
+              const matchesSem = subject.sem === selectedSem;
+              
+              return matchesDept && matchesYear && matchesSem;
+            });
+          }
           
           const names = subs.map(s => s.subjectName).sort();
           setAvailableSubjects(names);
@@ -124,7 +165,33 @@ const StudentAttendanceList: React.FC = () => {
             setSelectedSubject(names[0]);
           }
         } catch (e) {
-          setAvailableSubjects([]);
+          // On error, try to use dummy subjects if enabled
+          if (USE_DUMMY_DATA) {
+            const allDummySubjects = injectDummyData.subjects([]);
+            const deptCode = getDepartmentCode(user.department);
+            const normalizedYear = normalizeYear(selectedYear);
+            
+            const subs = allDummySubjects.filter(subject => {
+              const subjectDept = subject.department || '';
+              const matchesDept = subjectDept === user.department || 
+                                 (deptCode === 'CSE' && subjectDept === 'Computer Science') ||
+                                 (deptCode === 'IT' && subjectDept === 'Information Technology') ||
+                                 (deptCode === 'ME' && subjectDept === 'Mechanical') ||
+                                 (deptCode === 'EE' && subjectDept === 'Electronics') ||
+                                 (deptCode === 'CE' && subjectDept === 'Civil');
+              const matchesYear = subject.year === normalizedYear || subject.year === selectedYear;
+              const matchesSem = subject.sem === selectedSem;
+              return matchesDept && matchesYear && matchesSem;
+            });
+            
+            const names = subs.map(s => s.subjectName).sort();
+            setAvailableSubjects(names);
+            if (names.length > 0 && !names.includes(selectedSubject)) {
+              setSelectedSubject(names[0]);
+            }
+          } else {
+            setAvailableSubjects([]);
+          }
         } finally {
           setSubjectsLoading(false);
         }
@@ -273,7 +340,7 @@ const StudentAttendanceList: React.FC = () => {
         Promise.all(studentsWithRollNumbers.map(async (student) => {
           try {
             // Try to get attendance from regular attendance service
-            const studentAttendance = await attendanceService.getOrganizedAttendanceByUserAndDateRange(
+            let studentAttendance = await attendanceService.getOrganizedAttendanceByUserAndDateRange(
               student.rollNumber!,
               selectedYear,
               selectedSem,
@@ -283,12 +350,64 @@ const StudentAttendanceList: React.FC = () => {
               new Date(selectedDate)
             );
             
+            // Inject dummy attendance if enabled and real data is empty
+            if (USE_DUMMY_DATA && studentAttendance.length === 0) {
+              // Get all dummy attendance for this student, then filter by subject and date
+              const allDummyAttendance = injectDummyData.attendanceLogs([], {
+                year: selectedYear,
+                sem: selectedSem,
+                div: selectedDiv,
+                rollNumber: student.rollNumber
+              });
+              
+              // Filter by subject and date
+              studentAttendance = allDummyAttendance.filter(att => 
+                att.subject === selectedSubject && att.date === selectedDate
+              );
+              
+              // If still no attendance found, create a default one for the selected date
+              if (studentAttendance.length === 0) {
+                // Get a subject that matches
+                const allDummySubjects = injectDummyData.subjects([]);
+                const matchingSubject = allDummySubjects.find(s => 
+                  s.subjectName === selectedSubject &&
+                  s.year === selectedYear &&
+                  s.sem === selectedSem
+                );
+                
+                if (matchingSubject) {
+                  // Create a default attendance entry
+                  const rand = Math.random();
+                  let status: 'present' | 'absent' | 'late' = 'present';
+                  if (rand < 0.1) status = 'absent';
+                  else if (rand < 0.3) status = 'late';
+                  
+                  studentAttendance = [{
+                    id: `att_dummy_${student.id}_${selectedDate}`,
+                    userId: student.id,
+                    userName: student.name,
+                    date: selectedDate,
+                    status: status,
+                    subject: selectedSubject,
+                    year: selectedYear,
+                    sem: selectedSem,
+                    div: selectedDiv
+                  }];
+                }
+              }
+            }
+            
             // Calculate attendance statistics for selected date only
             const presentCount = studentAttendance.filter(a => a.status === 'present').length;
             const absentCount = studentAttendance.filter(a => a.status === 'absent').length;
             const totalDays = studentAttendance.length;
             const attendancePercentage = totalDays > 0 ? Math.round((presentCount / totalDays) * 100) : 0;
             
+            // Load edit reasons for this student's attendance
+            if (studentAttendance.length > 0) {
+              await loadEditReasons(studentAttendance);
+            }
+
             return {
               student,
               attendance: studentAttendance,
@@ -298,14 +417,64 @@ const StudentAttendanceList: React.FC = () => {
               attendancePercentage
             };
           } catch {
-            // Return student with zero attendance if there's an error
+            // Return student with dummy attendance if there's an error and dummy data is enabled
+            let attendance: AttendanceLog[] = [];
+            if (USE_DUMMY_DATA) {
+              // Get all dummy attendance for this student, then filter by subject and date
+              const allDummyAttendance = injectDummyData.attendanceLogs([], {
+                year: selectedYear,
+                sem: selectedSem,
+                div: selectedDiv,
+                rollNumber: student.rollNumber
+              });
+              
+              // Filter by subject and date
+              attendance = allDummyAttendance.filter(att => 
+                att.subject === selectedSubject && att.date === selectedDate
+              );
+              
+              // If still no attendance found, create a default one
+              if (attendance.length === 0) {
+                const allDummySubjects = injectDummyData.subjects([]);
+                const matchingSubject = allDummySubjects.find(s => 
+                  s.subjectName === selectedSubject &&
+                  s.year === selectedYear &&
+                  s.sem === selectedSem
+                );
+                
+                if (matchingSubject) {
+                  const rand = Math.random();
+                  let status: 'present' | 'absent' | 'late' = 'present';
+                  if (rand < 0.1) status = 'absent';
+                  else if (rand < 0.3) status = 'late';
+                  
+                  attendance = [{
+                    id: `att_dummy_${student.id}_${selectedDate}`,
+                    userId: student.id,
+                    userName: student.name,
+                    date: selectedDate,
+                    status: status,
+                    subject: selectedSubject,
+                    year: selectedYear,
+                    sem: selectedSem,
+                    div: selectedDiv
+                  }];
+                }
+              }
+            }
+            
+            const presentCount = attendance.filter(a => a.status === 'present').length;
+            const absentCount = attendance.filter(a => a.status === 'absent').length;
+            const totalDays = attendance.length;
+            const attendancePercentage = totalDays > 0 ? Math.round((presentCount / totalDays) * 100) : 0;
+            
             return {
               student,
-              attendance: [],
-              presentCount: 0,
-              absentCount: 0,
-              totalDays: 0,
-              attendancePercentage: 0
+              attendance,
+              presentCount,
+              absentCount,
+              totalDays,
+              attendancePercentage
             };
           }
         }))
@@ -353,11 +522,92 @@ const StudentAttendanceList: React.FC = () => {
       
       setStudentAttendanceData(finalResults);
       
+      // Load edit reasons for all attendance records
+      const allAttendanceRecords = finalResults.flatMap(result => result.attendance);
+      if (allAttendanceRecords.length > 0) {
+        await loadEditReasons(allAttendanceRecords);
+      }
+      
     } catch (error) {
       console.error('Error loading attendance data:', error);
       setStudentAttendanceData([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load edit reasons for attendance records
+  const loadEditReasons = async (attendanceRecords: AttendanceLog[]) => {
+    const reasonsMap: { [attendanceId: string]: EditAttendanceReason } = {};
+    for (const record of attendanceRecords) {
+      if (record.isEdited && record.id) {
+        try {
+          const reason = await attendanceService.getEditReason(record.id);
+          if (reason) {
+            reasonsMap[record.id] = reason;
+          }
+        } catch (error) {
+          console.error('Error loading edit reason:', error);
+        }
+      }
+    }
+    setEditReasons(reasonsMap);
+  };
+
+  // Handle edit attendance
+  const handleEditAttendance = (student: User, attendance: AttendanceLog) => {
+    setEditingAttendance({ student, attendance });
+    setNewStatus(attendance.status || 'present');
+    setEditReason('');
+    setShowEditModal(true);
+  };
+
+  // Submit edit attendance
+  const handleSubmitEdit = async () => {
+    if (!editingAttendance || !editReason.trim()) {
+      alert('Please provide a reason for editing attendance');
+      return;
+    }
+
+    try {
+      await attendanceService.editAttendance(
+        editingAttendance.attendance.id,
+        editingAttendance.attendance,
+        newStatus,
+        editReason.trim(),
+        user?.id || '',
+        user?.name || 'Unknown'
+      );
+
+      // Reload attendance data
+      await loadAttendanceData(students);
+      setShowEditModal(false);
+      setEditingAttendance(null);
+      setEditReason('');
+      alert('Attendance updated successfully');
+    } catch (error: any) {
+      alert(`Failed to update attendance: ${error.message}`);
+    }
+  };
+
+  // Show edit reason
+  const handleShowEditReason = async (attendanceId: string) => {
+    if (editReasons[attendanceId]) {
+      setSelectedEditReason(editReasons[attendanceId]);
+      setShowReasonModal(true);
+    } else {
+      try {
+        const reason = await attendanceService.getEditReason(attendanceId);
+        if (reason) {
+          setSelectedEditReason(reason);
+          setShowReasonModal(true);
+          setEditReasons({ ...editReasons, [attendanceId]: reason });
+        } else {
+          alert('No edit reason found');
+        }
+      } catch (error) {
+        alert('Failed to load edit reason');
+      }
     }
   };
 
@@ -835,7 +1085,7 @@ const StudentAttendanceList: React.FC = () => {
               className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-3 sm:px-4 py-2.5 sm:py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm min-w-[120px] touch-manipulation active:scale-95 transition-transform"
             >
               <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">{exporting ? 'Exporting...' : 'Export Daily'}</span>
+              <span className="hidden sm:inline">{exporting ? 'Downloading...' : 'Daily Report'}</span>
               <span className="sm:hidden">{exporting ? '...' : 'Daily'}</span>
             </button>
 
@@ -845,7 +1095,7 @@ const StudentAttendanceList: React.FC = () => {
               className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-3 sm:px-4 py-2.5 sm:py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm min-w-[150px] touch-manipulation active:scale-95 transition-transform"
             >
               <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">{exporting ? 'Exporting...' : 'Export Present Only'}</span>
+              <span className="hidden sm:inline">{exporting ? 'Downloading...' : 'Present Only'}</span>
               <span className="sm:hidden">{exporting ? '...' : 'Present'}</span>
             </button>
 
@@ -855,7 +1105,7 @@ const StudentAttendanceList: React.FC = () => {
               className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-3 sm:px-4 py-2.5 sm:py-2 bg-rose-600 text-white rounded-md hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm min-w-[150px] touch-manipulation active:scale-95 transition-transform"
             >
               <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">{exporting ? 'Exporting...' : 'Export Absent Only'}</span>
+              <span className="hidden sm:inline">{exporting ? 'Downloading...' : 'Absent Only'}</span>
               <span className="sm:hidden">{exporting ? '...' : 'Absent'}</span>
             </button>
             
@@ -865,8 +1115,8 @@ const StudentAttendanceList: React.FC = () => {
               className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-3 sm:px-4 py-2.5 sm:py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm min-w-[120px] touch-manipulation active:scale-95 transition-transform"
             >
               <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">{exporting ? 'Exporting...' : 'Month Report'}</span>
-              <span className="sm:hidden">{exporting ? '...' : 'Month'}</span>
+              <span className="hidden sm:inline">{exporting ? 'Downloading...' : 'Monthly Report'}</span>
+              <span className="sm:hidden">{exporting ? '...' : 'Monthly'}</span>
             </button>
             
             <button 
@@ -875,7 +1125,7 @@ const StudentAttendanceList: React.FC = () => {
               className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-3 sm:px-4 py-2.5 sm:py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm min-w-[120px] touch-manipulation active:scale-95 transition-transform"
             >
               <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">{showCustomRangeInputs ? 'Hide Custom Range' : 'Custom Range'}</span>
+              <span className="hidden sm:inline">{showCustomRangeInputs ? 'Hide Custom Range' : 'Custom Report'}</span>
               <span className="sm:hidden">{showCustomRangeInputs ? 'Hide' : 'Custom'}</span>
             </button>
           </div>
@@ -885,7 +1135,7 @@ const StudentAttendanceList: React.FC = () => {
       {/* Custom Range Inputs */}
       {showCustomRangeInputs && (
         <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 mt-4 shadow-sm">
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">Export Custom Date Range</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">Download Custom Date Range Report</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">From Date</label>
@@ -925,7 +1175,7 @@ const StudentAttendanceList: React.FC = () => {
               className="w-full sm:w-auto flex items-center justify-center space-x-2 px-4 py-2.5 sm:py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-colors touch-manipulation active:scale-95"
             >
               <Download className="w-4 h-4" />
-              <span>{exporting ? 'Exporting...' : 'Export Custom Range'}</span>
+              <span>{exporting ? 'Downloading...' : 'Download Report'}</span>
             </button>
           </div>
         </div>
@@ -1066,14 +1316,29 @@ const StudentAttendanceList: React.FC = () => {
                       <p className="text-xs text-gray-500">Roll No: {data.student.rollNumber}</p>
                     </div>
                   </div>
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                    data.presentCount > 0 ? 'bg-green-100 text-green-800' :
-                    data.absentCount > 0 ? 'bg-red-100 text-red-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {data.presentCount > 0 ? 'Present' :
-                     data.absentCount > 0 ? 'Absent' : 'Not Marked'}
-                  </span>
+                  <div className="flex flex-col items-end space-y-1">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      data.presentCount > 0 ? 'bg-green-100 text-green-800' :
+                      data.absentCount > 0 ? 'bg-red-100 text-red-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {data.presentCount > 0 ? 'Present' :
+                       data.absentCount > 0 ? 'Absent' : 'Not Marked'}
+                    </span>
+                    {data.attendance.some(a => a.isEdited) && (
+                      <button
+                        onClick={() => {
+                          const editedAtt = data.attendance.find(a => a.isEdited);
+                          if (editedAtt) handleShowEditReason(editedAtt.id);
+                        }}
+                        className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 hover:bg-amber-200"
+                        title="Click to view edit reason"
+                      >
+                        <Edit2 className="w-3 h-3 mr-1" />
+                        Edited
+                      </button>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="grid grid-cols-3 gap-3 text-center">
@@ -1092,7 +1357,7 @@ const StudentAttendanceList: React.FC = () => {
                 </div>
                 
                 <div className="mt-3 pt-3 border-t border-gray-100">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mb-2">
                     <span className="text-xs text-gray-600">Attendance %</span>
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                       data.attendancePercentage >= 75 ? 'bg-green-100 text-green-800' :
@@ -1102,6 +1367,30 @@ const StudentAttendanceList: React.FC = () => {
                       {data.attendancePercentage}%
                     </span>
                   </div>
+                  <button
+                    onClick={() => {
+                      // Create a default attendance record if none exists
+                      const attendanceRecord: AttendanceLog = data.attendance.length > 0 
+                        ? data.attendance[0]
+                        : {
+                            id: `${data.student.rollNumber}_${selectedDate}`,
+                            userId: data.student.id,
+                            userName: data.student.name,
+                            date: selectedDate,
+                            status: 'absent',
+                            subject: selectedSubject,
+                            year: selectedYear,
+                            sem: selectedSem,
+                            div: selectedDiv
+                          };
+                      handleEditAttendance(data.student, attendanceRecord);
+                    }}
+                    className="w-full mt-2 inline-flex items-center justify-center px-3 py-2 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded border border-blue-200"
+                    title="Edit attendance"
+                  >
+                    <Edit2 className="w-3 h-3 mr-1" />
+                    Edit Attendance
+                  </button>
                 </div>
               </div>
             ))}
@@ -1121,6 +1410,7 @@ const StudentAttendanceList: React.FC = () => {
                     <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Present</th>
                     <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Absent</th>
                     <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance %</th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -1133,14 +1423,29 @@ const StudentAttendanceList: React.FC = () => {
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">{data.student.rollNumber}</td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">{selectedSubject}</td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          data.presentCount > 0 ? 'bg-green-100 text-green-800' :
-                          data.absentCount > 0 ? 'bg-red-100 text-red-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {data.presentCount > 0 ? 'Present' :
-                           data.absentCount > 0 ? 'Absent' : 'Not Marked'}
-                        </span>
+                        <div className="flex items-center space-x-2">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            data.presentCount > 0 ? 'bg-green-100 text-green-800' :
+                            data.absentCount > 0 ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {data.presentCount > 0 ? 'Present' :
+                             data.absentCount > 0 ? 'Absent' : 'Not Marked'}
+                          </span>
+                          {data.attendance.some(a => a.isEdited) && (
+                            <button
+                              onClick={() => {
+                                const editedAtt = data.attendance.find(a => a.isEdited);
+                                if (editedAtt) handleShowEditReason(editedAtt.id);
+                              }}
+                              className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 hover:bg-amber-200 cursor-pointer"
+                              title="Click to view edit reason"
+                            >
+                              <Edit2 className="w-3 h-3 mr-1" />
+                              Edited
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                         <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
@@ -1161,6 +1466,32 @@ const StudentAttendanceList: React.FC = () => {
                           {data.attendancePercentage}%
                         </span>
                       </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
+                        <button
+                          onClick={() => {
+                            // Create a default attendance record if none exists
+                            const attendanceRecord: AttendanceLog = data.attendance.length > 0 
+                              ? data.attendance[0]
+                              : {
+                                  id: `${data.student.rollNumber}_${selectedDate}`,
+                                  userId: data.student.id,
+                                  userName: data.student.name,
+                                  date: selectedDate,
+                                  status: 'absent',
+                                  subject: selectedSubject,
+                                  year: selectedYear,
+                                  sem: selectedSem,
+                                  div: selectedDiv
+                                };
+                            handleEditAttendance(data.student, attendanceRecord);
+                          }}
+                          className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                          title="Edit attendance"
+                        >
+                          <Edit2 className="w-3 h-3 mr-1" />
+                          Edit
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1175,6 +1506,165 @@ const StudentAttendanceList: React.FC = () => {
         <div className="text-center py-8 sm:py-12 bg-white rounded-lg border border-gray-200">
           <p className="text-sm sm:text-base text-gray-600">No attendance data found for the selected date.</p>
           <p className="text-xs sm:text-sm text-gray-500 mt-2">Please check if attendance has been marked for the selected subject and date.</p>
+        </div>
+      )}
+
+      {/* Edit Attendance Modal */}
+      {showEditModal && editingAttendance && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Edit Attendance</h3>
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingAttendance(null);
+                  setEditReason('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">
+                <strong>Student:</strong> {editingAttendance.student.name}
+              </p>
+              <p className="text-sm text-gray-600 mb-2">
+                <strong>Roll No:</strong> {editingAttendance.student.rollNumber}
+              </p>
+              <p className="text-sm text-gray-600 mb-4">
+                <strong>Current Status:</strong> {editingAttendance.attendance.status}
+              </p>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                New Status <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={newStatus}
+                onChange={(e) => setNewStatus(e.target.value as any)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="present">Present</option>
+                <option value="absent">Absent</option>
+                <option value="late">Late</option>
+                <option value="leave">Leave</option>
+                <option value="half-day">Half Day</option>
+              </select>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Reason for Edit <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={editReason}
+                onChange={(e) => setEditReason(e.target.value)}
+                placeholder="Please provide a reason for editing this attendance..."
+                rows={4}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+              {!editReason.trim() && (
+                <p className="mt-1 text-xs text-red-600 flex items-center">
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  Reason is required to edit attendance
+                </p>
+              )}
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingAttendance(null);
+                  setEditReason('');
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitEdit}
+                disabled={!editReason.trim()}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Reason Modal */}
+      {showReasonModal && selectedEditReason && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Edit Reason</h3>
+              <button
+                onClick={() => {
+                  setShowReasonModal(false);
+                  setSelectedEditReason(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Student:</p>
+                <p className="text-sm text-gray-900">{selectedEditReason.userName}</p>
+              </div>
+              
+              <div>
+                <p className="text-sm font-medium text-gray-700">Status Change:</p>
+                <p className="text-sm text-gray-900">
+                  <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs mr-1">
+                    {selectedEditReason.oldStatus}
+                  </span>
+                  →
+                  <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs ml-1">
+                    {selectedEditReason.newStatus}
+                  </span>
+                </p>
+              </div>
+              
+              <div>
+                <p className="text-sm font-medium text-gray-700">Reason:</p>
+                <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-md">
+                  {selectedEditReason.reason}
+                </p>
+              </div>
+              
+              <div>
+                <p className="text-sm font-medium text-gray-700">Edited By:</p>
+                <p className="text-sm text-gray-900">{selectedEditReason.editedByName}</p>
+              </div>
+              
+              <div>
+                <p className="text-sm font-medium text-gray-700">Date:</p>
+                <p className="text-sm text-gray-900">{selectedEditReason.date}</p>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <button
+                onClick={() => {
+                  setShowReasonModal(false);
+                  setSelectedEditReason(null);
+                }}
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
