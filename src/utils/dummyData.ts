@@ -447,8 +447,9 @@ const generateAttendanceForLast5Days = (): AttendanceLog[] => {
           subject: subject.subjectName,
           year: student.year,
           sem: student.sem,
-          div: student.div
-        });
+          div: student.div,
+          rollNumber: student.rollNumber
+        } as AttendanceLog);
       }
     }
   }
@@ -1736,8 +1737,12 @@ export const injectDummyData = {
       if (filters.subject) filtered = filtered.filter(a => a.subject === filters.subject);
       if (filters.date) filtered = filtered.filter(a => a.date === filters.date);
       if (filters.rollNumber) {
-        const student = dummyStudents.find(s => s.rollNumber === filters.rollNumber);
-        if (student) filtered = filtered.filter(a => a.userId === student.id);
+        // Match by rollNumber directly if available in attendance log, otherwise match by student
+        filtered = filtered.filter(a => {
+          if ((a as any).rollNumber === filters.rollNumber) return true;
+          const student = dummyStudents.find(s => s.rollNumber === filters.rollNumber);
+          return student && a.userId === student.id;
+        });
       }
     }
     return filtered;

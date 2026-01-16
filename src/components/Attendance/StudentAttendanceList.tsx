@@ -360,46 +360,68 @@ const StudentAttendanceList: React.FC = () => {
                 rollNumber: student.rollNumber
               });
               
-              // Filter by subject and date
-              studentAttendance = allDummyAttendance.filter(att => 
-                att.subject === selectedSubject && att.date === selectedDate
-              );
+              // Normalize date format for comparison
+              const normalizeDate = (date: string | Date): string => {
+                if (typeof date === 'string') {
+                  return date.length > 10 ? date.split('T')[0] : date;
+                }
+                if (date instanceof Date) {
+                  return date.toISOString().split('T')[0];
+                }
+                return String(date);
+              };
+              
+              const normalizedSelectedDate = normalizeDate(selectedDate);
+              
+              // Filter by subject and date (normalize dates for comparison)
+              studentAttendance = allDummyAttendance.filter(att => {
+                const attDate = normalizeDate(att.date);
+                return att.subject === selectedSubject && attDate === normalizedSelectedDate;
+              });
               
               // If still no attendance found, create a default one for the selected date
               if (studentAttendance.length === 0) {
-                // Get a subject that matches
-                const allDummySubjects = injectDummyData.subjects([]);
-                const matchingSubject = allDummySubjects.find(s => 
-                  s.subjectName === selectedSubject &&
-                  s.year === selectedYear &&
-                  s.sem === selectedSem
-                );
+                // Create attendance with deterministic status based on rollNumber
+                // This ensures some students are present and some are absent
+                const rollNum = student.rollNumber || '';
+                const rollNumHash = rollNum.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                const statusValue = rollNumHash % 10;
                 
-                if (matchingSubject) {
-                  // Create a default attendance entry
-                  const rand = Math.random();
-                  let status: 'present' | 'absent' | 'late' = 'present';
-                  if (rand < 0.1) status = 'absent';
-                  else if (rand < 0.3) status = 'late';
-                  
-                  studentAttendance = [{
-                    id: `att_dummy_${student.id}_${selectedDate}`,
-                    userId: student.id,
-                    userName: student.name,
-                    date: selectedDate,
-                    status: status,
-                    subject: selectedSubject,
-                    year: selectedYear,
-                    sem: selectedSem,
-                    div: selectedDiv
-                  }];
-                }
+                let status: 'present' | 'absent' | 'late' = 'present';
+                // 60% present, 20% late, 20% absent for better distribution
+                if (statusValue < 2) status = 'absent';
+                else if (statusValue < 4) status = 'late';
+                else status = 'present';
+                
+                studentAttendance = [{
+                  id: `att_dummy_${student.id}_${normalizedSelectedDate}`,
+                  userId: student.id,
+                  userName: student.name,
+                  rollNumber: student.rollNumber,
+                  date: normalizedSelectedDate,
+                  status: status,
+                  subject: selectedSubject,
+                  year: selectedYear,
+                  sem: selectedSem,
+                  div: selectedDiv
+                } as AttendanceLog];
               }
             }
             
             // Calculate attendance statistics for selected date only
-            const presentCount = studentAttendance.filter(a => a.status === 'present').length;
-            const absentCount = studentAttendance.filter(a => a.status === 'absent').length;
+            // For a single date, count present/absent based on the status
+            let presentCount = 0;
+            let absentCount = 0;
+            
+            if (studentAttendance.length > 0) {
+              const attendanceRecord = studentAttendance[0];
+              if (attendanceRecord.status === 'present' || attendanceRecord.status === 'late') {
+                presentCount = 1;
+              } else if (attendanceRecord.status === 'absent') {
+                absentCount = 1;
+              }
+            }
+            
             const totalDays = studentAttendance.length;
             const attendancePercentage = totalDays > 0 ? Math.round((presentCount / totalDays) * 100) : 0;
             
@@ -428,43 +450,67 @@ const StudentAttendanceList: React.FC = () => {
                 rollNumber: student.rollNumber
               });
               
-              // Filter by subject and date
-              attendance = allDummyAttendance.filter(att => 
-                att.subject === selectedSubject && att.date === selectedDate
-              );
-              
-              // If still no attendance found, create a default one
-              if (attendance.length === 0) {
-                const allDummySubjects = injectDummyData.subjects([]);
-                const matchingSubject = allDummySubjects.find(s => 
-                  s.subjectName === selectedSubject &&
-                  s.year === selectedYear &&
-                  s.sem === selectedSem
-                );
-                
-                if (matchingSubject) {
-                  const rand = Math.random();
-                  let status: 'present' | 'absent' | 'late' = 'present';
-                  if (rand < 0.1) status = 'absent';
-                  else if (rand < 0.3) status = 'late';
-                  
-                  attendance = [{
-                    id: `att_dummy_${student.id}_${selectedDate}`,
-                    userId: student.id,
-                    userName: student.name,
-                    date: selectedDate,
-                    status: status,
-                    subject: selectedSubject,
-                    year: selectedYear,
-                    sem: selectedSem,
-                    div: selectedDiv
-                  }];
+              // Normalize date format for comparison
+              const normalizeDate = (date: string | Date): string => {
+                if (typeof date === 'string') {
+                  return date.length > 10 ? date.split('T')[0] : date;
                 }
+                if (date instanceof Date) {
+                  return date.toISOString().split('T')[0];
+                }
+                return String(date);
+              };
+              
+              const normalizedSelectedDate = normalizeDate(selectedDate);
+              
+              // Filter by subject and date (normalize dates for comparison)
+              attendance = allDummyAttendance.filter(att => {
+                const attDate = normalizeDate(att.date);
+                return att.subject === selectedSubject && attDate === normalizedSelectedDate;
+              });
+              
+              // If still no attendance found, create a default one for the selected date
+              if (attendance.length === 0) {
+                // Create attendance with deterministic status based on rollNumber
+                const rollNum = student.rollNumber || '';
+                const rollNumHash = rollNum.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                const statusValue = rollNumHash % 10;
+                
+                let status: 'present' | 'absent' | 'late' = 'present';
+                // 60% present, 20% late, 20% absent for better distribution
+                if (statusValue < 2) status = 'absent';
+                else if (statusValue < 4) status = 'late';
+                else status = 'present';
+                
+                attendance = [{
+                  id: `att_dummy_${student.id}_${normalizedSelectedDate}`,
+                  userId: student.id,
+                  userName: student.name,
+                  rollNumber: student.rollNumber,
+                  date: normalizedSelectedDate,
+                  status: status,
+                  subject: selectedSubject,
+                  year: selectedYear,
+                  sem: selectedSem,
+                  div: selectedDiv
+                } as AttendanceLog];
               }
             }
             
-            const presentCount = attendance.filter(a => a.status === 'present').length;
-            const absentCount = attendance.filter(a => a.status === 'absent').length;
+            // Calculate attendance statistics for selected date only
+            // For a single date, count present/absent based on the status
+            let presentCount = 0;
+            let absentCount = 0;
+            
+            if (attendance.length > 0) {
+              const attendanceRecord = attendance[0];
+              if (attendanceRecord.status === 'present' || attendanceRecord.status === 'late') {
+                presentCount = 1;
+              } else if (attendanceRecord.status === 'absent') {
+                absentCount = 1;
+              }
+            }
+            
             const totalDays = attendance.length;
             const attendancePercentage = totalDays > 0 ? Math.round((presentCount / totalDays) * 100) : 0;
             
@@ -597,7 +643,34 @@ const StudentAttendanceList: React.FC = () => {
       setShowReasonModal(true);
     } else {
       try {
-        const reason = await attendanceService.getEditReason(attendanceId);
+        // Try to get the edit reason using the attendance ID
+        // The actual Firestore document ID might be different (rollNumber_date format)
+        // So we need to try multiple approaches
+        let reason = await attendanceService.getEditReason(attendanceId);
+        
+        // If not found, try to extract rollNumber and date from the attendance record
+        if (!reason) {
+          // Find the attendance record to get rollNumber and date
+          const attendanceRecord = filteredAttendanceData
+            .flatMap(data => data.attendance)
+            .find(att => att.id === attendanceId);
+          
+          if (attendanceRecord) {
+            // Try with the standard format: rollNumber_date
+            const rollNumber = (attendanceRecord as any).rollNumber || attendanceRecord.userId;
+            const dateStr = typeof attendanceRecord.date === 'string' 
+              ? attendanceRecord.date.split('T')[0] 
+              : attendanceRecord.date instanceof Date 
+                ? attendanceRecord.date.toISOString().split('T')[0]
+                : '';
+            
+            if (rollNumber && dateStr) {
+              const standardId = `${rollNumber}_${dateStr}`;
+              reason = await attendanceService.getEditReason(standardId);
+            }
+          }
+        }
+        
         if (reason) {
           setSelectedEditReason(reason);
           setShowReasonModal(true);
@@ -606,6 +679,7 @@ const StudentAttendanceList: React.FC = () => {
           alert('No edit reason found');
         }
       } catch (error) {
+        console.error('Error loading edit reason:', error);
         alert('Failed to load edit reason');
       }
     }

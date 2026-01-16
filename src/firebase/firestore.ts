@@ -3239,7 +3239,11 @@ export const attendanceService = {
     
     // Update or create attendance record
     const collectionPath = buildBatchPath.attendance(batch, department, studentYear, sem, div, subject, dateObj);
-    const attendanceRef = doc(collection(db, collectionPath), attendanceId);
+    
+    // Use the standard document ID format: {rollNumber}_{dateString}
+    // This ensures consistency with how attendance is marked initially
+    const standardDocId = `${rollNumber || userId}_${dateString}`;
+    const attendanceRef = doc(collection(db, collectionPath), standardDocId);
     
     // Check if attendance exists
     const attendanceDoc = await getDoc(attendanceRef);
@@ -3249,7 +3253,7 @@ export const attendanceService = {
     // Use setDoc with merge to create or update
     await setDoc(attendanceRef, {
       ...attendanceData,
-      id: attendanceId,
+      id: standardDocId,
       status: newStatus,
       isEdited: true,
       editedAt: serverTimestamp(),
@@ -3264,8 +3268,10 @@ export const attendanceService = {
     }, { merge: true });
 
     // Save edit reason to editAttendance collection
+    // Use the actual Firestore document ID (standardDocId) for consistency
     const editReasonData = {
-      attendanceId,
+      id: standardDocId,
+      attendanceId: standardDocId, // Use the actual document ID
       userId,
       userName: userName || '',
       rollNumber: rollNumber || userId,
@@ -3283,7 +3289,10 @@ export const attendanceService = {
       createdAt: serverTimestamp()
     };
 
-    const editReasonRef = doc(collection(db, 'editAttendance'));
+    // Use a composite key for the edit reason document to ensure uniqueness
+    // Format: {rollNumber}_{dateString}_reason to match the attendance document ID pattern
+    const editReasonDocId = `${standardDocId}_reason`;
+    const editReasonRef = doc(collection(db, 'editAttendance'), editReasonDocId);
     await setDoc(editReasonRef, editReasonData);
   },
 
@@ -3291,17 +3300,45 @@ export const attendanceService = {
   async getEditReason(attendanceId: string): Promise<any | null> {
     try {
       const editReasonRef = collection(db, 'editAttendance');
-      const q = query(editReasonRef, where('attendanceId', '==', attendanceId), orderBy('editedAt', 'desc'), limit(1));
-      const querySnapshot = await getDocs(q);
       
-      if (querySnapshot.empty) {
-        return null;
+      // First, try to find by document ID pattern: {attendanceId}_reason
+      const editReasonDocId = `${attendanceId}_reason`;
+      const editReasonDocRef = doc(editReasonRef, editReasonDocId);
+      const editReasonDoc = await getDoc(editReasonDocRef);
+      
+      if (editReasonDoc.exists()) {
+        return {
+          id: editReasonDoc.id,
+          ...editReasonDoc.data()
+        };
       }
       
-      return {
-        id: querySnapshot.docs[0].id,
-        ...querySnapshot.docs[0].data()
-      };
+      // If not found by document ID, try to find by attendanceId field
+      let q = query(editReasonRef, where('attendanceId', '==', attendanceId), orderBy('editedAt', 'desc'), limit(1));
+      let querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        return {
+          id: querySnapshot.docs[0].id,
+          ...querySnapshot.docs[0].data()
+        };
+      }
+      
+      // If still not found, try to find by document ID that starts with attendanceId (for backward compatibility)
+      const allDocs = await getDocs(editReasonRef);
+      const matchingDoc = Array.from(allDocs.docs).find(doc => {
+        const data = doc.data();
+        return data.attendanceId === attendanceId || doc.id.startsWith(attendanceId);
+      });
+      
+      if (matchingDoc) {
+        return {
+          id: matchingDoc.id,
+          ...matchingDoc.data()
+        };
+      }
+      
+      return null;
     } catch (error) {
       console.error('[attendanceService] Error getting edit reason:', error);
       return null;
