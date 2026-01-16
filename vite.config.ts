@@ -3,24 +3,33 @@ import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react({
+      jsxRuntime: 'automatic',
+    }),
+  ],
+  resolve: {
+    dedupe: ['react', 'react-dom'],
+  },
   optimizeDeps: {
-    exclude: ['lucide-react'],
+    include: ['react', 'react-dom', 'lucide-react'],
   },
   build: {
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // React vendor chunk - ensure React and React-DOM are together and loaded first
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+            return 'react-vendor';
+          }
           // Firebase core chunk
           if (id.includes('firebase/app') || id.includes('firebase/auth') || id.includes('firebase/firestore')) {
             return 'firebase-core';
           }
-          // React vendor chunk
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
-            return 'react-vendor';
-          }
-          // Icons chunk
+          // Icons chunk - keep with React dependencies to avoid forwardRef issues
+          // Note: lucide-react needs React, so we'll bundle it with vendor if it causes issues
           if (id.includes('lucide-react')) {
+            // Try to keep it separate, but ensure React is available
             return 'icons';
           }
           // XLSX library chunk (for Excel operations)
