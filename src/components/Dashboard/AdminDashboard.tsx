@@ -172,7 +172,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onPageChange }) => {
       const today = new Date().toISOString().split('T')[0];
       const activeUserIds = new Set([
         ...todayAttendance.map(att => att.userId),
-        ...allUsers.filter(user => user.lastLogin && user.lastLogin.includes(today)).map(user => user.id)
+        ...allUsers.filter(user => {
+          const lastLogin = user.lastLogin as any;
+          if (!lastLogin) return false;
+
+          // Handle different types of lastLogin (Timestamp, Date, string)
+          let lastLoginStr: string;
+          try {
+            if (typeof lastLogin === 'string') {
+              lastLoginStr = lastLogin;
+            } else if (lastLogin.toDate && typeof lastLogin.toDate === 'function') {
+              // Firebase Timestamp
+              lastLoginStr = lastLogin.toDate().toISOString();
+            } else if (lastLogin instanceof Date) {
+              lastLoginStr = lastLogin.toISOString();
+            } else {
+              return false;
+            }
+
+            return lastLoginStr.includes(today);
+          } catch {
+            return false;
+          }
+        }).map(user => user.id)
       ]);
 
       setStats({
