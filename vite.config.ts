@@ -12,9 +12,21 @@ export default defineConfig({
     dedupe: ['react', 'react-dom'],
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'lucide-react'],
+    include: [
+      'react', 
+      'react-dom', 
+      'lucide-react',
+      'firebase/app',
+      'firebase/auth',
+      'firebase/firestore',
+      'firebase/storage',
+      'firebase/database'
+    ],
   },
   build: {
+    commonjsOptions: {
+      include: [/firebase/, /node_modules/],
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -25,8 +37,8 @@ export default defineConfig({
               id.includes('lucide-react')) {
             return 'react-vendor';
           }
-          // Firebase core chunk
-          if (id.includes('firebase/app') || id.includes('firebase/auth') || id.includes('firebase/firestore')) {
+          // Firebase core chunk - IMPORTANT: Bundle ALL Firebase modules together to avoid initialization errors
+          if (id.includes('firebase/') || id.includes('@firebase/')) {
             return 'firebase-core';
           }
           // XLSX library chunk (for Excel operations)
