@@ -77,6 +77,10 @@ interface LibraryTransaction {
 
 const LibraryManagement: React.FC = () => {
   const { user } = useAuth();
+  
+  // Role-based access control
+  const isStudent = user?.role === 'student';
+  const canManage = !isStudent; // Only non-students can manage
 
   // State management
   const [activeTab, setActiveTab] = useState<'books' | 'members' | 'transactions' | 'reports'>('books');
@@ -148,6 +152,13 @@ const LibraryManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  
+  // Ensure students can't access restricted tabs
+  useEffect(() => {
+    if (isStudent && (activeTab === 'members' || activeTab === 'reports')) {
+      setActiveTab('books');
+    }
+  }, [isStudent, activeTab]);
   const [memberStatusFilter, setMemberStatusFilter] = useState('all');
   const [transactionStatusFilter, setTransactionStatusFilter] = useState('all');
 
@@ -223,6 +234,21 @@ const LibraryManagement: React.FC = () => {
   const filterTransactions = () => {
     const q = searchTerm.trim().toLowerCase();
     let filtered = transactions.filter(transaction => {
+      // For students, only show their own transactions (match by member name or email)
+      if (isStudent && user) {
+        const userEmail = user.email?.toLowerCase() || '';
+        const userName = user.name?.toLowerCase() || '';
+        const transactionMemberName = transaction.memberName?.toLowerCase() || '';
+        const transactionMemberId = transaction.memberId || '';
+        
+        const matchesUser = transactionMemberId === user.id ||
+                           transactionMemberName === userName ||
+                           (userEmail && transactionMemberName.includes(userEmail.split('@')[0])) ||
+                           (user.rollNumber && transactionMemberId.includes(user.rollNumber));
+        
+        if (!matchesUser) return false;
+      }
+      
       const matchesSearch = !q || transaction.bookTitle.toLowerCase().includes(q) ||
         transaction.memberName.toLowerCase().includes(q);
       const matchesStatus = transactionStatusFilter === 'all' || transaction.status === transactionStatusFilter;
@@ -397,16 +423,18 @@ const LibraryManagement: React.FC = () => {
           <h2 className="text-xl lg:text-2xl font-bold text-slate-900">Library Books</h2>
           <p className="text-sm text-slate-500">Manage library book collection</p>
         </div>
-        <div className="flex gap-2 items-center">
-          <button
-            onClick={() => { setEditingBook(null); setBookForm(prev => ({ ...prev, title: '' })); setShowBookForm(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors text-sm font-medium"
-            aria-label="Add book"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Add Book</span>
-          </button>
-        </div>
+        {canManage && (
+          <div className="flex gap-2 items-center">
+            <button
+              onClick={() => { setEditingBook(null); setBookForm(prev => ({ ...prev, title: '' })); setShowBookForm(true); }}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors text-sm font-medium"
+              aria-label="Add book"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Add Book</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Search and Filters */}
@@ -488,49 +516,51 @@ const LibraryManagement: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-auto flex gap-2">
-              <button
-                onClick={() => {
-                  setEditingBook(book);
-                  setBookForm({
-                    title: book.title,
-                    author: book.author,
-                    isbn: book.isbn,
-                    category: book.category,
-                    publisher: book.publisher,
-                    publicationYear: String(book.publicationYear),
-                    edition: book.edition,
-                    pages: String(book.pages),
-                    language: book.language,
-                    description: book.description,
-                    totalCopies: String(book.totalCopies),
-                    location: book.location || '',
-                    shelfNumber: book.shelfNumber || '',
-                    price: String(book.price ?? 0),
-                    purchaseDate: book.purchaseDate || new Date().toISOString().split('T')[0],
-                    tags: (book.tags || []).join(', ')
-                  });
-                  setShowBookForm(true);
-                }}
-                className="px-3 py-2 text-sm bg-gray-600 text-white rounded hover:bg-gray-700 flex items-center gap-2"
-                aria-label={`Edit ${book.title}`}
-              >
-                <Edit className="w-4 h-4" />
-                <span className="hidden sm:inline">Edit</span>
-              </button>
-              <button
-                onClick={() => {
-                  if (confirm(`Delete book "${book.title}"?`)) {
-                    libraryBookService.deleteBook(book.id).then(() => loadData());
-                  }
-                }}
-                className="px-3 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-2"
-                aria-label={`Delete ${book.title}`}
-              >
-                <Trash2 className="w-4 h-4" />
-                <span className="hidden sm:inline">Delete</span>
-              </button>
-            </div>
+            {canManage && (
+              <div className="mt-auto flex gap-2">
+                <button
+                  onClick={() => {
+                    setEditingBook(book);
+                    setBookForm({
+                      title: book.title,
+                      author: book.author,
+                      isbn: book.isbn,
+                      category: book.category,
+                      publisher: book.publisher,
+                      publicationYear: String(book.publicationYear),
+                      edition: book.edition,
+                      pages: String(book.pages),
+                      language: book.language,
+                      description: book.description,
+                      totalCopies: String(book.totalCopies),
+                      location: book.location || '',
+                      shelfNumber: book.shelfNumber || '',
+                      price: String(book.price ?? 0),
+                      purchaseDate: book.purchaseDate || new Date().toISOString().split('T')[0],
+                      tags: (book.tags || []).join(', ')
+                    });
+                    setShowBookForm(true);
+                  }}
+                  className="px-3 py-2 text-sm bg-gray-600 text-white rounded hover:bg-gray-700 flex items-center gap-2"
+                  aria-label={`Edit ${book.title}`}
+                >
+                  <Edit className="w-4 h-4" />
+                  <span className="hidden sm:inline">Edit</span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm(`Delete book "${book.title}"?`)) {
+                      libraryBookService.deleteBook(book.id).then(() => loadData());
+                    }
+                  }}
+                  className="px-3 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-2"
+                  aria-label={`Delete ${book.title}`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Delete</span>
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -747,20 +777,22 @@ const LibraryManagement: React.FC = () => {
       {/* Transactions Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Book Transactions</h2>
-          <p className="text-gray-600">Manage book issues and returns</p>
+          <h2 className="text-2xl font-bold text-gray-900">{isStudent ? 'My Transactions' : 'Book Transactions'}</h2>
+          <p className="text-gray-600">{isStudent ? 'View your book borrowing history' : 'Manage book issues and returns'}</p>
         </div>
-        <div className="flex gap-2 items-center">
-          <button
-            onClick={() => setShowTransactionForm(true)}
-            className="inline-flex items-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-            aria-label="Issue book"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Issue Book</span>
-            <span className="sm:hidden">Issue</span>
-          </button>
-        </div>
+        {canManage && (
+          <div className="flex gap-2 items-center">
+            <button
+              onClick={() => setShowTransactionForm(true)}
+              className="inline-flex items-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              aria-label="Issue book"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Issue Book</span>
+              <span className="sm:hidden">Issue</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Search and Filters */}
@@ -1008,7 +1040,7 @@ const LibraryManagement: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Library Management</h1>
-          <p className="text-sm text-gray-600 mt-1">Manage library books, members, and transactions</p>
+          <p className="text-sm text-gray-600 mt-1">{isStudent ? 'Browse library books and view your borrowing history' : 'Manage library books, members, and transactions'}</p>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
           <button
@@ -1045,11 +1077,11 @@ const LibraryManagement: React.FC = () => {
         <div className="border-b border-gray-200">
           <nav className="flex gap-3 sm:gap-8 px-3 sm:px-6 overflow-x-auto no-scrollbar">
             {[
-              { id: 'books', label: 'Books', icon: BookOpen },
-              { id: 'members', label: 'Members', icon: Users },
-              { id: 'transactions', label: 'Transactions', icon: Calendar },
-              { id: 'reports', label: 'Reports', icon: BarChart3 }
-            ].map((tab) => (
+              { id: 'books', label: 'Books', icon: BookOpen, show: true },
+              { id: 'members', label: 'Members', icon: Users, show: canManage },
+              { id: 'transactions', label: isStudent ? 'My Transactions' : 'Transactions', icon: Calendar, show: true },
+              { id: 'reports', label: 'Reports', icon: BarChart3, show: canManage }
+            ].filter(tab => tab.show).map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
@@ -1075,23 +1107,25 @@ const LibraryManagement: React.FC = () => {
       </div>
 
       {/* Floating FAB for mobile (quick add) */}
-      <div className="fixed right-4 bottom-6 z-40 sm:hidden">
-        {activeTab === 'books' && (
-          <button onClick={() => { setShowBookForm(true); }} className="p-4 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700" aria-label="Add book">
-            <Plus className="w-5 h-5" />
-          </button>
-        )}
-        {activeTab === 'members' && (
-          <button onClick={() => { setShowMemberForm(true); }} className="p-4 rounded-full bg-green-600 text-white shadow-lg hover:bg-green-700" aria-label="Add member">
-            <Plus className="w-5 h-5" />
-          </button>
-        )}
-        {activeTab === 'transactions' && (
-          <button onClick={() => { setShowTransactionForm(true); }} className="p-4 rounded-full bg-purple-600 text-white shadow-lg hover:bg-purple-700" aria-label="Issue book">
-            <Plus className="w-5 h-5" />
-          </button>
-        )}
-      </div>
+      {canManage && (
+        <div className="fixed right-4 bottom-6 z-40 sm:hidden">
+          {activeTab === 'books' && (
+            <button onClick={() => { setShowBookForm(true); }} className="p-4 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700" aria-label="Add book">
+              <Plus className="w-5 h-5" />
+            </button>
+          )}
+          {activeTab === 'members' && (
+            <button onClick={() => { setShowMemberForm(true); }} className="p-4 rounded-full bg-green-600 text-white shadow-lg hover:bg-green-700" aria-label="Add member">
+              <Plus className="w-5 h-5" />
+            </button>
+          )}
+          {activeTab === 'transactions' && (
+            <button onClick={() => { setShowTransactionForm(true); }} className="p-4 rounded-full bg-purple-600 text-white shadow-lg hover:bg-purple-700" aria-label="Issue book">
+              <Plus className="w-5 h-5" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Book Form Modal (responsive: full-screen on mobile, centered on desktop) */}
       {showBookForm && (

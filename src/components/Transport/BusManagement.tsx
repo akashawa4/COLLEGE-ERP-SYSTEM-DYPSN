@@ -1062,10 +1062,10 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
       {/* Details Modal */}
       {showDetails && selectedBus && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-xl">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">
+                <h2 className="theme-page-title">
                   Bus Details
                 </h2>
                 <button
@@ -1073,73 +1073,65 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
                     setShowDetails(false);
                     setSelectedBus(null);
                   }}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-100 transition-colors"
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
 
               {selectedBus && (
-                <div className="space-y-8">
+                <div className="space-y-6">
                   {/* Bus Information Card */}
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
-                    <div className="flex items-center mb-4">
-                      <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mr-4">
+                  <div className="theme-card p-6">
+                    <div className="flex items-center mb-6">
+                      <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mr-4">
                         <Bus className="w-6 h-6 text-white" />
                       </div>
                       <div>
-                        <h3 className="text-xl font-bold text-gray-900">Bus Information</h3>
+                        <h3 className="theme-section-title">Bus Information</h3>
                         <p className="text-sm text-gray-600">Vehicle details and specifications</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-3">
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
                           <span className="font-medium text-gray-700">Number:</span>
-                          <span className="ml-2 text-gray-900 font-semibold">{selectedBus.busNumber}</span>
+                          <span className="text-gray-900 font-semibold">{selectedBus.busNumber}</span>
                         </div>
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
                           <span className="font-medium text-gray-700">Name:</span>
-                          <span className="ml-2 text-gray-900 font-semibold">{selectedBus.busName}</span>
+                          <span className="text-gray-900 font-semibold">{selectedBus.busName}</span>
                         </div>
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
                           <span className="font-medium text-gray-700">Capacity:</span>
-                          <span className="ml-2 text-gray-900 font-semibold">{selectedBus.capacity} seats</span>
+                          <span className="text-gray-900 font-semibold">{selectedBus.capacity} seats</span>
                         </div>
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                        <div className="flex items-center justify-between py-2">
                           <span className="font-medium text-gray-700">Type:</span>
-                          <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${selectedBus.type === 'AC' ? 'bg-green-100 text-green-800' :
-                            selectedBus.type === 'Semi-AC' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-gray-100 text-gray-800'
+                          <span className={`px-3 py-1 text-xs font-semibold rounded-full ${selectedBus.type === 'AC' ? 'theme-badge-success' :
+                            selectedBus.type === 'Semi-AC' ? 'theme-badge-warning' :
+                              'theme-badge-neutral'
                             }`}>
                             {selectedBus.type}
                           </span>
                         </div>
                       </div>
-                      <div className="space-y-3">
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
                           <span className="font-medium text-gray-700">Model:</span>
-                          <span className="ml-2 text-gray-900 font-semibold">{selectedBus.model}</span>
+                          <span className="text-gray-900 font-semibold">{selectedBus.model}</span>
                         </div>
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
                           <span className="font-medium text-gray-700">Year:</span>
-                          <span className="ml-2 text-gray-900 font-semibold">{selectedBus.year}</span>
+                          <span className="text-gray-900 font-semibold">{selectedBus.year}</span>
                         </div>
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
                           <span className="font-medium text-gray-700">Registration:</span>
-                          <span className="ml-2 text-gray-900 font-semibold">{selectedBus.registrationNumber}</span>
+                          <span className="text-gray-900 font-semibold">{selectedBus.registrationNumber}</span>
                         </div>
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                        <div className="flex items-center justify-between py-2">
                           <span className="font-medium text-gray-700">Status:</span>
-                          <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(selectedBus.status)}`}>
+                          <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(selectedBus.status)}`}>
                             {selectedBus.status}
                           </span>
                         </div>
@@ -1148,40 +1140,38 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
                   </div>
 
                   {/* Driver Information Card */}
-                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
-                    <div className="flex items-center mb-4">
-                      <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center mr-4">
+                  <div className="theme-card p-6">
+                    <div className="flex items-center mb-6">
+                      <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center mr-4">
                         <Users className="w-6 h-6 text-white" />
                       </div>
                       <div>
-                        <h3 className="text-xl font-bold text-gray-900">Driver Information</h3>
+                        <h3 className="theme-section-title">Driver Information</h3>
                         <p className="text-sm text-gray-600">Assigned driver details</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-3">
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between py-2 border-b border-gray-100">
                           <span className="font-medium text-gray-700">Driver:</span>
-                          <span className="ml-2 text-gray-900 font-semibold">
+                          <span className="text-gray-900 font-semibold">
                             {selectedBus.driverName || 'Not assigned'}
                           </span>
                         </div>
                       </div>
-                      <div className="space-y-3">
-                        <div className="flex items-center">
-                          <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between py-2">
                           <span className="font-medium text-gray-700">Phone:</span>
                           {selectedBus.driverPhone ? (
                             <a
                               href={`tel:${selectedBus.driverPhone}`}
-                              className="ml-2 text-blue-600 hover:text-blue-800 font-semibold flex items-center"
+                              className="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-2 transition-colors"
                             >
-                              <Phone className="w-4 h-4 mr-1" />
+                              <Phone className="w-4 h-4" />
                               {selectedBus.driverPhone}
                             </a>
                           ) : (
-                            <span className="ml-2 text-gray-500">Not assigned</span>
+                            <span className="text-gray-500">Not assigned</span>
                           )}
                         </div>
                       </div>
@@ -1189,13 +1179,13 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
                   </div>
 
                   {/* Bus Stops Section */}
-                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200">
+                  <div className="theme-card p-6">
                     <div className="flex items-center mb-6">
-                      <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center mr-4">
+                      <div className="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center mr-4">
                         <MapPin className="w-6 h-6 text-white" />
                       </div>
                       <div>
-                        <h3 className="text-xl font-bold text-gray-900">Bus Stops</h3>
+                        <h3 className="theme-section-title">Bus Stops</h3>
                         <p className="text-sm text-gray-600">Route stops and arrival times</p>
                       </div>
                     </div>
@@ -1203,14 +1193,17 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
                     {selectedBus.route?.stops && selectedBus.route.stops.length > 0 ? (
                       <div className="space-y-3">
                         {selectedBus.route.stops.map((stop, index) => (
-                          <div key={stop.id} className="bg-white rounded-lg p-4 shadow-sm border border-purple-100 hover:shadow-md transition-shadow">
+                          <div key={stop.id} className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:shadow-md transition-shadow">
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center">
-                                <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-sm font-bold mr-4">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 bg-purple-100 text-purple-700 rounded-xl flex items-center justify-center text-sm font-bold">
                                   {index + 1}
                                 </div>
                                 <div>
                                   <div className="font-semibold text-gray-900">{stop.name || `Stop ${index + 1}`}</div>
+                                  {stop.address && (
+                                    <div className="text-sm text-gray-600 mt-1">{stop.address}</div>
+                                  )}
                                   {stop.arrivalTime && (
                                     <div className="flex items-center text-sm text-gray-600 mt-1">
                                       <Clock className="w-4 h-4 mr-1" />
@@ -1220,7 +1213,7 @@ const BusManagement: React.FC<{ user: any }> = ({ user }) => {
                                 </div>
                               </div>
                               {stop.isMainStop && (
-                                <span className="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
+                                <span className="theme-badge-info">
                                   Main Stop
                                 </span>
                               )}

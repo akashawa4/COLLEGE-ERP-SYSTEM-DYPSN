@@ -190,7 +190,7 @@ const StudentAttendanceList: React.FC = () => {
               setSelectedSubject(names[0]);
             }
           } else {
-            setAvailableSubjects([]);
+          setAvailableSubjects([]);
           }
         } finally {
           setSubjectsLoading(false);
@@ -429,7 +429,7 @@ const StudentAttendanceList: React.FC = () => {
             if (studentAttendance.length > 0) {
               await loadEditReasons(studentAttendance);
             }
-
+            
             return {
               student,
               attendance: studentAttendance,
@@ -1391,14 +1391,14 @@ const StudentAttendanceList: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex flex-col items-end space-y-1">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      data.presentCount > 0 ? 'bg-green-100 text-green-800' :
-                      data.absentCount > 0 ? 'bg-red-100 text-red-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {data.presentCount > 0 ? 'Present' :
-                       data.absentCount > 0 ? 'Absent' : 'Not Marked'}
-                    </span>
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                    data.presentCount > 0 ? 'bg-green-100 text-green-800' :
+                    data.absentCount > 0 ? 'bg-red-100 text-red-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {data.presentCount > 0 ? 'Present' :
+                     data.absentCount > 0 ? 'Absent' : 'Not Marked'}
+                  </span>
                     {data.attendance.some(a => a.isEdited) && (
                       <button
                         onClick={() => {
@@ -1498,14 +1498,14 @@ const StudentAttendanceList: React.FC = () => {
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">{selectedSubject}</td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                         <div className="flex items-center space-x-2">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            data.presentCount > 0 ? 'bg-green-100 text-green-800' :
-                            data.absentCount > 0 ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {data.presentCount > 0 ? 'Present' :
-                             data.absentCount > 0 ? 'Absent' : 'Not Marked'}
-                          </span>
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          data.presentCount > 0 ? 'bg-green-100 text-green-800' :
+                          data.absentCount > 0 ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {data.presentCount > 0 ? 'Present' :
+                           data.absentCount > 0 ? 'Absent' : 'Not Marked'}
+                        </span>
                           {data.attendance.some(a => a.isEdited) && (
                             <button
                               onClick={() => {

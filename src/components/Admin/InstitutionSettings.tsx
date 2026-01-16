@@ -242,7 +242,7 @@ const InstitutionSettings: React.FC = () => {
           ];
         } else {
           finalFeeItems = await institutionService.getFeeItemsByAcademicYear(activeYear.id);
-        }
+      }
       }
       
       setAcademicYears(finalYearsData);

@@ -720,7 +720,7 @@ const AppContent: React.FC = () => {
       case 'my-results':
         return <MyResults />;
       case 'result-entry':
-        if (user.role === 'teacher' || user.role === 'hod') {
+        if (user.role === 'teacher' || user.role === 'hod' || user.role === 'admin') {
           return <ResultEntryPanel />;
         }
         return <Dashboard onPageChange={handlePageChange} />;

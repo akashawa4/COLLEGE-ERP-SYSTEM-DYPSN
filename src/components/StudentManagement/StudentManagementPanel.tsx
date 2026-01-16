@@ -120,11 +120,29 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
   const fetchStudents = async (retryCount = 0) => {
     setLoading(true);
     try {
-      // Fetch ALL students from the main users collection
-      const fetchedStudents = await userService.getAllStudents();
+      // Add timeout to prevent hanging (30 seconds max)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout - taking too long')), 30000);
+      });
+      
+      // Fetch ALL students from the main users collection with timeout
+      const fetchedStudents = await Promise.race([
+        userService.getAllStudents(),
+        timeoutPromise
+      ]) as User[];
+      
       setStudents(fetchedStudents);
     } catch (error: any) {
       console.error('Error fetching students:', error);
+      
+      // If timeout, show user-friendly message
+      if (error?.message?.includes('timeout')) {
+        setStudents([]);
+        alert('Loading students is taking too long. Please try refreshing the page or check your connection.');
+        setLoading(false);
+        return;
+      }
+      
       // Retry up to 2 times if it's a network error
       if (retryCount < 2 && (error?.code === 'unavailable' || error?.message?.includes('QUIC') || error?.message?.includes('network'))) {
         console.log(`Retrying fetch students (attempt ${retryCount + 1})...`);
@@ -395,6 +413,12 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
 
       // Create student (automatically creates in batch structure)
       await userService.createUser(student);
+
+      // Refresh the student list after adding
+      // Add a small delay to ensure Firestore has processed the write
+      setTimeout(() => {
+        fetchStudents();
+      }, 1000);
 
       setShowAddModal(false);
       setNewStudent({
@@ -1988,4 +2012,4 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
   );
 };
 
-export default StudentManagementPanel; 
+export default StudentManagementPanel;  

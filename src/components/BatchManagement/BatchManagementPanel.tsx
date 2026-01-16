@@ -270,13 +270,13 @@ const BatchManagementPanel: React.FC = () => {
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Download Report</span>
           </button>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors text-sm font-medium"
-          >
-            <Plus className="w-4 h-4" />
-            Add Batch
-          </button>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors text-sm font-medium"
+        >
+          <Plus className="w-4 h-4" />
+          Add Batch
+        </button>
         </div>
       </div>
 

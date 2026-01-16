@@ -1,5 +1,5 @@
 // EventManagement.tsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Calendar,
   Plus,
@@ -20,9 +20,10 @@ import {
   Clock
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
-import { eventService } from "../../firebase/firestore";
-import { Event } from "../../types";
+import { eventService, clubService } from "../../firebase/firestore";
+import { Event, Club } from "../../types";
 import { injectDummyData, USE_DUMMY_DATA } from "../../utils/dummyData";
+import { DEPARTMENT_MAP } from "../../utils/departmentMapping";
 
 
 /* ---------- Helpers ---------- */
@@ -65,6 +66,7 @@ const statusBadge = (status: Event["status"]) => {
 const EventManagement: React.FC = () => {
   const { user } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
+  const [clubs, setClubs] = useState<Club[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,6 +78,9 @@ const EventManagement: React.FC = () => {
   // Detail page state
   const [showDetail, setShowDetail] = useState(false);
   const [detailEvent, setDetailEvent] = useState<Event | null>(null);
+  
+  // Success modal state
+  const [showRegistrationSuccess, setShowRegistrationSuccess] = useState(false);
 
   // filters + search
   const [search, setSearch] = useState("");
@@ -94,23 +99,126 @@ const EventManagement: React.FC = () => {
       setLoading(true);
       setError(null);
       let eventsData: Event[] = [];
-      if (USE_DUMMY_DATA) {
-        eventsData = injectDummyData.events([]);
-      } else {
+      
+      // Always fetch from Firestore first
+      try {
         eventsData = await eventService.getAllEvents();
+      } catch (fetchError) {
+        console.error('Error fetching events from Firestore:', fetchError);
+        // Continue with empty array if fetch fails
+        eventsData = [];
       }
-      eventsData = injectDummyData.events(eventsData);
+      
+      // Merge with dummy data if enabled (dummy data is added to real data, not replaced)
+      if (USE_DUMMY_DATA) {
+        const dummyEvents = injectDummyData.events([]);
+        // Merge: combine real events with dummy events, avoiding duplicates by ID
+        const existingIds = new Set(eventsData.map(e => e.id));
+        const newDummyEvents = dummyEvents.filter(e => !existingIds.has(e.id));
+        eventsData = [...eventsData, ...newDummyEvents];
+      } else {
+        // Even if USE_DUMMY_DATA is false, still inject dummy data as fallback
+        // but only if we have no real events
+        if (eventsData.length === 0) {
+          eventsData = injectDummyData.events([]);
+        }
+      }
+      
       setEvents(eventsData);
     } catch (error) {
       console.error('Error loading events:', error);
       setError('Failed to load events. Please try again.');
+      // Fallback to dummy data on error
+      try {
+        const fallbackEvents = injectDummyData.events([]);
+        setEvents(fallbackEvents);
+      } catch (fallbackError) {
+        console.error('Error loading fallback events:', fallbackError);
+        setEvents([]);
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  // Load clubs from Firestore
+  const loadClubs = async () => {
+    try {
+      let clubsData: Club[] = [];
+      if (USE_DUMMY_DATA) {
+        clubsData = injectDummyData.clubs([]);
+      } else {
+        clubsData = await clubService.getAllClubs();
+      }
+      clubsData = injectDummyData.clubs(clubsData);
+      setClubs(clubsData);
+    } catch (error) {
+      console.error('Error loading clubs:', error);
+      // Fallback to dummy data if loading fails
+      const fallbackClubs = injectDummyData.clubs([]);
+      setClubs(fallbackClubs);
+    }
+  };
+
+  // Create a sample event that ends at the end of this month
+  const createSampleEvent = async () => {
+    try {
+      const now = new Date();
+      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const endDate = lastDayOfMonth.toISOString().split('T')[0];
+      const endTime = "23:59";
+
+      const sampleEventData = {
+        title: "Monthly Event - End of Month Celebration",
+        description: "A sample event that runs until the end of this month. This event demonstrates the end date functionality.",
+        date: now.toISOString().split('T')[0],
+        time: "09:00",
+        endTime: endTime,
+        location: "Main Auditorium",
+        organizer: "Event Management Team",
+        category: "Social" as Event["category"],
+        maxParticipants: 100,
+        currentParticipants: 0,
+        status: "upcoming" as Event["status"],
+        registrationRequired: true,
+        department: "Computer Science",
+        contactEmail: "events@college.edu",
+        contactPhone: "+91 9876543210",
+        registrationStartDate: now.toISOString().split('T')[0],
+        registrationStartTime: "00:00",
+        registrationDeadline: endDate,
+        registrationDeadlineTime: endTime,
+        requirements: "Open to all students and faculty members.",
+      };
+
+      await eventService.createEvent(sampleEventData);
+      await loadData();
+      alert('Sample event created successfully! It ends on ' + endDate);
+    } catch (error: any) {
+      console.error('Error creating sample event:', error);
+      setError('Failed to create sample event: ' + (error?.message || 'Unknown error'));
+    }
+  };
+
   useEffect(() => {
     loadData();
+    loadClubs();
+    
+    // Set up real-time listener for events (only if not using dummy data)
+    if (!USE_DUMMY_DATA) {
+      const unsubscribe = eventService.listenEvents((realTimeEvents) => {
+        // Merge with dummy data as fallback if no real events
+        let mergedEvents = [...realTimeEvents];
+        if (mergedEvents.length === 0) {
+          mergedEvents = injectDummyData.events([]);
+        }
+        setEvents(mergedEvents);
+      });
+      
+      return () => {
+        unsubscribe();
+      };
+    }
   }, []);
 
   useEffect(() => {
@@ -129,8 +237,11 @@ const EventManagement: React.FC = () => {
     description: "",
     date: "",
     time: "",
+    endDate: "", // End date for the event
+    endTime: "", // End time for the event
     location: "",
     organizer: "",
+    organizedByClub: "", // Optional club selection
     category: "Academic",
     maxParticipants: "",
     registrationRequired: false,
@@ -150,8 +261,11 @@ const EventManagement: React.FC = () => {
       description: "",
       date: "",
       time: "",
+      endDate: "",
+      endTime: "",
       location: "",
       organizer: "",
+      organizedByClub: "",
       category: "Academic",
       maxParticipants: "",
       registrationRequired: false,
@@ -221,13 +335,22 @@ const EventManagement: React.FC = () => {
 
   const openEditForm = (ev: Event) => {
     setEditingEvent(ev);
+    // Try to find matching club by organizer name
+    const matchingClub = clubs.find(club => club.name === ev.organizer);
+    
+    // Calculate end date from event date if endTime exists
+    const endDate = ev.endTime ? ev.date : "";
+    
     setForm({
       title: ev.title,
       description: ev.description,
       date: ev.date,
       time: ev.time,
+      endDate: endDate,
+      endTime: ev.endTime || "",
       location: ev.location,
       organizer: ev.organizer,
+      organizedByClub: matchingClub?.id || "",
       category: ev.category,
       maxParticipants: ev.maxParticipants ? String(ev.maxParticipants) : "",
       registrationRequired: ev.registrationRequired,
@@ -257,18 +380,19 @@ const EventManagement: React.FC = () => {
       setSaving(true);
       setError(null);
 
-      const eventData = {
+      const eventData: any = {
         title: form.title.trim(),
-        description: form.description.trim(),
+        description: form.description.trim() || "No description provided.",
         date: form.date,
         time: form.time,
+        endTime: form.endTime || undefined,
         location: form.location.trim() || "TBA",
         organizer: form.organizer.trim(),
         category: form.category as Event["category"],
         maxParticipants: form.maxParticipants ? Number(form.maxParticipants) : undefined,
         currentParticipants: editingEvent?.currentParticipants || 0,
         status: (editingEvent?.status || "upcoming") as Event["status"],
-        registrationRequired: form.registrationRequired,
+        registrationRequired: form.registrationRequired, // Explicitly include false values
         department: form.department.trim() || undefined,
         contactEmail: form.contactEmail.trim() || undefined,
         contactPhone: form.contactPhone.trim() || undefined,
@@ -278,9 +402,27 @@ const EventManagement: React.FC = () => {
         registrationDeadlineTime: form.registrationDeadlineTime || undefined,
         requirements: form.requirements.trim() || undefined,
       };
+      
+      // Ensure registrationRequired is explicitly set (even if false)
+      // This prevents it from being removed by cleanFirestoreData
+      if (eventData.registrationRequired === undefined) {
+        eventData.registrationRequired = false;
+      }
 
       if (editingEvent) {
-        await eventService.updateEvent(editingEvent.id, eventData);
+        // Check if this is a dummy event (ID starts with 'event_') or if it might not exist in Firestore
+        // Use updateEvent which now uses setDoc with merge: true to handle both cases
+        try {
+          await eventService.updateEvent(editingEvent.id, eventData);
+        } catch (updateError: any) {
+          // If update fails and it's a dummy event or document doesn't exist, create a new one
+          if (updateError.code === 'not-found' || editingEvent.id.startsWith('event_')) {
+            console.log('[EventManagement] Event not found, creating new event instead');
+            await eventService.createEvent(eventData);
+          } else {
+            throw updateError;
+          }
+        }
       } else {
         await eventService.createEvent(eventData);
       }
@@ -289,9 +431,13 @@ const EventManagement: React.FC = () => {
       setShowForm(false);
       setEditingEvent(null);
       resetForm();
-    } catch (error) {
+      // Show success message
+      alert(editingEvent ? 'Event updated successfully!' : 'Event created successfully!');
+    } catch (error: any) {
       console.error('Error saving event:', error);
-      setError('Failed to save event. Please try again.');
+      const errorMessage = error?.message || 'Failed to save event. Please try again.';
+      setError(errorMessage);
+      alert(`Error: ${errorMessage}`);
     } finally {
       setSaving(false);
     }
@@ -342,14 +488,38 @@ const EventManagement: React.FC = () => {
     try {
       setSaving(true);
       setError(null);
-      await eventService.registerForEvent(id);
+      
+      // Get user information for registration
+      if (!user) {
+        alert("Please log in to register for events.");
+        return;
+      }
+      
+      // Prepare participant data
+      const participantData = {
+        name: user.name || 'Unknown',
+        email: user.email || '',
+        phone: user.phone || '',
+        rollNumber: (user as any).rollNumber || '',
+        department: user.department || '',
+        year: (user as any).year || '',
+        div: (user as any).div || '',
+        isExternal: false,
+        status: 'registered' as const
+      };
+      
+      await eventService.registerForEvent(id, user.id, participantData);
       await loadData(); // Reload data from Firestore
+      setShowRegistrationSuccess(true);
     } catch (error) {
       console.error('Error registering for event:', error);
       if (error instanceof Error && error.message.includes('full')) {
         alert("Registration full for this event.");
+      } else if (error instanceof Error && error.message.includes('already registered')) {
+        alert("You are already registered for this event.");
       } else {
         setError('Failed to register for event. Please try again.');
+        alert('Failed to register for event. Please try again.');
       }
     } finally {
       setSaving(false);
@@ -545,6 +715,16 @@ const EventManagement: React.FC = () => {
       ev.maxParticipants && ev.maxParticipants > 0
         ? Math.round((ev.currentParticipants / ev.maxParticipants) * 100)
         : 0;
+
+    // Check if current user is already registered
+    const isUserRegistered = useMemo(() => {
+      if (!user) return false;
+      const participants = ev.participants || [];
+      return participants.some(p => 
+        p.email === user.email || 
+        ((user as any).rollNumber && p.rollNumber === (user as any).rollNumber)
+      );
+    }, [ev.participants, user]);
 
     // Generate demo participants for display
     const getDemoParticipants = () => {
@@ -1037,6 +1217,19 @@ const EventManagement: React.FC = () => {
                   }
 
                   if (regStatus.status === 'open') {
+                    // Check if user is already registered
+                    if (isUserRegistered) {
+                      return (
+                        <button
+                          disabled
+                          className="px-5 py-2.5 bg-gray-800 text-white rounded-xl font-medium cursor-not-allowed flex items-center gap-2"
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                          Registered
+                        </button>
+                      );
+                    }
+                    
                     return (
                       <button
                         onClick={() => registerForEvent(ev.id)}
@@ -1158,13 +1351,23 @@ const EventManagement: React.FC = () => {
           </button>
 
           {user?.role !== "student" && user?.role !== 'visitor' && (
-            <button
-              onClick={openCreateForm}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline text-sm font-medium">Add Event</span>
-            </button>
+            <>
+              <button
+                onClick={createSampleEvent}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors"
+                title="Create a sample event ending at the end of this month"
+              >
+                <Calendar className="w-4 h-4" />
+                <span className="hidden sm:inline text-sm font-medium">Sample Event</span>
+              </button>
+              <button
+                onClick={openCreateForm}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline text-sm font-medium">Add Event</span>
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -1397,7 +1600,7 @@ const EventManagement: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm text-gray-700 mb-1">Date *</label>
+                  <label className="block text-sm text-gray-700 mb-1">Start Date *</label>
                   <input
                     type="date"
                     className="w-full px-3 py-2 border rounded"
@@ -1407,7 +1610,7 @@ const EventManagement: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-700 mb-1">Time *</label>
+                  <label className="block text-sm text-gray-700 mb-1">Start Time *</label>
                   <input
                     type="time"
                     className="w-full px-3 py-2 border rounded"
@@ -1419,13 +1622,76 @@ const EventManagement: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
+                  <label className="block text-sm text-gray-700 mb-1">End Date (Optional)</label>
+                  <input
+                    type="date"
+                    className="w-full px-3 py-2 border rounded"
+                    value={form.endDate}
+                    onChange={(e) => setForm((s) => ({ ...s, endDate: e.target.value }))}
+                    min={form.date}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">End Time (Optional)</label>
+                  <input
+                    type="time"
+                    className="w-full px-3 py-2 border rounded"
+                    value={form.endTime}
+                    onChange={(e) => setForm((s) => ({ ...s, endTime: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
                   <label className="block text-sm text-gray-700 mb-1">Location</label>
                   <input className="w-full px-3 py-2 border rounded" value={form.location} onChange={(e) => setForm((s) => ({ ...s, location: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-700 mb-1">Organizer *</label>
-                  <input className="w-full px-3 py-2 border rounded" value={form.organizer} onChange={(e) => setForm((s) => ({ ...s, organizer: e.target.value }))} />
+                  <label className="block text-sm text-gray-700 mb-1">Organized By (Optional)</label>
+                  <select 
+                    className="w-full px-3 py-2 border rounded mb-2" 
+                    value={form.organizedByClub} 
+                    onChange={(e) => {
+                      const clubId = e.target.value;
+                      const selectedClub = clubs.find(c => c.id === clubId);
+                      setForm((s) => ({ 
+                        ...s, 
+                        organizedByClub: clubId,
+                        organizer: selectedClub ? selectedClub.name : s.organizer
+                      }));
+                    }}
+                    disabled={loading}
+                  >
+                    <option value="">{loading ? "Loading clubs..." : "Select a club (optional)"}</option>
+                    {clubs.length > 0 ? (
+                      clubs.map(club => (
+                        <option key={club.id} value={club.id}>{club.name}</option>
+                      ))
+                    ) : (
+                      !loading && <option value="" disabled>No clubs available</option>
+                    )}
+                  </select>
+                  {clubs.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-1">{clubs.length} club(s) available</p>
+                  )}
                 </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Organizer *</label>
+                <input 
+                  className="w-full px-3 py-2 border rounded" 
+                  value={form.organizer} 
+                  onChange={(e) => setForm((s) => ({ ...s, organizer: e.target.value, organizedByClub: "" }))} 
+                  placeholder="Enter organizer name or select a club above"
+                />
+                {form.organizedByClub && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Selected: {clubs.find(c => c.id === form.organizedByClub)?.name}
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
@@ -1443,7 +1709,17 @@ const EventManagement: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm text-gray-700 mb-1">Department</label>
-                  <input className="w-full px-3 py-2 border rounded" value={form.department} onChange={(e) => setForm((s) => ({ ...s, department: e.target.value }))} placeholder="e.g., Computer Science" />
+                  <select 
+                    className="w-full px-3 py-2 border rounded" 
+                    value={form.department} 
+                    onChange={(e) => setForm((s) => ({ ...s, department: e.target.value }))}
+                  >
+                    <option value="">Select Department (Optional)</option>
+                    {Object.keys(DEPARTMENT_MAP).map(dept => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                    <option value="Other">Other</option>
+                  </select>
                 </div>
 
                 <div>
@@ -1534,6 +1810,27 @@ const EventManagement: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Registration Success Modal */}
+      {showRegistrationSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle className="w-8 h-8 text-green-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Registered!</h3>
+              <p className="text-gray-600 mb-6">You have successfully registered for this event.</p>
+              <button
+                onClick={() => setShowRegistrationSuccess(false)}
+                className="px-6 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors font-medium"
+              >
+                OK
+              </button>
+            </div>
           </div>
         </div>
       )}

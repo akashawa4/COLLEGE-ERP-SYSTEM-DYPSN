@@ -11,7 +11,8 @@ import {
   Loader2,
   RefreshCw,
   AlertCircle,
-  X
+  X,
+  CheckCircle
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { complaintService } from '../../firebase/firestore';
@@ -28,6 +29,7 @@ const ComplaintManagement: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
+  const [showSubmissionSuccess, setShowSubmissionSuccess] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -39,29 +41,67 @@ const ComplaintManagement: React.FC = () => {
     description: '',
     category: 'Academic' as Complaint['category'],
     priority: 'Medium' as Complaint['priority'],
-    complainantName: '',
-    complainantEmail: '',
-    complainantPhone: '',
+    complainantName: user?.name || '',
+    complainantEmail: user?.email || '',
+    complainantPhone: user?.phone || '',
     assignedTo: '',
     assignedToEmail: '',
     anonymous: false
   });
+
+  // Update form data when user changes
+  useEffect(() => {
+    if (user && !formData.complainantName && !formData.complainantEmail) {
+      setFormData(prev => ({
+        ...prev,
+        complainantName: user.name || '',
+        complainantEmail: user.email || '',
+        complainantPhone: user.phone || ''
+      }));
+    }
+  }, [user]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
       let complaintsData: Complaint[] = [];
-      if (USE_DUMMY_DATA) {
-        complaintsData = injectDummyData.complaints([]);
-      } else {
+      
+      // Always fetch from Firestore first
+      try {
         complaintsData = await complaintService.getAllComplaints();
+      } catch (fetchError) {
+        console.error('Error fetching complaints from Firestore:', fetchError);
+        complaintsData = [];
       }
-      complaintsData = injectDummyData.complaints(complaintsData);
+      
+      // Merge with dummy data if enabled (dummy data is added to real data, not replaced)
+      if (USE_DUMMY_DATA) {
+        const dummyComplaints = injectDummyData.complaints([]);
+        // Merge: combine real complaints with dummy complaints, avoiding duplicates by ID
+        const existingIds = new Set(complaintsData.map(c => c.id));
+        const newDummyComplaints = dummyComplaints.filter(c => !existingIds.has(c.id));
+        complaintsData = [...complaintsData, ...newDummyComplaints];
+      } else {
+        // Even if USE_DUMMY_DATA is false, still inject dummy data as fallback
+        // but only if we have no real complaints
+        if (complaintsData.length === 0) {
+          complaintsData = injectDummyData.complaints([]);
+        }
+      }
+      
       setComplaints(complaintsData);
     } catch (error) {
       console.error('Error loading complaints:', error);
       setError('Failed to load complaints. Please try again.');
+      // Fallback to dummy data on error
+      try {
+        const fallbackComplaints = injectDummyData.complaints([]);
+        setComplaints(fallbackComplaints);
+      } catch (fallbackError) {
+        console.error('Error loading fallback complaints:', fallbackError);
+        setComplaints([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -69,6 +109,22 @@ const ComplaintManagement: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    
+    // Set up real-time listener for complaints (only if not using dummy data)
+    if (!USE_DUMMY_DATA) {
+      const unsubscribe = complaintService.listenComplaints((realTimeComplaints) => {
+        // Merge with dummy data as fallback if no real complaints
+        let mergedComplaints = [...realTimeComplaints];
+        if (mergedComplaints.length === 0) {
+          mergedComplaints = injectDummyData.complaints([]);
+        }
+        setComplaints(mergedComplaints);
+      });
+      
+      return () => {
+        unsubscribe();
+      };
+    }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -84,23 +140,44 @@ const ComplaintManagement: React.FC = () => {
           user?.role === 'hod' ? 'Teacher' : // HODs are also teachers
             user?.role === 'admin' ? 'Staff' : 'Other';
 
+      // Ensure required fields are populated from user if not filled
       const complaintData = {
         ...formData,
+        complainantName: formData.anonymous ? 'Anonymous' : (formData.complainantName || user?.name || ''),
+        complainantEmail: formData.anonymous ? '' : (formData.complainantEmail || user?.email || ''),
+        complainantPhone: formData.anonymous ? '' : (formData.complainantPhone || user?.phone || ''),
         complainantRole: complainantRole as Complaint['complainantRole'],
         status: 'Open' as Complaint['status'],
         submittedDate: new Date().toISOString(),
         lastUpdated: new Date().toISOString(),
-        attachments: []
+        attachments: [],
+        department: user?.department || undefined
       };
+
+      // Validate required fields
+      if (!complaintData.title.trim()) {
+        setError('Please enter a complaint title.');
+        return;
+      }
+      if (!complaintData.description.trim()) {
+        setError('Please enter a complaint description.');
+        return;
+      }
+      if (!formData.anonymous && !complaintData.complainantEmail) {
+        setError('Please enter your email address or check anonymous.');
+        return;
+      }
 
       await complaintService.createComplaint(complaintData);
 
       await loadData();
       setShowForm(false);
       resetForm();
+      setShowSubmissionSuccess(true);
     } catch (error) {
       console.error('Error saving complaint:', error);
       setError('Failed to save complaint. Please try again.');
+      alert('Failed to save complaint. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -156,9 +233,9 @@ const ComplaintManagement: React.FC = () => {
       description: '',
       category: 'Academic',
       priority: 'Medium',
-      complainantName: '',
-      complainantEmail: '',
-      complainantPhone: '',
+      complainantName: user?.name || '',
+      complainantEmail: user?.email || '',
+      complainantPhone: user?.phone || '',
       assignedTo: '',
       assignedToEmail: '',
       anonymous: false
@@ -702,6 +779,28 @@ const ComplaintManagement: React.FC = () => {
                 )}
 
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+
+      {/* Submission Success Modal */}
+      {showSubmissionSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle className="w-8 h-8 text-green-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Submitted!</h3>
+              <p className="text-gray-600 mb-6">Your complaint has been submitted successfully.</p>
+              <button
+                onClick={() => setShowSubmissionSuccess(false)}
+                className="px-6 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors font-medium"
+              >
+                OK
+              </button>
             </div>
           </div>
         </div>

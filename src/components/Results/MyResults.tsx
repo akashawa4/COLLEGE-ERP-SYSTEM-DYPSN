@@ -89,24 +89,30 @@ const MyResults: React.FC = () => {
   };
 
   return (
-    <div className="bg-white p-4 rounded-lg border border-blue-200 shadow mb-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+    <div className="space-y-6 px-4 lg:px-0">
+      {/* Header */}
+      <div className="theme-page-header">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">My Results</h2>
-          <p className="text-gray-600">View your academic results by subject and exam type</p>
+          <h1 className="theme-page-title">My Results</h1>
+          <p className="text-sm text-gray-600 mt-1">View your academic results by subject and exam type</p>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-          <select
-            value={selectedSubject}
-            onChange={(e) => setSelectedSubject(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-            disabled={subjectsLoading}
-          >
+      <div className="theme-card">
+        <div className="theme-card-header">
+          <h2 className="theme-section-title">Filters</h2>
+        </div>
+        <div className="theme-card-body">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="theme-label">Subject</label>
+              <select
+                value={selectedSubject}
+                onChange={(e) => setSelectedSubject(e.target.value)}
+                className="theme-select"
+                disabled={subjectsLoading}
+              >
             <option value="All">All Subjects</option>
             {subjectsLoading ? (
               <option value="">Loading subjects...</option>
@@ -119,71 +125,78 @@ const MyResults: React.FC = () => {
             )}
           </select>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Exam Type</label>
-          <select
-            value={selectedExamType}
-            onChange={(e) => setSelectedExamType(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-          >
-            <option value="All">All Exam Types</option>
-            {EXAM_TYPES.map(type => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
-        </div>
-        <div className="flex items-end">
-          <button
-            onClick={clearFilters}
-            className="w-full bg-gray-600 text-white px-4 py-2.5 sm:py-2 rounded-lg hover:bg-gray-700 touch-manipulation active:scale-95 transition-transform"
-          >
-            Clear Filters
-          </button>
+            <div>
+              <label className="theme-label">Exam Type</label>
+              <select
+                value={selectedExamType}
+                onChange={(e) => setSelectedExamType(e.target.value)}
+                className="theme-select"
+              >
+                <option value="All">All Exam Types</option>
+                {EXAM_TYPES.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end">
+              <button
+                onClick={clearFilters}
+                className="theme-btn-secondary w-full"
+              >
+                Clear Filters
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
       {loading ? (
-        <div className="text-gray-600 text-sm">Loading...</div>
+        <div className="theme-card p-8">
+          <div className="flex items-center justify-center">
+            <div className="theme-spinner"></div>
+            <span className="ml-3 text-sm text-gray-600">Loading results...</span>
+          </div>
+        </div>
       ) : filteredResults.length === 0 ? (
-        <div className="text-center text-gray-500 py-6">
+        <div className="theme-card p-8 text-center">
           {results.length === 0 ? (
             <div>
-              <p className="text-lg font-medium mb-2">No results found</p>
-              <p className="text-sm">Your results will appear here once they are entered by your teachers.</p>
+              <p className="text-lg font-medium text-gray-900 mb-2">No results found</p>
+              <p className="text-sm text-gray-600">Your results will appear here once they are entered by your teachers.</p>
             </div>
           ) : (
             <div>
-              <p className="text-lg font-medium mb-2">No results found for {selectedSubject} - {selectedExamType}</p>
-              <p className="text-sm">Try selecting a different subject or exam type.</p>
+              <p className="text-lg font-medium text-gray-900 mb-2">No results found for {selectedSubject} - {selectedExamType}</p>
+              <p className="text-sm text-gray-600">Try selecting a different subject or exam type.</p>
             </div>
           )}
         </div>
       ) : (
         <div className="space-y-6">
           {Object.keys(grouped).sort().map(subject => (
-            <div key={subject} className="border border-gray-200 rounded-lg">
-              <div className="px-4 py-2 bg-gray-50 border-b text-sm font-semibold text-gray-800 flex items-center justify-between">
-                <span>{subject}</span>
+            <div key={subject} className="theme-card overflow-hidden">
+              <div className="theme-card-header">
+                <h3 className="theme-section-title">{subject}</h3>
               </div>
-              <div className="p-4 space-y-4">
+              <div className="theme-card-body space-y-4">
                 {Object.keys(grouped[subject]).sort().map(examType => (
                   <div key={examType}>
                     <div className="text-sm font-semibold text-gray-700 mb-2">{examType}</div>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-sm border border-gray-200 rounded-lg">
-                        <thead className="bg-gray-50">
+                      <table className="theme-table">
+                        <thead>
                           <tr>
-                            <th className="px-3 py-2 text-left font-medium text-gray-600">Attempt</th>
-                            <th className="px-3 py-2 text-left font-medium text-gray-600">Marks</th>
-                            <th className="px-3 py-2 text-left font-medium text-gray-600">Percentage</th>
+                            <th>Attempt</th>
+                            <th>Marks</th>
+                            <th>Percentage</th>
                           </tr>
                         </thead>
                         <tbody>
                           {grouped[subject][examType].map((r, idx) => (
-                            <tr key={`${r.id}_${idx}`} className="border-t border-gray-100">
-                              <td className="px-3 py-2 text-gray-800">{idx + 1}</td>
-                              <td className="px-3 py-2 text-gray-800">{r.marksObtained} / {r.maxMarks}</td>
-                              <td className="px-3 py-2 text-gray-700">{typeof r.percentage === 'number' ? `${r.percentage.toFixed(1)}%` : '-'}</td>
+                            <tr key={`${r.id}_${idx}`}>
+                              <td>{idx + 1}</td>
+                              <td>{r.marksObtained} / {r.maxMarks}</td>
+                              <td>{typeof r.percentage === 'number' ? `${r.percentage.toFixed(1)}%` : '-'}</td>
                             </tr>
                           ))}
                         </tbody>

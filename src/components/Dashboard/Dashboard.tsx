@@ -684,9 +684,122 @@ const Dashboard: React.FC<DashboardProps> = ({ onPageChange }) => {
         </>
       )}
 
-      {/* Recent Activity for Students */}
+      {/* Enhanced Student Dashboard Section */}
       {user?.role === 'student' && (
-        <RecentActivity />
+        <>
+          {/* Attendance Overview */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="theme-card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="theme-section-title">Attendance Overview</h3>
+                <BarChart3 className="w-5 h-5 text-blue-600" />
+              </div>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-100">
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <span className="text-sm font-medium text-green-800">Present This Month</span>
+                  </div>
+                  <span className="text-lg font-bold text-green-600">
+                    {loading ? '...' : dashboardData.attendance.present}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-100">
+                  <div className="flex items-center space-x-2">
+                    <Clock className="w-5 h-5 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-800">Total Days</span>
+                  </div>
+                  <span className="text-lg font-bold text-blue-600">
+                    {loading ? '...' : dashboardData.attendance.total}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-100">
+                  <div className="flex items-center space-x-2">
+                    <TrendingUp className="w-5 h-5 text-purple-600" />
+                    <span className="text-sm font-medium text-purple-800">Attendance Rate</span>
+                  </div>
+                  <span className="text-lg font-bold text-purple-600">
+                    {loading ? '...' : `${dashboardData.attendance.percentage.toFixed(1)}%`}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="theme-card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="theme-section-title">Leave Summary</h3>
+                <FileText className="w-5 h-5 text-green-600" />
+              </div>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-100">
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <span className="text-sm font-medium text-green-800">Total Balance</span>
+                  </div>
+                  <span className="text-lg font-bold text-green-600">
+                    {loading ? '...' : `${dashboardData.leaveBalance.total} days`}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-100">
+                  <div className="flex items-center space-x-2">
+                    <Calendar className="w-5 h-5 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-800">Casual Leave</span>
+                  </div>
+                  <span className="text-lg font-bold text-blue-600">
+                    {loading ? '...' : `${dashboardData.leaveBalance.casual} days`}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg border border-amber-100">
+                  <div className="flex items-center space-x-2">
+                    <AlertTriangle className="w-5 h-5 text-amber-600" />
+                    <span className="text-sm font-medium text-amber-800">Sick Leave</span>
+                  </div>
+                  <span className="text-lg font-bold text-amber-600">
+                    {loading ? '...' : `${dashboardData.leaveBalance.sick} days`}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Actions for Students */}
+          <div className="theme-card p-6">
+            <h3 className="theme-section-title mb-4">Quick Actions</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <button
+                onClick={() => onPageChange?.('apply-leave')}
+                className="theme-action-btn-blue"
+              >
+                <Plus className="w-8 h-8 mb-2" />
+                <span className="font-medium text-sm text-center">Apply Leave</span>
+              </button>
+              <button
+                onClick={() => onPageChange?.('my-attendance')}
+                className="theme-action-btn-blue"
+              >
+                <UserCheck className="w-8 h-8 mb-2" />
+                <span className="font-medium text-sm text-center">View Attendance</span>
+              </button>
+              <button
+                onClick={() => onPageChange?.('my-results')}
+                className="theme-action-btn-green"
+              >
+                <BookOpen className="w-8 h-8 mb-2" />
+                <span className="font-medium text-sm text-center">My Results</span>
+              </button>
+              <button
+                onClick={() => onPageChange?.('my-leaves')}
+                className="theme-action-btn-amber"
+              >
+                <FileText className="w-8 h-8 mb-2" />
+                <span className="font-medium text-sm text-center">My Leaves</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Recent Activity for Students */}
+          <RecentActivity />
+        </>
       )}
     </div>
   );

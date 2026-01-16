@@ -6,6 +6,7 @@ import { getDepartmentCode, getDepartmentName } from '../../utils/departmentMapp
 import { getAvailableSemesters, getDefaultSemesterForYear, isValidSemesterForYear } from '../../utils/semesterMapping';
 import StudentAutocomplete from './StudentAutocomplete';
 import { injectDummyData, USE_DUMMY_DATA } from '../../utils/dummyData';
+import ResultAnalysis from './ResultAnalysis';
 
 const YEARS = ['1st', '2nd', '3rd', '4th'];
 const DIVS = ['A', 'B', 'C'];
@@ -13,6 +14,7 @@ const EXAM_TYPES = ['UT1', 'UT2', 'Practical', 'Viva', 'Midterm', 'Endsem'];
 
 const ResultEntryPanel: React.FC = () => {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = React.useState<'entry' | 'analysis'>('entry');
 
   const [year, setYear] = React.useState('1st');
   const [sem, setSem] = React.useState('1');
@@ -127,8 +129,8 @@ const ResultEntryPanel: React.FC = () => {
           setAvailableSubjects(names);
           if (names.length > 0) setSubject(prev => (prev && names.includes(prev) ? prev : names[0]));
         } else {
-          setAvailableSubjects([]);
-          setSubject('');
+        setAvailableSubjects([]);
+        setSubject('');
         }
       } finally {
         setSubjectsLoading(false);
@@ -599,6 +601,37 @@ const ResultEntryPanel: React.FC = () => {
 
   return (
     <div className="bg-white p-4 rounded-lg border border-blue-200 shadow mb-6">
+      {/* Tabs */}
+      <div className="mb-6 border-b border-gray-200">
+        <div className="flex space-x-1">
+          <button
+            onClick={() => setActiveTab('entry')}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === 'entry'
+                ? 'border-b-2 border-blue-600 text-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Result Entry
+          </button>
+          <button
+            onClick={() => setActiveTab('analysis')}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === 'analysis'
+                ? 'border-b-2 border-blue-600 text-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Result Analysis
+          </button>
+        </div>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'analysis' ? (
+        <ResultAnalysis />
+      ) : (
+        <>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Result Entry</h2>
@@ -868,6 +901,8 @@ const ResultEntryPanel: React.FC = () => {
           </table>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };

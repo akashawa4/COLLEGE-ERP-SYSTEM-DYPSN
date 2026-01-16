@@ -135,7 +135,7 @@ const UserManagement: React.FC = () => {
         setUsers(dummyData);
         setFilteredUsers(dummyData);
       } else {
-        alert('Error loading users. Please try again.');
+      alert('Error loading users. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -256,7 +256,7 @@ const UserManagement: React.FC = () => {
 
     try {
       setSaving(true);
-
+      
       // Check if user with email already exists
       const existingUsers = await userService.getAllUsers();
       const emailExists = existingUsers.some(user => user.email === newUser.email);
@@ -267,7 +267,7 @@ const UserManagement: React.FC = () => {
 
       // Generate unique ID
       const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
+      
       // Create user data - filter out undefined values
       const userData: any = {
         id: userId,
@@ -305,10 +305,10 @@ const UserManagement: React.FC = () => {
 
       // Create user in Firestore
       await userService.createUser(userData);
-
+      
       // Reload data
       await loadUsers();
-
+      
       // Reset form and close modal
       setNewUser({
         name: '',
@@ -329,7 +329,7 @@ const UserManagement: React.FC = () => {
         workStatus: 'active'
       });
       setShowAddModal(false);
-
+      
       alert('User created successfully!');
     } catch (error) {
       console.error('Error creating user:', error);
@@ -349,11 +349,11 @@ const UserManagement: React.FC = () => {
 
     try {
       setSaving(true);
-
+      
       // Check if email is being changed and if it already exists
       if (selectedUser.email) {
         const existingUsers = await userService.getAllUsers();
-        const emailExists = existingUsers.some(user =>
+        const emailExists = existingUsers.some(user => 
           user.email === selectedUser.email && user.id !== selectedUser.id
         );
         if (emailExists) {
@@ -389,7 +389,7 @@ const UserManagement: React.FC = () => {
 
       // Reload data
       await loadUsers();
-
+      
       setShowEditModal(false);
       setSelectedUser(null);
       alert('User updated successfully!');
@@ -428,7 +428,7 @@ const UserManagement: React.FC = () => {
         isActive: !user.isActive,
         updatedAt: new Date().toISOString()
       });
-
+      
       await loadUsers();
       alert(`User ${!user.isActive ? 'activated' : 'deactivated'} successfully!`);
     } catch (error) {
@@ -504,23 +504,23 @@ const UserManagement: React.FC = () => {
         <div className="flex items-center gap-2">
           <div className="relative flex-1 md:w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-            <input
-              aria-label="Search users"
-              type="text"
-              placeholder="Search users..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              <input
+                aria-label="Search users"
+                type="text"
+                placeholder="Search users..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-transparent text-sm bg-white"
-            />
-          </div>
-          <button
-            onClick={() => setShowMobileFilters((s) => !s)}
+              />
+            </div>
+            <button
+              onClick={() => setShowMobileFilters((s) => !s)}
             className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 md:hidden"
-            aria-expanded={showMobileFilters}
-            aria-label="Toggle filters"
-          >
+              aria-expanded={showMobileFilters}
+              aria-label="Toggle filters"
+            >
             <Filter className="w-5 h-5 text-slate-600" />
-          </button>
+            </button>
           <button
             onClick={loadUsers}
             disabled={loading}
@@ -737,99 +737,99 @@ const UserManagement: React.FC = () => {
                 </tr>
               ) : (
                 filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10">
-                          <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                            <span className="text-sm font-medium text-gray-700">
-                              {initials(user.name)}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {user.name}
-                          </div>
-                          <div className="text-sm text-gray-500">{user.email}</div>
-                          {user.rollNumber && (
-                            <div className="text-xs text-gray-400">
-                              ID: {user.rollNumber}
-                            </div>
-                          )}
+                <tr key={user.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0 h-10 w-10">
+                        <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                          <span className="text-sm font-medium text-gray-700">
+                            {initials(user.name)}
+                          </span>
                         </div>
                       </div>
-                    </td>
+                      <div className="ml-4">
+                        <div className="text-sm font-medium text-gray-900">
+                          {user.name}
+                        </div>
+                        <div className="text-sm text-gray-500">{user.email}</div>
+                        {user.rollNumber && (
+                          <div className="text-xs text-gray-400">
+                            ID: {user.rollNumber}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </td>
 
-                    <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(
+                        user.role
+                      )}`}
+                    >
+                      {getRoleIcon(user.role)}
+                      <span className="ml-1 capitalize">{user.role}</span>
+                    </span>
+                  </td>
+
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {user.department}
+                  </td>
+
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      {getStatusIcon(user.isActive)}
                       <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(
-                          user.role
-                        )}`}
-                      >
-                        {getRoleIcon(user.role)}
-                        <span className="ml-1 capitalize">{user.role}</span>
-                      </span>
-                    </td>
-
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {user.department}
-                    </td>
-
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {getStatusIcon(user.isActive)}
-                        <span
                           className={`ml-2 text-sm ${user.isActive ? "text-green-600" : "text-red-600"
-                            }`}
-                        >
-                          {user.isActive ? "Active" : "Inactive"}
-                        </span>
-                      </div>
-                    </td>
+                        }`}
+                      >
+                        {user.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                  </td>
 
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex items-center">
-                        <Clock className="w-4 h-4 mr-1" />
-                        {formatLastLogin(user.lastLogin)}
-                      </div>
-                    </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <div className="flex items-center">
+                      <Clock className="w-4 h-4 mr-1" />
+                      {formatLastLogin(user.lastLogin)}
+                    </div>
+                  </td>
 
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end space-x-2">
-                        <button
-                          onClick={() => handleEditUser(user)}
-                          className="text-blue-600 hover:text-blue-900 p-1 rounded"
-                          title="Edit user"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex items-center justify-end space-x-2">
+                      <button
+                        onClick={() => handleEditUser(user)}
+                        className="text-blue-600 hover:text-blue-900 p-1 rounded"
+                        title="Edit user"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
 
-                        <button
-                          onClick={() => handleToggleStatus(user.id)}
+                      <button
+                        onClick={() => handleToggleStatus(user.id)}
                           className={`p-1 rounded ${user.isActive
                             ? "text-yellow-600 hover:text-yellow-900"
                             : "text-green-600 hover:text-green-900"
-                            }`}
-                          title={user.isActive ? "Deactivate user" : "Activate user"}
-                        >
-                          {user.isActive ? (
-                            <XCircle className="w-4 h-4" />
-                          ) : (
-                            <CheckCircle className="w-4 h-4" />
-                          )}
-                        </button>
+                        }`}
+                        title={user.isActive ? "Deactivate user" : "Activate user"}
+                      >
+                        {user.isActive ? (
+                          <XCircle className="w-4 h-4" />
+                        ) : (
+                          <CheckCircle className="w-4 h-4" />
+                        )}
+                      </button>
 
-                        <button
-                          onClick={() => handleDeleteUser(user.id)}
-                          className="text-red-600 hover:text-red-900 p-1 rounded"
-                          title="Delete user"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                      <button
+                        onClick={() => handleDeleteUser(user.id)}
+                        className="text-red-600 hover:text-red-900 p-1 rounded"
+                        title="Delete user"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
                 ))
               )}
             </tbody>
@@ -849,133 +849,133 @@ const UserManagement: React.FC = () => {
             </div>
           ) : (
             filteredUsers.map((user) => (
-              <div
-                key={user.id}
-                className="bg-white border border-gray-100 rounded-lg p-3 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm font-medium text-gray-700">
-                        {initials(user.name)}
+            <div
+              key={user.id}
+              className="bg-white border border-gray-100 rounded-lg p-3 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                    <span className="text-sm font-medium text-gray-700">
+                      {initials(user.name)}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">
+                      {user.name}
+                    </div>
+                    <div className="text-xs text-gray-500">{user.email}</div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getRoleColor(
+                          user.role
+                        )}`}
+                      >
+                        {getRoleIcon(user.role)}
+                        <span className="ml-1 capitalize">{user.role}</span>
+                      </span>
+
+                      <span className={`text-xs ${user.isActive ? "text-green-600" : "text-red-600"}`}>
+                        {user.isActive ? "Active" : "Inactive"}
                       </span>
                     </div>
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {user.name}
-                      </div>
-                      <div className="text-xs text-gray-500">{user.email}</div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getRoleColor(
-                            user.role
-                          )}`}
-                        >
-                          {getRoleIcon(user.role)}
-                          <span className="ml-1 capitalize">{user.role}</span>
-                        </span>
-
-                        <span className={`text-xs ${user.isActive ? "text-green-600" : "text-red-600"}`}>
-                          {user.isActive ? "Active" : "Inactive"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="relative" ref={actionMenuRef}>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOpenActionFor((cur) => (cur === user.id ? null : user.id));
-                      }}
-                      className="p-2 rounded hover:bg-gray-100"
-                      aria-expanded={openActionFor === user.id}
-                      aria-haspopup="true"
-                      aria-label="Open user actions"
-                    >
-                      <MoreVertical className="w-5 h-5 text-gray-600" />
-                    </button>
-
-                    {openActionFor === user.id && (
-                      <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-20">
-                        <button
-                          onClick={() => {
-                            handleEditUser(user);
-                            setOpenActionFor(null);
-                          }}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
-                        >
-                          <Edit className="w-4 h-4" />
-                          Edit
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            handleToggleStatus(user.id);
-                            setOpenActionFor(null);
-                          }}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
-                        >
-                          {user.isActive ? (
-                            <>
-                              <XCircle className="w-4 h-4" />
-                              Deactivate
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle className="w-4 h-4" />
-                              Activate
-                            </>
-                          )}
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            handleDeleteUser(user.id);
-                            setOpenActionFor(null);
-                          }}
-                          className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-50 flex items-center gap-2"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Delete
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </div>
 
-                <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>{formatLastLogin(user.lastLogin)}</span>
-                    </div>
-                    <div className="text-xs text-gray-400">Dept: {user.department}</div>
-                  </div>
+                <div className="relative" ref={actionMenuRef}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOpenActionFor((cur) => (cur === user.id ? null : user.id));
+                    }}
+                    className="p-2 rounded hover:bg-gray-100"
+                    aria-expanded={openActionFor === user.id}
+                    aria-haspopup="true"
+                    aria-label="Open user actions"
+                  >
+                    <MoreVertical className="w-5 h-5 text-gray-600" />
+                  </button>
 
-                  <div className="flex items-center gap-2">
-                    {/* quick action icons for faster mobile access */}
-                    <button
-                      onClick={() => handleEditUser(user)}
-                      className="p-1 rounded hover:bg-gray-100"
-                      aria-label="Edit"
-                    >
-                      <Edit className="w-4 h-4 text-gray-600" />
-                    </button>
-                    <button
-                      onClick={() => handleToggleStatus(user.id)}
-                      className="p-1 rounded hover:bg-gray-100"
-                      aria-label={user.isActive ? "Deactivate" : "Activate"}
-                    >
-                      {user.isActive ? (
-                        <XCircle className="w-4 h-4 text-yellow-600" />
-                      ) : (
-                        <CheckCircle className="w-4 h-4 text-green-600" />
-                      )}
-                    </button>
-                  </div>
+                  {openActionFor === user.id && (
+                    <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-20">
+                      <button
+                        onClick={() => {
+                          handleEditUser(user);
+                          setOpenActionFor(null);
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <Edit className="w-4 h-4" />
+                        Edit
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          handleToggleStatus(user.id);
+                          setOpenActionFor(null);
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        {user.isActive ? (
+                          <>
+                            <XCircle className="w-4 h-4" />
+                            Deactivate
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4" />
+                            Activate
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          handleDeleteUser(user.id);
+                          setOpenActionFor(null);
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>{formatLastLogin(user.lastLogin)}</span>
+                  </div>
+                  <div className="text-xs text-gray-400">Dept: {user.department}</div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {/* quick action icons for faster mobile access */}
+                  <button
+                    onClick={() => handleEditUser(user)}
+                    className="p-1 rounded hover:bg-gray-100"
+                    aria-label="Edit"
+                  >
+                    <Edit className="w-4 h-4 text-gray-600" />
+                  </button>
+                  <button
+                    onClick={() => handleToggleStatus(user.id)}
+                    className="p-1 rounded hover:bg-gray-100"
+                    aria-label={user.isActive ? "Deactivate" : "Activate"}
+                  >
+                    {user.isActive ? (
+                      <XCircle className="w-4 h-4 text-yellow-600" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
             ))
           )}
         </div>

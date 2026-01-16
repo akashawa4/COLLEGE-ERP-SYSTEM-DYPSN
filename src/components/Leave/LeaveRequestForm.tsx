@@ -32,6 +32,8 @@ const LeaveRequestForm: React.FC = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string>('');
 
   const leaveTypes = [
     { id: 'SL', name: 'Sick Leave', balance: 5 },
@@ -94,21 +96,20 @@ const LeaveRequestForm: React.FC = () => {
         subject: 'General'
       };
 
-      // Enrich with student academic info (try in-memory first, then fetch profile if missing)
+      // Enrich with student academic info from in-memory user object (no additional fetch needed)
       if ((user as any).year) leaveRequestData.year = (user as any).year;
       if ((user as any).sem) leaveRequestData.sem = (user as any).sem;
       if ((user as any).div) leaveRequestData.div = (user as any).div;
-      if (!leaveRequestData.year || !leaveRequestData.sem || !leaveRequestData.div || !(user as any).rollNumber) {
-        try {
-          const profile = await userService.getUser(user.id);
-          if (profile) {
-            if (!leaveRequestData.year && (profile as any).year) leaveRequestData.year = (profile as any).year;
-            if (!leaveRequestData.sem && (profile as any).sem) leaveRequestData.sem = (profile as any).sem;
-            if (!leaveRequestData.div && (profile as any).div) leaveRequestData.div = (profile as any).div;
-            if (!(user as any).rollNumber && (profile as any).rollNumber) leaveRequestData.rollNumber = (profile as any).rollNumber;
-            if (!leaveRequestData.department && profile.department) leaveRequestData.department = profile.department;
-          }
-        } catch { }
+      if ((user as any).rollNumber) leaveRequestData.rollNumber = (user as any).rollNumber;
+      
+      // Ensure rollNumber is set (use userId as fallback)
+      if (!leaveRequestData.rollNumber) {
+        leaveRequestData.rollNumber = user.id;
+      }
+      
+      // Ensure department is set from user object
+      if (!leaveRequestData.department && user.department) {
+        leaveRequestData.department = user.department;
       }
 
       // Save to Firestore
@@ -124,11 +125,9 @@ const LeaveRequestForm: React.FC = () => {
         attachments: null
       });
 
-      setToast({
-        type: 'success',
-        text: `Leave request submitted successfully! Request ID: ${requestId}`
-      });
-      setTimeout(() => setToast(null), 3500);
+      // Show success modal
+      setSuccessMessage(`Your leave request has been submitted successfully! Request ID: ${requestId}`);
+      setShowSuccessModal(true);
 
     } catch (error: any) {
       // Handle error silently
@@ -147,17 +146,40 @@ const LeaveRequestForm: React.FC = () => {
 
   return (
     <div className="theme-card p-6">
-      {/* Toast notification */}
-      {toast && (
+      {/* Toast notification for errors */}
+      {toast && toast.type === 'error' && (
         <div className="fixed left-1/2 top-6 z-50 -translate-x-1/2">
           <div
             role="status"
             aria-live="polite"
-            className={`flex items-center space-x-2 px-4 py-3 rounded-xl shadow-mobile-lg text-white animate-slide-down ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
-              }`}
+            className="flex items-center space-x-2 px-4 py-3 rounded-xl shadow-mobile-lg text-white animate-slide-down bg-red-600"
           >
-            {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+            <XCircle className="w-5 h-5" />
             <span className="font-semibold">{toast.text}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md animate-slide-down">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle className="w-10 h-10 text-green-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Leave Submitted</h3>
+              <p className="text-gray-600 mb-6">{successMessage}</p>
+              <button
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  setSuccessMessage('');
+                }}
+                className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              >
+                OK
+              </button>
+            </div>
           </div>
         </div>
       )}

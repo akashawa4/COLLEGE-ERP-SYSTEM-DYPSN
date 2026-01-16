@@ -486,7 +486,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const ensureDemoUsersInFirestore = async () => {
     console.log('[AuthContext] Ensuring demo users are in Firestore...');
-    
+
     // Populate dummy students to Firestore in batch structure
     try {
       const { dummyDataService, getCurrentBatchYear } = await import('../firebase/firestore');

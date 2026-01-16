@@ -679,19 +679,55 @@ const generateDemoResults = (): ResultRecord[] => {
 
         const maxMarks = maxMarksMap[examType] || 100;
         
-        // Generate deterministic marks based on student index and subject index
-        // This ensures consistent results for the same student/subject combination
-        const hash = (studentIndex * 1000 + subject.id.charCodeAt(subject.id.length - 1) + examType.charCodeAt(0)) % 100;
+        // Generate deterministic marks based on student index (primary) and subject/exam (small variation)
+        // This ensures each student has a consistent base performance level
+        // Primary factor: studentIndex determines base performance category
+        const studentHash = studentIndex % 100;
+        // Small variations per subject and exam type (to make it realistic)
+        const subjectVariation = ((subject.id.charCodeAt(subject.id.length - 1) * 17) % 20) - 10; // -10 to +10
+        const examVariation = ((examType.charCodeAt(0) * 7) % 14) - 7; // -7 to +7
+        const totalVariation = subjectVariation + examVariation; // -17 to +17 percentage points
+        
+        let basePercentage: number;
         let marksObtained: number;
         
-        // Generate realistic marks distribution (60% get 70-95%, 30% get 50-69%, 10% get 40-49%)
-        if (hash < 60) {
-          marksObtained = Math.floor(maxMarks * (0.70 + (hash / 60) * 0.25));
-        } else if (hash < 90) {
-          marksObtained = Math.floor(maxMarks * (0.50 + ((hash - 60) / 30) * 0.19));
+        // Assign base performance level based on student index:
+        // 20% Distinction (75-85% base)
+        // 30% First Class (60-74% base)
+        // 25% Second Class (50-59% base)
+        // 15% Pass Class (40-49% base)
+        // 10% Fail (20-39% base) - ensure we have failures
+        
+        if (studentHash < 20) {
+          // Distinction: base 75-85%
+          basePercentage = 75 + ((studentHash / 20) * 10);
+        } else if (studentHash < 50) {
+          // First Class: base 60-74%
+          basePercentage = 60 + (((studentHash - 20) / 30) * 14);
+        } else if (studentHash < 75) {
+          // Second Class: base 50-59%
+          basePercentage = 50 + (((studentHash - 50) / 25) * 9);
+        } else if (studentHash < 90) {
+          // Pass Class: base 40-49%
+          basePercentage = 40 + (((studentHash - 75) / 15) * 9);
         } else {
-          marksObtained = Math.floor(maxMarks * (0.40 + ((hash - 90) / 10) * 0.09));
+          // Fail: base 20-39% - ensure we have failures
+          basePercentage = 20 + (((studentHash - 90) / 10) * 19);
         }
+        
+        // Apply small variation (-17% to +17%) but keep within category bounds
+        let finalPercentage = basePercentage + totalVariation;
+        
+        // Ensure we don't cross category boundaries too much
+        if (studentHash < 20 && finalPercentage < 70) finalPercentage = 70; // Keep Distinction students high
+        if (studentHash >= 20 && studentHash < 50 && finalPercentage < 55) finalPercentage = 55; // Keep First Class reasonable
+        if (studentHash >= 50 && studentHash < 75 && finalPercentage < 45) finalPercentage = 45; // Keep Second Class reasonable
+        if (studentHash >= 75 && studentHash < 90 && finalPercentage < 35) finalPercentage = 35; // Keep Pass Class reasonable
+        if (studentHash >= 90 && finalPercentage > 45) finalPercentage = 38; // Keep Fail students low
+        
+        // Clamp to valid range
+        finalPercentage = Math.max(0, Math.min(100, finalPercentage));
+        marksObtained = Math.floor(maxMarks * (finalPercentage / 100));
 
         // Ensure marks are within valid range
         marksObtained = Math.max(0, Math.min(maxMarks, marksObtained));

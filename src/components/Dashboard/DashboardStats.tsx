@@ -94,8 +94,8 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ dashboardData, loading,
         // Use current/ongoing year's batch (e.g., 2027, 2026) instead of user's year-based batch
         const batch = getCurrentBatchYear(); // Get current year's batch (e.g., 2027, 2026)
         const years = ['2nd', '3rd', '4th'];
-        const semsByYear: Record<string, string[]> = { '2nd': ['3','4'], '3rd': ['5','6'], '4th': ['7','8'] };
-        const divs = ['A','B','C','D'];
+        const semsByYear: Record<string, string[]> = { '2nd': ['3', '4'], '3rd': ['5', '6'], '4th': ['7', '8'] };
+        const divs = ['A', 'B', 'C', 'D'];
         const aggregates: Array<{ year: string; sem: string; div: string; count: number; students: any[] }> = [];
         let total = 0;
 
@@ -127,8 +127,8 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ dashboardData, loading,
   // Calculate stats from real data
   const calculateStats = () => {
     if (!user) return [];
-    
-    
+
+
     if (user.role === 'student' && dashboardData) {
       // Student stats with real data - only show their own information
       return [
@@ -217,23 +217,23 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ dashboardData, loading,
       ? studentData.reduce((sum, d) => sum + (d.count || 0), 0)
       : localStudentData.reduce((sum, d) => sum + (d.count || 0), 0);
     if ((user.role as string === 'teacher' || user.role as string === 'hod') && effectiveStudentData && effectiveStudentData.length >= 0) {
-      
+
       const year2Count = effectiveStudentData.filter(d => {
         const year = d.year?.toString().toLowerCase();
         return year === '2' || year?.includes('2') || year?.includes('2nd') || year?.includes('second');
       }).reduce((sum, d) => sum + d.count, 0);
-      
+
       const year3Count = effectiveStudentData.filter(d => {
         const year = d.year?.toString().toLowerCase();
         return year === '3' || year?.includes('3') || year?.includes('3rd') || year?.includes('third');
       }).reduce((sum, d) => sum + d.count, 0);
-      
+
       const year4Count = effectiveStudentData.filter(d => {
         const year = d.year?.toString().toLowerCase();
         return year === '4' || year?.includes('4') || year?.includes('4th') || year?.includes('fourth');
       }).reduce((sum, d) => sum + d.count, 0);
-      
-      
+
+
       return [
         {
           id: 'students',
@@ -315,7 +315,7 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ dashboardData, loading,
         }
       ];
     }
-    
+
     // Default fallback for other roles
     return [
       {
@@ -380,7 +380,7 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ dashboardData, loading,
         // Get all unique years from the data
         const availableYears = [...new Set(studentData.map(d => d.year))].sort();
         console.log('Available years in data:', availableYears);
-        
+
         return (
           <div className="space-y-3">
             <h4 className="text-lg font-semibold text-gray-900 mb-4">Select Year</h4>
@@ -389,11 +389,11 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ dashboardData, loading,
               const yearData = studentData.filter(d => {
                 const studentYear = d.year?.toString().toLowerCase();
                 const targetYear = year.toString().toLowerCase();
-                return studentYear === targetYear || 
-                       studentYear?.includes(targetYear) || 
-                       (year === '2' && (studentYear?.includes('2nd') || studentYear?.includes('second'))) ||
-                       (year === '3' && (studentYear?.includes('3rd') || studentYear?.includes('third'))) ||
-                       (year === '4' && (studentYear?.includes('4th') || studentYear?.includes('fourth')));
+                return studentYear === targetYear ||
+                  studentYear?.includes(targetYear) ||
+                  (year === '2' && (studentYear?.includes('2nd') || studentYear?.includes('second'))) ||
+                  (year === '3' && (studentYear?.includes('3rd') || studentYear?.includes('third'))) ||
+                  (year === '4' && (studentYear?.includes('4th') || studentYear?.includes('fourth')));
               });
               const totalInYear = yearData.reduce((sum, d) => sum + d.count, 0);
               console.log(`Year ${year} data:`, yearData, 'Total:', totalInYear);
@@ -411,14 +411,14 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ dashboardData, loading,
                 </button>
               );
             })}
-            
+
             {/* Debug info */}
             <div className="mt-4 p-3 bg-gray-100 rounded-lg text-xs text-gray-600">
               <p>Debug: Available years in data: {availableYears.join(', ')}</p>
               <p>Total student records: {studentData.length}</p>
               <p>Total students: {studentData.reduce((sum, d) => sum + d.count, 0)}</p>
             </div>
-            
+
             {/* Show all available years if standard years have no data */}
             {availableYears.length > 0 && availableYears.some(y => !['2', '3', '4'].includes(y)) && (
               <div className="mt-4">
@@ -515,9 +515,9 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ dashboardData, loading,
         );
 
       case 'students':
-        const divData = studentData.filter(d => 
-          d.year === selectedYear && 
-          d.sem === selectedSemester && 
+        const divData = studentData.filter(d =>
+          d.year === selectedYear &&
+          d.sem === selectedSemester &&
           d.div === selectedDivision
         );
         const students = divData[0]?.students || [];
@@ -589,15 +589,15 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ dashboardData, loading,
   // Render division breakdown for a specific year
   const renderDivisionBreakdown = (year: string) => {
     const effectiveStudentData = (studentData && studentData.length > 0) ? studentData : localStudentData;
-    
+
     // Filter students for the specific year
     const yearStudents = effectiveStudentData.filter(d => {
       const studentYear = d.year?.toString().toLowerCase();
-      return studentYear === year.toLowerCase() || 
-             studentYear?.includes(year.toLowerCase()) || 
-             studentYear?.includes(year.toLowerCase() + 'nd') || 
-             studentYear?.includes(year.toLowerCase() + 'rd') || 
-             studentYear?.includes(year.toLowerCase() + 'th');
+      return studentYear === year.toLowerCase() ||
+        studentYear?.includes(year.toLowerCase()) ||
+        studentYear?.includes(year.toLowerCase() + 'nd') ||
+        studentYear?.includes(year.toLowerCase() + 'rd') ||
+        studentYear?.includes(year.toLowerCase() + 'th');
     });
 
     // Group by division
@@ -630,37 +630,37 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ dashboardData, loading,
           {Object.entries(divisionGroups)
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([division, data]) => (
-            <div key={division} className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-lg transition-shadow">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                    <span className="text-sm font-bold text-green-600">{division}</span>
+              <div key={division} className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-lg transition-shadow">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                      <span className="text-sm font-bold text-green-600">{division}</span>
+                    </div>
+                    <span className="font-medium text-gray-900">Division {division}</span>
                   </div>
-                  <span className="font-medium text-gray-900">Division {division}</span>
+                  <span className="text-2xl font-bold text-gray-900">{data.count}</span>
                 </div>
-                <span className="text-2xl font-bold text-gray-900">{data.count}</span>
+                <p className="text-sm text-gray-600">Students</p>
+
+                {/* Show some student names if available */}
+                {data.students.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    <p className="text-xs text-gray-500 mb-2">Sample students:</p>
+                    <div className="space-y-1">
+                      {data.students.slice(0, 3).map((student, index) => (
+                        <div key={index} className="flex items-center space-x-2 text-xs">
+                          <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                          <span className="text-gray-700 truncate">{student.name || 'Unknown'}</span>
+                        </div>
+                      ))}
+                      {data.students.length > 3 && (
+                        <p className="text-xs text-gray-500">... and {data.students.length - 3} more</p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-              <p className="text-sm text-gray-600">Students</p>
-              
-              {/* Show some student names if available */}
-              {data.students.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-gray-100">
-                  <p className="text-xs text-gray-500 mb-2">Sample students:</p>
-                  <div className="space-y-1">
-                    {data.students.slice(0, 3).map((student, index) => (
-                      <div key={index} className="flex items-center space-x-2 text-xs">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                        <span className="text-gray-700 truncate">{student.name || 'Unknown'}</span>
-                      </div>
-                    ))}
-                    {data.students.length > 3 && (
-                      <p className="text-xs text-gray-500">... and {data.students.length - 3} more</p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
+            ))}
         </div>
 
         {/* No data message */}
@@ -758,12 +758,11 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ dashboardData, loading,
                     <span className="text-sm font-bold text-gray-900">{leave.available} days left</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-                    <div 
-                      className={`h-2 rounded-full ${
-                        leave.color === 'blue' ? 'bg-blue-500' :
-                        leave.color === 'green' ? 'bg-green-500' :
-                        leave.color === 'purple' ? 'bg-purple-500' : 'bg-amber-500'
-                      }`}
+                    <div
+                      className={`h-2 rounded-full ${leave.color === 'blue' ? 'bg-blue-500' :
+                          leave.color === 'green' ? 'bg-green-500' :
+                            leave.color === 'purple' ? 'bg-purple-500' : 'bg-amber-500'
+                        }`}
                       style={{ width: `${(leave.used / leave.total) * 100}%` }}
                     ></div>
                   </div>
@@ -953,14 +952,16 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ dashboardData, loading,
 
   if (loading || statsLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[...Array(4)].map((_, index) => (
-          <div key={index} className="bg-white p-6 rounded-xl shadow-mobile border border-gray-200">
+          <div key={index} className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
             <div className="animate-pulse">
-              <div className="h-4 bg-gray-200 rounded mb-2"></div>
-              <div className="h-8 bg-gray-200 rounded mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded mb-4"></div>
-              <div className="w-12 h-12 bg-gray-200 rounded-lg"></div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 bg-slate-200 rounded-xl"></div>
+                <div className="w-6 h-6 bg-slate-200 rounded-full"></div>
+              </div>
+              <div className="h-7 bg-slate-200 rounded mb-2"></div>
+              <div className="h-4 bg-slate-200 rounded w-2/3"></div>
             </div>
           </div>
         ))}
@@ -975,13 +976,12 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ dashboardData, loading,
           const Icon = stat.icon;
           // Make year cards clickable to show division breakdown
           const isClickable = stat.id === 'year2' || stat.id === 'year3' || stat.id === 'year4';
-          
+
           return (
-            <div 
-              key={index} 
-              className={`card-mobile transition-all duration-200 ${
-                isClickable ? 'hover:shadow-mobile-lg hover:scale-105 cursor-pointer active:scale-95' : 'hover:shadow-mobile-lg'
-              }`}
+            <div
+              key={index}
+              className={`card-mobile transition-all duration-200 ${isClickable ? 'hover:shadow-mobile-lg hover:scale-105 cursor-pointer active:scale-95' : 'hover:shadow-mobile-lg'
+                }`}
               onClick={() => isClickable && handleModalOpen(stat.id)}
             >
               <div className="flex items-center justify-between">

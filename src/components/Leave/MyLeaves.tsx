@@ -309,12 +309,14 @@ const MyLeaves: React.FC = () => {
 
       try {
         if (user.role === 'teacher' || user.role === 'hod') {
-          // Fetch from hierarchical leave collection for the currently selected class and month
+          // Fetch leaves assigned to this teacher/HOD
+          const assignedLeaves = await leaveService.getLeaveRequestsByApprover(user.id);
+          
+          // Also fetch from hierarchical leave collection for the currently selected class and month
           const subject = 'General';
           const now = new Date();
           const month = String(now.getMonth() + 1).padStart(2, '0');
           const yearForMonth = String(now.getFullYear());
-
 
           // Use full year label (e.g., '2nd') for department-aware hierarchical path
           const classLeaves = await leaveService.getClassLeavesByMonth(
@@ -325,10 +327,32 @@ const MyLeaves: React.FC = () => {
             month,
             yearForMonth,
             user.department || undefined
-          );
+          ).catch(() => []);
+
+          // Combine assigned leaves with class leaves, removing duplicates
+          const allLeaves = [...assignedLeaves];
+          const classLeaveIds = new Set(allLeaves.map(l => l.id));
+          
+          // Add class leaves that aren't already in assigned leaves
+          classLeaves.forEach(leave => {
+            if (!classLeaveIds.has(leave.id)) {
+              // Only add if it matches the selected filters or is assigned to this teacher
+              const assignedTo = (leave as any).assignedTo;
+              if (!assignedTo || assignedTo.id === user.id || assignedTo.email === user.email) {
+                allLeaves.push(leave);
+              }
+            }
+          });
 
           // Restrict to teacher's department if present on records
-          const filtered = classLeaves.filter(l => !l.department || l.department === user.department);
+          const filtered = allLeaves.filter(l => {
+            // Include if no department filter or matches teacher's department
+            const deptMatch = !l.department || l.department === user.department;
+            // Also include if assigned to this teacher
+            const assignedTo = (l as any).assignedTo;
+            const isAssigned = assignedTo && (assignedTo.id === user.id || assignedTo.email === user.email);
+            return deptMatch || isAssigned;
+          });
 
           // If no real data, use demo data
           if (filtered.length === 0) {
@@ -357,13 +381,22 @@ const MyLeaves: React.FC = () => {
       }
     };
 
-    // Only reload for teachers/HODs when year/sem/div changes
-    if (user?.role === 'teacher' || user?.role === 'hod') {
-      loadLeaveRequests();
-    } else {
-      // For students, just once on mount
-      if (loading) loadLeaveRequests();
+    loadLeaveRequests();
+    
+    // Set up polling to refresh leaves every 10 seconds for students
+    // This ensures students see updates when their leaves are approved/rejected
+    let refreshInterval: NodeJS.Timeout | null = null;
+    if (user?.role === 'student') {
+      refreshInterval = setInterval(() => {
+        loadLeaveRequests();
+      }, 10000); // Refresh every 10 seconds
     }
+    
+    return () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, year, sem, div]);
 
@@ -575,16 +608,16 @@ const MyLeaves: React.FC = () => {
   return (
     <div className="p-4 lg:p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header with Gradient */}
-      <div className="bg-gradient-to-r from-sky-50 to-blue-50 rounded-2xl p-6 border border-sky-100">
+      <div className="theme-page-header">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-2">
+            <h1 className="theme-page-title">
               {user?.role === 'teacher' || user?.role === 'hod' ? 'Student Leaves' : 'My Leaves'}
             </h1>
-            <p className="text-slate-600">Track and manage leave requests</p>
+            <p className="text-sm text-gray-600 mt-1">Track and manage leave requests</p>
           </div>
           <button
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors text-sm font-medium shadow-sm"
+            className="theme-btn-secondary"
             onClick={handleExportLeaves}
           >
             <Download className="w-4 h-4" />
@@ -595,38 +628,42 @@ const MyLeaves: React.FC = () => {
 
       {/* Year/Sem/Div dropdowns for teacher/HOD only */}
       {(user?.role === 'teacher' || user?.role === 'hod') && (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-          <h3 className="text-sm font-medium text-slate-700 mb-3">Filter by Class</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1.5">Year</label>
-              <select
-                value={year}
-                onChange={e => handleYearChange(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
-              >
-                {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1.5">Semester</label>
-              <select
-                value={sem}
-                onChange={e => setSem(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
-              >
-                {availableSemesters.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1.5">Division</label>
-              <select
-                value={div}
-                onChange={e => setDiv(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all"
-              >
-                {DIVS.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
+        <div className="theme-card">
+          <div className="theme-card-header">
+            <h3 className="theme-section-title">Filter by Class</h3>
+          </div>
+          <div className="theme-card-body">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="theme-label">Year</label>
+                <select
+                  value={year}
+                  onChange={e => handleYearChange(e.target.value)}
+                  className="theme-select"
+                >
+                  {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="theme-label">Semester</label>
+                <select
+                  value={sem}
+                  onChange={e => setSem(e.target.value)}
+                  className="theme-select"
+                >
+                  {availableSemesters.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="theme-label">Division</label>
+                <select
+                  value={div}
+                  onChange={e => setDiv(e.target.value)}
+                  className="theme-select"
+                >
+                  {DIVS.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
             </div>
           </div>
         </div>
@@ -634,7 +671,7 @@ const MyLeaves: React.FC = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+        <div className="theme-stats-card">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-500">Total Requests</p>
@@ -645,10 +682,10 @@ const MyLeaves: React.FC = () => {
             </div>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+        <div className="theme-stats-card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-500">Approved</p>
+              <p className="text-sm font-medium text-gray-600">Approved</p>
               <p className="text-2xl font-bold text-green-600 mt-1">{leaveStats.approved}</p>
             </div>
             <div className="p-3 bg-green-50 rounded-lg">
@@ -656,10 +693,10 @@ const MyLeaves: React.FC = () => {
             </div>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+        <div className="theme-stats-card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-500">Pending</p>
+              <p className="text-sm font-medium text-gray-600">Pending</p>
               <p className="text-2xl font-bold text-amber-600 mt-1">{leaveStats.pending}</p>
             </div>
             <div className="p-3 bg-amber-50 rounded-lg">
@@ -667,7 +704,7 @@ const MyLeaves: React.FC = () => {
             </div>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+        <div className="theme-stats-card">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-500">Rejected/Returned</p>
@@ -681,24 +718,24 @@ const MyLeaves: React.FC = () => {
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200">
-        <div className="p-4 border-b border-slate-200">
+      <div className="theme-card">
+        <div className="theme-card-header">
           <div className="flex flex-col lg:flex-row gap-3">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search by reason or ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sm"
+                className="theme-input pl-10"
               />
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sm"
+                className="theme-select"
               >
                 <option value="all">All Status</option>
                 <option value="approved">Approved</option>
@@ -709,7 +746,7 @@ const MyLeaves: React.FC = () => {
               <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
-                className="px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sm"
+                className="theme-select"
               >
                 <option value="all">All Types</option>
                 <option value="SL">Sick Leave</option>
@@ -889,9 +926,9 @@ const MyLeaves: React.FC = () => {
       {/* Leave Detail Modal */}
       {selectedLeave && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
-            <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
-              <h3 className="text-xl font-semibold text-slate-900">Leave Request Details</h3>
+          <div className="theme-modal-content w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white rounded-t-2xl">
+              <h3 className="text-xl font-semibold text-gray-900">Leave Request Details</h3>
               <button
                 onClick={() => setSelectedLeave(null)}
                 className="p-2 hover:bg-slate-100 rounded-lg transition-colors"

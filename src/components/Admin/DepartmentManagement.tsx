@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Plus,
-  Search,
-  Edit,
-  Trash2,
-  Building2,
-  Crown,
-  Users,
+import { 
+  Plus, 
+  Search, 
+  Edit, 
+  Trash2, 
+  Building2, 
+  Crown, 
+  Users, 
   GraduationCap,
   CheckCircle,
   XCircle,
@@ -57,7 +57,7 @@ const DepartmentManagement: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-
+      
       // Load departments and teachers in parallel
       let [departmentsData, teachersData] = await Promise.all([
         departmentService.getAllDepartments(),
@@ -77,11 +77,11 @@ const DepartmentManagement: React.FC = () => {
           teachersData = injectDummyData.teachers(teachersData);
         }
       }
-
+      
       setDepartments(departmentsData);
       setTeachers(teachersData);
       setFilteredTeachers(teachersData); // Initially show all teachers
-
+      
       // Initialize default departments if none exist
       if (departmentsData.length === 0 && !USE_DUMMY_DATA) {
         await departmentService.initializeDefaultDepartments();
@@ -96,7 +96,7 @@ const DepartmentManagement: React.FC = () => {
         setTeachers(getDummyData().teachers());
         setFilteredTeachers(getDummyData().teachers());
       } else {
-        alert('Error loading data. Please try again.');
+      alert('Error loading data. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -110,15 +110,15 @@ const DepartmentManagement: React.FC = () => {
         setFilteredTeachers(teachers);
         return;
       }
-
+      
       // Normalize the department name for filtering
       const normalizedDeptName = normalizeDepartmentName(departmentName);
-
+      
       // Filter teachers by normalized department name
-      const departmentTeachers = teachers.filter(teacher =>
+      const departmentTeachers = teachers.filter(teacher => 
         normalizeDepartmentName(teacher.department) === normalizedDeptName
       );
-
+      
       setFilteredTeachers(departmentTeachers);
     } catch (error) {
       console.error('Error loading teachers by department:', error);
@@ -135,9 +135,9 @@ const DepartmentManagement: React.FC = () => {
   // Normalize department names to standard format
   const normalizeDepartmentName = (departmentName: string): string => {
     if (!departmentName) return '';
-
+    
     const normalized = departmentName.toLowerCase().trim();
-
+    
     // Map variations to standard names
     const departmentMap: { [key: string]: string } = {
       'cse': 'Computer Science Engineering',
@@ -169,7 +169,7 @@ const DepartmentManagement: React.FC = () => {
       'data science': 'Data Science',
       'data science (cse)': 'Data Science'
     };
-
+    
     return departmentMap[normalized] || departmentName;
   };
 
@@ -192,7 +192,7 @@ const DepartmentManagement: React.FC = () => {
 
     try {
       setSaving(true);
-
+      
       // Check if department code already exists
       const existingDept = await departmentService.getDepartmentByCode(newDepartment.code);
       if (existingDept) {
@@ -218,13 +218,13 @@ const DepartmentManagement: React.FC = () => {
 
       // Reload data
       await loadData();
-
+      
       // Reset form and close modal
       setNewDepartment({ name: '', code: '', description: '', hodId: '', isActive: true });
       setSelectedDepartmentForHOD('');
       setFilteredTeachers(teachers);
       setShowAddModal(false);
-
+      
       alert('Department created successfully!');
     } catch (error) {
       console.error('Error creating department:', error);
@@ -244,7 +244,7 @@ const DepartmentManagement: React.FC = () => {
 
     try {
       setSaving(true);
-
+      
       // Check if department code already exists (excluding current department)
       if (selectedDepartment.code) {
         const existingDept = await departmentService.getDepartmentByCode(selectedDepartment.code);
@@ -271,7 +271,7 @@ const DepartmentManagement: React.FC = () => {
 
       // Reload data
       await loadData();
-
+      
       setShowEditModal(false);
       setSelectedDepartment(null);
       alert('Department updated successfully!');
@@ -309,7 +309,7 @@ const DepartmentManagement: React.FC = () => {
       await departmentService.updateDepartment(id, {
         isActive: !department.isActive
       });
-
+      
       await loadData();
       alert(`Department ${!department.isActive ? 'activated' : 'deactivated'} successfully!`);
     } catch (error) {
@@ -379,7 +379,7 @@ const DepartmentManagement: React.FC = () => {
           <h1 className="text-xl lg:text-2xl font-bold text-slate-900">Department Management</h1>
           <p className="text-sm text-slate-500">Create, edit, and manage departments and HODs</p>
         </div>
-
+        
         <div className="flex items-center gap-2">
           <div className="relative flex-1 lg:w-64">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -424,98 +424,98 @@ const DepartmentManagement: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* Departments Grid */}
+      {/* Departments Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredDepartments.map((department) => (
-              <div
-                key={department.id}
+        {filteredDepartments.map((department) => (
+          <div
+            key={department.id}
                 className={`p-5 rounded-xl shadow-sm border transition-all hover:shadow-md ${department.isActive ? 'border-slate-200 bg-white hover:border-slate-300' : 'border-slate-200 bg-slate-50'
-                  }`}
-              >
+            }`}
+          >
                 <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
                       <Building2 className="w-5 h-5 text-slate-600" />
-                    </div>
-                    <div>
+                </div>
+                <div>
                       <h3 className="text-base font-semibold text-slate-900">{department.name}</h3>
                       <p className="text-sm text-slate-500">{department.code}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <button
-                      onClick={() => handleEditDepartment(department)}
-                      className="text-slate-500 hover:text-slate-700 p-1.5 hover:bg-slate-100 rounded-lg transition-colors"
-                      title="Edit department"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleToggleStatus(department.id)}
-                      className={`p-1.5 rounded-lg transition-colors ${department.isActive ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
-                      title={department.isActive ? 'Deactivate department' : 'Activate department'}
-                    >
-                      {department.isActive ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
-                    </button>
-                    <button
-                      onClick={() => handleDeleteDepartment(department.id)}
-                      className="text-slate-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Delete department"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
                 </div>
+              </div>
+              <div className="flex items-center space-x-1">
+                <button
+                  onClick={() => handleEditDepartment(department)}
+                      className="text-slate-500 hover:text-slate-700 p-1.5 hover:bg-slate-100 rounded-lg transition-colors"
+                  title="Edit department"
+                >
+                  <Edit className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleToggleStatus(department.id)}
+                      className={`p-1.5 rounded-lg transition-colors ${department.isActive ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
+                  title={department.isActive ? 'Deactivate department' : 'Activate department'}
+                >
+                  {department.isActive ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={() => handleDeleteDepartment(department.id)}
+                      className="text-slate-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Delete department"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
 
                 <p className="text-sm text-slate-600 mb-3 line-clamp-2">{department.description}</p>
 
-                {/* HOD Info */}
-                {department.hodName ? (
+            {/* HOD Info */}
+            {department.hodName ? (
                   <div className="mb-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                    <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2">
                       <Crown className="w-4 h-4 text-slate-600" />
                       <span className="text-xs font-medium text-slate-700">HOD</span>
-                    </div>
+                </div>
                     <p className="text-sm text-slate-900 mt-1 font-medium">{department.hodName}</p>
                     <p className="text-xs text-slate-500">{department.hodEmail}</p>
-                  </div>
-                ) : (
+              </div>
+            ) : (
                   <div className="mb-3 p-3 bg-amber-50 rounded-xl border border-amber-200">
-                    <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2">
                       <AlertCircle className="w-4 h-4 text-amber-600" />
                       <span className="text-xs font-medium text-amber-800">No HOD Assigned</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Stats */}
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div className="text-center p-2 bg-slate-50 rounded-lg">
-                    <div className="flex items-center justify-center space-x-1">
-                      <GraduationCap className="w-4 h-4 text-slate-600" />
-                      <span className="text-sm font-semibold text-slate-900">{department.totalTeachers}</span>
-                    </div>
-                    <p className="text-xs text-slate-500">Teachers</p>
-                  </div>
-                  <div className="text-center p-2 bg-slate-50 rounded-lg">
-                    <div className="flex items-center justify-center space-x-1">
-                      <Users className="w-4 h-4 text-slate-600" />
-                      <span className="text-sm font-semibold text-slate-900">{department.totalStudents}</span>
-                    </div>
-                    <p className="text-xs text-slate-500">Students</p>
-                  </div>
-                </div>
-
-                {/* Status */}
-                <div className="flex items-center justify-between">
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${department.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
-                    }`}>
-                    {department.isActive ? 'Active' : 'Inactive'}
-                  </span>
                 </div>
               </div>
-            ))}
+            )}
+
+            {/* Stats */}
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="text-center p-2 bg-slate-50 rounded-lg">
+                <div className="flex items-center justify-center space-x-1">
+                      <GraduationCap className="w-4 h-4 text-slate-600" />
+                      <span className="text-sm font-semibold text-slate-900">{department.totalTeachers}</span>
+                </div>
+                    <p className="text-xs text-slate-500">Teachers</p>
+              </div>
+                  <div className="text-center p-2 bg-slate-50 rounded-lg">
+                <div className="flex items-center justify-center space-x-1">
+                      <Users className="w-4 h-4 text-slate-600" />
+                      <span className="text-sm font-semibold text-slate-900">{department.totalStudents}</span>
+                </div>
+                    <p className="text-xs text-slate-500">Students</p>
+              </div>
+            </div>
+
+            {/* Status */}
+                <div className="flex items-center justify-between">
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${department.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+              }`}>
+                {department.isActive ? 'Active' : 'Inactive'}
+              </span>
+            </div>
           </div>
+        ))}
+      </div>
         </>
       )}
 
@@ -602,7 +602,7 @@ const DepartmentManagement: React.FC = () => {
                     <option value="">Select HOD</option>
                     {filteredTeachers.length > 0 ? (
                       filteredTeachers.map(teacher => (
-                        <option key={teacher.id} value={teacher.id}>
+                      <option key={teacher.id} value={teacher.id}>
                           {teacher.name} - {teacher.designation} ({normalizeDepartmentName(teacher.department)})
                         </option>
                       ))
@@ -752,7 +752,7 @@ const DepartmentManagement: React.FC = () => {
                     <option value="">Select HOD</option>
                     {filteredTeachers.length > 0 ? (
                       filteredTeachers.map(teacher => (
-                        <option key={teacher.id} value={teacher.id}>
+                      <option key={teacher.id} value={teacher.id}>
                           {teacher.name} - {teacher.designation} ({normalizeDepartmentName(teacher.department)})
                         </option>
                       ))
@@ -806,7 +806,7 @@ const DepartmentManagement: React.FC = () => {
                   ) : (
                     <>
                       <Save className="w-4 h-4" />
-                      Save Changes
+                  Save Changes
                     </>
                   )}
                 </button>

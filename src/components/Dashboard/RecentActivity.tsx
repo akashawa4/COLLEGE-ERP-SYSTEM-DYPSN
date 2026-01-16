@@ -82,7 +82,7 @@ const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({ isOpen, onClo
   const filteredActivities = allActivities.filter(activity => {
     const matchesFilter = filterType === 'all' || activity.type.includes(filterType);
     const matchesSearch = activity.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         activity.description.toLowerCase().includes(searchTerm.toLowerCase());
+      activity.description.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesFilter && matchesSearch;
   });
 
@@ -100,86 +100,86 @@ const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({ isOpen, onClo
 
   return (
     <>
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div>
-            <h3 className="text-xl font-semibold text-gray-900">Activity History</h3>
-            <p className="text-sm text-gray-600 mt-1">Complete record of your activities and requests</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
-        </div>
-
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search activities..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900">Activity History</h3>
+              <p className="text-sm text-gray-600 mt-1">Complete record of your activities and requests</p>
             </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search activities..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
               <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All Activities</option>
-              <option value="leave">Leave Requests</option>
+                <option value="leave">Leave Requests</option>
                 <option value="attendance">Attendance</option>
                 <option value="profile">Profile Updates</option>
               </select>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6">
-          {filteredActivities.length === 0 ? (
-            <div className="text-center py-12">
-              <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No activities found</h3>
-              <p className="text-gray-600">Try adjusting your search or filter criteria</p>
             </div>
-          ) : (
-          <div className="space-y-4">
-              {filteredActivities.map((activity) => (
-                <div
-                  key={activity.id}
-                  className={`border rounded-lg p-4 transition-all duration-200 hover:shadow-md cursor-pointer ${getActivityTypeColor(activity.type)}`}
-                  onClick={() => setSelectedActivity(activity)}
-                >
-                  <div className="flex items-start space-x-4">
-                    <div className="flex-shrink-0 mt-1">
-                      <activity.icon className={`w-5 h-5 ${activity.color}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h4 className="text-sm font-medium text-gray-900 mb-1">{activity.title}</h4>
-                          <p className="text-sm text-gray-600 mb-2">{activity.description}</p>
-                          <div className="flex items-center space-x-4 text-xs text-gray-500">
-                            <span>{activity.time}</span>
-                            <span>{activity.date}</span>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-6">
+            {filteredActivities.length === 0 ? (
+              <div className="text-center py-12">
+                <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No activities found</h3>
+                <p className="text-gray-600">Try adjusting your search or filter criteria</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredActivities.map((activity) => (
+                  <div
+                    key={activity.id}
+                    className={`border rounded-lg p-4 transition-all duration-200 hover:shadow-md cursor-pointer ${getActivityTypeColor(activity.type)}`}
+                    onClick={() => setSelectedActivity(activity)}
+                  >
+                    <div className="flex items-start space-x-4">
+                      <div className="flex-shrink-0 mt-1">
+                        <activity.icon className={`w-5 h-5 ${activity.color}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="text-sm font-medium text-gray-900 mb-1">{activity.title}</h4>
+                            <p className="text-sm text-gray-600 mb-2">{activity.description}</p>
+                            <div className="flex items-center space-x-4 text-xs text-gray-500">
+                              <span>{activity.time}</span>
+                              <span>{activity.date}</span>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-    <ActivityFullDetailModal isOpen={!!selectedActivity} onClose={() => setSelectedActivity(null)} activity={selectedActivity} />
+      <ActivityFullDetailModal isOpen={!!selectedActivity} onClose={() => setSelectedActivity(null)} activity={selectedActivity} />
     </>
   );
 };
@@ -194,10 +194,10 @@ const RecentActivity: React.FC = () => {
   useEffect(() => {
     const loadRecentActivities = async () => {
       if (!user) return;
-      
+
       try {
         setLoading(true);
-        
+
         if (user.role === 'student') {
           // Students can only see their own activities
           let leaveRequests = [];
@@ -207,7 +207,7 @@ const RecentActivity: React.FC = () => {
             leaveRequests = await leaveService.getLeaveRequestsByUser(user.id);
           }
           leaveRequests = injectDummyData.leaveRequests(leaveRequests);
-          
+
           // Convert leave requests to activity format
           const activities = leaveRequests.slice(0, 5).map((request, index) => ({
             id: `leave_${request.id}`,
@@ -216,12 +216,12 @@ const RecentActivity: React.FC = () => {
             description: `${request.leaveType} for ${request.daysCount} day(s) - ${request.reason.substring(0, 50)}...`,
             time: formatTimeAgo(request.submittedAt),
             date: new Date(request.submittedAt).toLocaleDateString(),
-            icon: request.status === 'approved' ? CheckCircle : 
-                  request.status === 'rejected' ? XCircle : AlertTriangle,
-            color: request.status === 'approved' ? 'text-green-600' : 
-                   request.status === 'rejected' ? 'text-red-600' : 'text-amber-600'
+            icon: request.status === 'approved' ? CheckCircle :
+              request.status === 'rejected' ? XCircle : AlertTriangle,
+            color: request.status === 'approved' ? 'text-green-600' :
+              request.status === 'rejected' ? 'text-red-600' : 'text-amber-600'
           }));
-          
+
           setRecentActivities(activities);
         } else if (user.role === 'teacher' || user.role === 'hod') {
           // Teachers and HODs can see department-wide activities
@@ -232,7 +232,7 @@ const RecentActivity: React.FC = () => {
             leaveRequests = await leaveService.getLeaveRequestsByUser(user.id);
           }
           leaveRequests = injectDummyData.leaveRequests(leaveRequests);
-          
+
           // Convert leave requests to activity format
           const activities = leaveRequests.slice(0, 5).map((request, index) => ({
             id: `leave_${request.id}`,
@@ -241,12 +241,12 @@ const RecentActivity: React.FC = () => {
             description: `${request.leaveType} for ${request.daysCount} day(s) - ${request.reason.substring(0, 50)}...`,
             time: formatTimeAgo(request.submittedAt),
             date: new Date(request.submittedAt).toLocaleDateString(),
-            icon: request.status === 'approved' ? CheckCircle : 
-                  request.status === 'rejected' ? XCircle : AlertTriangle,
-            color: request.status === 'approved' ? 'text-green-600' : 
-                   request.status === 'rejected' ? 'text-red-600' : 'text-amber-600'
+            icon: request.status === 'approved' ? CheckCircle :
+              request.status === 'rejected' ? XCircle : AlertTriangle,
+            color: request.status === 'approved' ? 'text-green-600' :
+              request.status === 'rejected' ? 'text-red-600' : 'text-amber-600'
           }));
-          
+
           setRecentActivities(activities);
         } else {
           // Other roles see no activities
@@ -264,11 +264,11 @@ const RecentActivity: React.FC = () => {
 
   const formatTimeAgo = (timestamp: any) => {
     if (!timestamp) return 'Unknown time';
-    
+
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     const now = new Date();
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-    
+
     if (diffInHours < 1) return 'Just now';
     if (diffInHours < 24) return `${diffInHours}h ago`;
     if (diffInHours < 48) return 'Yesterday';
@@ -277,62 +277,73 @@ const RecentActivity: React.FC = () => {
 
   return (
     <>
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 h-fit">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
-        <div className="space-y-4">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 h-fit">
+        <div className="p-5 border-b border-slate-100">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-slate-900">Recent Activity</h3>
+            <span className="px-2.5 py-1 text-xs font-medium text-slate-600 bg-slate-100 rounded-full">
+              {recentActivities.length} items
+            </span>
+          </div>
+        </div>
+        <div className="p-5 space-y-4 max-h-96 overflow-y-auto">
           {loading ? (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Clock className="w-6 h-6 text-gray-400" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Loading activities...</h3>
-              <p className="text-gray-600">Please wait while we fetch the latest activity.</p>
+            <div className="flex items-center justify-center py-8">
+              <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
+              <span className="ml-3 text-sm text-slate-500">Loading activities...</span>
             </div>
           ) : recentActivities.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Search className="w-6 h-6 text-gray-400" />
+            <div className="text-center py-8">
+              <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                <Search className="w-5 h-5 text-slate-400" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No activities found</h3>
-              <p className="text-gray-600">Try adjusting your search or filter criteria</p>
+              <p className="text-slate-600 font-medium">No Activities</p>
+              <p className="text-sm text-slate-400">Activities will appear here</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {recentActivities.map((activity) => {
-            const Icon = activity.icon;
-            return (
-              <div key={activity.id} className="flex items-start space-x-3">
-                <div className={`p-2 rounded-lg bg-gray-50 ${activity.color}`}>
-                  <Icon className="w-4 h-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">{activity.title}</p>
-                  <p className="text-sm text-gray-600 mt-1">{activity.description}</p>
-                  <p className="text-xs text-gray-400 mt-1">{activity.time}</p>
-                </div>
-              </div>
-            );
-          })}
+                const Icon = activity.icon;
+                return (
+                  <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-xl hover:bg-slate-50 transition-colors">
+                    <div className="flex-shrink-0">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${activity.color === 'text-green-600' ? 'bg-emerald-50' :
+                          activity.color === 'text-red-600' ? 'bg-red-50' :
+                            activity.color === 'text-amber-600' ? 'bg-amber-50' : 'bg-slate-100'
+                        }`}>
+                        <Icon className={`w-4 h-4 ${activity.color}`} />
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900">{activity.title}</p>
+                      <p className="text-sm text-slate-500 mt-0.5 line-clamp-2">{activity.description}</p>
+                      <p className="text-xs text-slate-400 mt-1">{activity.time}</p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
-        <button 
-          onClick={() => setShowModal(true)}
-          className="mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
-        >
-          View all activity
-        </button>
-        
-        {user?.accessLevel !== 'full' && (
-          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-            <p className="text-xs text-blue-800">
-              <strong>Approval Flow:</strong> All requests follow: Teacher → HOD
-            </p>
-          </div>
-        )}
+        <div className="p-5 border-t border-slate-100 bg-slate-50 rounded-b-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <button
+            onClick={() => setShowModal(true)}
+            className="text-sm text-slate-700 hover:text-slate-900 font-medium transition-colors flex items-center gap-1"
+          >
+            View all activity →
+          </button>
+
+          {user?.accessLevel !== 'full' && (
+            <div className="px-3 py-1.5 bg-slate-200/80 rounded-lg">
+              <p className="text-xs text-slate-600">
+                <span className="font-medium">Approval Flow:</span> Teacher → HOD
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
-      <ActivityDetailModal 
+      <ActivityDetailModal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         activities={recentActivities}

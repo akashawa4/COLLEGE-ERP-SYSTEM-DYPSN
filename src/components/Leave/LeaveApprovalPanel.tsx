@@ -45,12 +45,19 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({
     if (!action) return;
     
     setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    onAction(action, remarks);
-    setIsSubmitting(false);
-    setAction(null);
-    setRemarks('');
-    onClose();
+    try {
+      // Call the async action and wait for it to complete
+      await onAction(action, remarks);
+      // Only close modal after successful action
+      setAction(null);
+      setRemarks('');
+      onClose();
+    } catch (error) {
+      console.error('Error submitting approval action:', error);
+      // Don't close modal on error, let user see the error
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getLeaveTypeName = (type: string) => {
@@ -245,7 +252,7 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({
                         {action === 'return' && <RotateCcw className="w-4 h-4" />}
                         {action === 'reject' && <XCircle className="w-4 h-4" />}
                         <span>
-                          {action === 'approve' ? 'Approve Request' :
+                          {action === 'approve' ? (getNextApprovalLevel() ? `Approve & Forward to ${getNextApprovalLevel()}` : 'Final Approve') :
                            action === 'return' ? 'Return Request' :
                            'Reject Request'}
                         </span>
@@ -310,8 +317,9 @@ const LeaveApprovalPanel: React.FC = () => {
   }, [user?.id]);
 
   const handleApprovalAction = async (action: 'approve' | 'reject' | 'return', remarks?: string) => {
-    if (!selectedRequest) return;
-
+    if (!selectedRequest) {
+      throw new Error('No request selected');
+    }
 
     // Map UI action to backend status
     const statusMap = {
@@ -320,45 +328,69 @@ const LeaveApprovalPanel: React.FC = () => {
       return: 'returned',
     } as const;
     const backendStatus = statusMap[action];
-    if (!backendStatus) return; // Defensive: should never happen
-    if (!user?.id) return; // Defensive: must have user id
-    if (!selectedRequest.id) return;
+    if (!backendStatus) {
+      throw new Error('Invalid action');
+    }
+    if (!user?.id) {
+      throw new Error('User not authenticated');
+    }
+    if (!selectedRequest.id) {
+      throw new Error('Request ID missing');
+    }
+
+    // Enforce UI-level guard: only current level can act
+    const currentLevel = selectedRequest.currentApprovalLevel || 'Teacher';
+    // Map user roles to approval levels
+    let myLevel = '';
+    if (user?.role === 'hod') myLevel = 'HOD';
+    else if (user?.role === 'teacher') myLevel = 'Teacher';
+    else if (user?.role === 'registrar') myLevel = 'Registrar';
+    else if (user?.role === 'principal') myLevel = 'Principal';
+    else if (user?.role === 'admin') myLevel = 'Admin';
+    
+    if (!myLevel || myLevel !== currentLevel || selectedRequest.status !== 'pending') {
+      const errorMsg = 'You are not authorized to act at this stage.';
+      setBanner({ type: 'reject', message: errorMsg });
+      setTimeout(() => setBanner(null), 3000);
+      throw new Error(errorMsg);
+    }
 
     try {
-      // Enforce UI-level guard: only current level can act
-      const currentLevel = selectedRequest.currentApprovalLevel || 'Teacher';
-      // Map user roles to approval levels
-      let myLevel = '';
-      if (user?.role === 'hod') myLevel = 'HOD';
-      else if (user?.role === 'teacher') myLevel = 'Teacher';
-      else if (user?.role === 'registrar') myLevel = 'Registrar';
-      else if (user?.role === 'principal') myLevel = 'Principal';
-      else if (user?.role === 'admin') myLevel = 'Admin';
-      
-      if (!myLevel || myLevel !== currentLevel || selectedRequest.status !== 'pending') {
-        setBanner({ type: 'reject', message: 'You are not authorized to act at this stage.' });
-        setTimeout(() => setBanner(null), 3000);
-        return;
-      }
       await leaveService.updateLeaveRequestStatus(selectedRequest.id!, backendStatus, user.id, remarks);
+      
+      // Show appropriate message based on action and next approval level
+      let message = '';
+      if (action === 'approve') {
+        const flow = selectedRequest.approvalFlow || ['Teacher', 'HOD'];
+        const currentIndex = flow.indexOf(selectedRequest.currentApprovalLevel || 'Teacher');
+        const isLast = currentIndex >= flow.length - 1;
+        if (isLast) {
+          message = 'Leave request approved successfully!';
+        } else {
+          const nextLevel = flow[currentIndex + 1] || 'HOD';
+          message = `Leave request approved and forwarded to ${nextLevel} for final approval.`;
+        }
+      } else if (action === 'reject') {
+        message = 'Leave request rejected.';
+      } else {
+        message = 'Leave request returned for revision.';
+      }
+      
       setBanner({
         type: action,
-        message:
-          action === 'approve'
-            ? 'Leave request approved successfully!'
-            : action === 'reject'
-            ? 'Leave request rejected.'
-            : 'Leave request returned for revision.'
+        message
       });
       setTimeout(() => setBanner(null), 3000);
+      
       // Refresh the list after action
       const updatedRequests = await leaveService.getLeaveRequestsByApprover(user?.id || '');
       setLeaveRequests(updatedRequests);
+      
+      // Close modal and clear selection
+      setShowApprovalModal(false);
+      setSelectedRequest(null);
     } catch (error) {
       const err = error as any;
-      // Handle error silently
-      // Handle error silently
-      
       let errorMessage = 'Failed to update leave request status.';
       if (err.message) {
         errorMessage += ` ${err.message}`;
@@ -369,9 +401,8 @@ const LeaveApprovalPanel: React.FC = () => {
       
       setBanner({ type: 'reject', message: errorMessage });
       setTimeout(() => setBanner(null), 5000);
+      throw error; // Re-throw to let modal handle it
     }
-    setShowApprovalModal(false);
-    setSelectedRequest(null);
   };
 
   const filteredRequests = leaveRequests.filter(request => {

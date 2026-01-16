@@ -18,7 +18,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { DocumentData, QuerySnapshot } from 'firebase/firestore';
-import { User, LeaveRequest, AttendanceLog, Notification, Subject, ResultRecord, Department, AcademicYear, FeeStructureItem, InstitutionInfo, Complaint, Event, Club, ClubMember, VisitorProfile, Bus, BusRoute, LostFoundItem, HostelRoom } from '../types';
+import { User, LeaveRequest, AttendanceLog, Notification, Subject, ResultRecord, Department, AcademicYear, FeeStructureItem, InstitutionInfo, Complaint, Event, EventParticipant, Club, ClubMember, VisitorProfile, Bus, BusRoute, LostFoundItem, HostelRoom } from '../types';
 // Local fallbacks for library types (module does not export them)
 type LibraryBook = any;
 type LibraryMember = any;
@@ -885,7 +885,7 @@ export const userService = {
   },
 
   // Search students by name or roll number
-  async searchStudents(query: string, filters?: {
+  async searchStudents(searchQuery: string, filters?: {
     year?: string;
     sem?: string;
     div?: string;
@@ -901,16 +901,19 @@ export const userService = {
       );
       const querySnapshot = await getDocs(q);
       
-      let students = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as User));
+      let students = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data
+        } as User;
+      });
 
       // Filter by search query (name or roll number)
-      const searchLower = query.toLowerCase();
+      const searchLower = searchQuery.toLowerCase();
       students = students.filter(student => 
         student.name.toLowerCase().includes(searchLower) ||
-        (student.rollNumber && student.rollNumber.toString().includes(query))
+        (student.rollNumber && student.rollNumber.toString().includes(searchQuery))
       );
 
       // Apply additional filters
@@ -1076,39 +1079,172 @@ export const userService = {
     }
   },
 
-  // Get all students (flat structure)
+  // Get all students (optimized - primarily from flat users collection, with optional hierarchical fallback)
   async getAllStudents(): Promise<User[]> {
     try {
-      const usersRef = collection(db, COLLECTIONS.USERS);
+      const allStudentsMap = new Map<string, User>();
       
-      // Try query with orderBy first, but fall back to just where clause if index doesn't exist
-      let querySnapshot;
+      // 1. Fetch from flat users collection (primary source - fast)
       try {
-        const q = query(usersRef, where('role', '==', 'student'), orderBy('name'));
-        querySnapshot = await getDocs(q);
-      } catch (orderByError: any) {
-        // If orderBy fails (likely missing index), try without orderBy
-        console.log('[userService.getAllStudents] OrderBy query failed, trying without orderBy:', orderByError.message);
-        const q = query(usersRef, where('role', '==', 'student'));
-        querySnapshot = await getDocs(q);
+        const usersRef = collection(db, COLLECTIONS.USERS);
+        let querySnapshot;
+        try {
+          const q = query(usersRef, where('role', '==', 'student'), orderBy('name'));
+          querySnapshot = await getDocs(q);
+        } catch (orderByError: any) {
+          // If orderBy fails (likely missing index), try without orderBy
+          console.log('[userService.getAllStudents] OrderBy query failed, trying without orderBy:', orderByError.message);
+          const q = query(usersRef, where('role', '==', 'student'));
+          querySnapshot = await getDocs(q);
+        }
         
-        // Sort manually in memory
-        const students = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as User[];
-        
-        return students.sort((a, b) => {
-          const nameA = (a.name || '').toLowerCase();
-          const nameB = (b.name || '').toLowerCase();
-          return nameA.localeCompare(nameB);
+        querySnapshot.docs.forEach(doc => {
+          const student = {
+            id: doc.id,
+            ...doc.data()
+          } as User;
+          // Use a unique key: email + id combination to avoid overwriting students with same email
+          // If email exists, use email_id, otherwise just id
+          const key = student.email ? `${student.email}_${student.id}` : student.id;
+          if (key && !allStudentsMap.has(key)) {
+            allStudentsMap.set(key, student);
+          } else if (key && allStudentsMap.has(key)) {
+            // If key exists, check if it's a different student (different rollNumber or id)
+            const existing = allStudentsMap.get(key);
+            if (existing && (existing.rollNumber !== student.rollNumber || existing.id !== student.id)) {
+              // Different student, use id as unique key instead
+              const uniqueKey = student.id || `${student.email}_${Date.now()}`;
+              allStudentsMap.set(uniqueKey, student);
+            }
+          }
         });
+        console.log('[userService.getAllStudents] Fetched from users collection:', allStudentsMap.size);
+      } catch (error: any) {
+        console.error('[userService.getAllStudents] Error fetching from users collection:', error);
       }
       
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as User[];
+      // 2. Always query hierarchical collection to get all students
+      // Students might be stored in hierarchical structure even if flat collection has data
+      // We'll query it but with optimizations to prevent slow queries
+      try {
+          const currentYear = new Date().getFullYear();
+          const currentBatch = currentYear.toString();
+          const previousBatch = (currentYear - 1).toString();
+          // Only query current and previous batch (most relevant)
+          const batches = [currentBatch, previousBatch];
+          const departments = ['CSE', 'IT', 'ME', 'EE', 'CE', 'ENTC'];
+          const years = ['1st', '2nd', '3rd', '4th'];
+          const semsByYear: Record<string, string[]> = {
+            '1st': ['1', '2'],
+            '2nd': ['3', '4'],
+            '3rd': ['5', '6'],
+            '4th': ['7', '8']
+          };
+          const divs = ['A', 'B', 'C', 'D'];
+          
+          // Create all query promises
+          const queryPromises: Promise<any>[] = [];
+          for (const batch of batches) {
+            for (const dept of departments) {
+              for (const year of years) {
+                const sems = semsByYear[year] || [];
+                for (const sem of sems) {
+                  for (const div of divs) {
+                    const batchPath = buildBatchPath.student(batch, dept, year, sem, div);
+                    const studentsRef = collection(db, batchPath);
+                    // Add timeout to prevent hanging
+                    const queryPromise = Promise.race([
+                      getDocs(studentsRef),
+                      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+                    ]).catch(() => null);
+                    queryPromises.push(queryPromise);
+                  }
+                }
+              }
+            }
+          }
+          
+          // Execute queries in batches of 20 to avoid overwhelming Firestore
+          const batchSize = 20;
+          let hierarchicalCount = 0;
+          for (let i = 0; i < queryPromises.length; i += batchSize) {
+            const batch = queryPromises.slice(i, i + batchSize);
+            const results = await Promise.all(batch);
+            
+            results.forEach((querySnapshot: any) => {
+              if (querySnapshot && querySnapshot.docs) {
+                    querySnapshot.docs.forEach((doc: any) => {
+                      const student = {
+                        id: doc.id,
+                        ...doc.data()
+                      } as User;
+                      
+                      // Use rollNumber as primary key for hierarchical students (more unique)
+                      // Fallback to email_id or just id
+                      let key = (student as any).rollNumber || 
+                               (student.email ? `${student.email}_${student.id}` : student.id) ||
+                               student.id;
+                      
+                      // Check if this student already exists by comparing rollNumber and email
+                      let existingKey: string | null = null;
+                      for (const [mapKey, existingStudent] of allStudentsMap.entries()) {
+                        if (existingStudent.rollNumber === (student as any).rollNumber && 
+                            existingStudent.rollNumber) {
+                          existingKey = mapKey;
+                          break;
+                        }
+                        if (existingStudent.email === student.email && student.email) {
+                          existingKey = mapKey;
+                          break;
+                        }
+                        if (existingStudent.id === student.id) {
+                          existingKey = mapKey;
+                          break;
+                        }
+                      }
+                      
+                      if (existingKey) {
+                        // Merge with existing, prefer hierarchical data for batch/department
+                        const existing = allStudentsMap.get(existingKey);
+                        if (existing) {
+                          allStudentsMap.set(existingKey, {
+                            ...existing,
+                            ...student,
+                            ...((student as any).batchYear ? { batchYear: (student as any).batchYear } : {}),
+                            ...((existing as any).batchYear && !(student as any).batchYear ? { batchYear: (existing as any).batchYear } : {}),
+                            department: student.department || existing.department
+                          } as User);
+                        }
+                      } else {
+                        // New student, add with unique key
+                        allStudentsMap.set(key, student);
+                      }
+                      hierarchicalCount++;
+                    });
+              }
+            });
+            
+            // Small delay between batches to avoid rate limiting
+            if (i + batchSize < queryPromises.length) {
+              await new Promise(resolve => setTimeout(resolve, 50));
+            }
+          }
+          console.log('[userService.getAllStudents] Fetched from hierarchical collection:', hierarchicalCount);
+        } catch (error: any) {
+          console.error('[userService.getAllStudents] Error fetching from hierarchical collection:', error);
+          // Don't throw - we already have students from flat collection
+        }
+      
+      // Convert map to array and sort
+      const allStudents = Array.from(allStudentsMap.values());
+      const sorted = allStudents.sort((a, b) => {
+        const nameA = (a.name || '').toLowerCase();
+        const nameB = (b.name || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+      
+      console.log('[userService.getAllStudents] Total unique students found:', sorted.length);
+      return sorted;
     } catch (error: any) {
       console.error('[userService.getAllStudents] Error fetching students:', error);
       throw error;
@@ -1868,10 +2004,58 @@ export const userService = {
   }
 };
 
+// Helper function for creating leave notifications (defined before leaveService to avoid circular reference)
+const createLeaveNotificationHelper = async (
+  facultyId: string, 
+  leaveId: string, 
+  leaveData: any, 
+  department: string
+): Promise<void> => {
+  try {
+    const notificationData = {
+      userId: facultyId,
+      type: 'leave_request',
+      title: 'New Leave Request',
+      message: `New leave request from ${leaveData.studentName || 'Student'} (${leaveData.rollNumber || leaveData.userId}) in ${getDepartmentDisplayName(department)} department`,
+      data: {
+        leaveId: leaveId,
+        studentId: leaveData.userId,
+        studentName: leaveData.studentName,
+        rollNumber: leaveData.rollNumber,
+        department: department,
+        fromDate: leaveData.fromDate,
+        toDate: leaveData.toDate,
+        reason: leaveData.reason
+      },
+      read: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+    
+    const notificationRef = collection(db, COLLECTIONS.NOTIFICATIONS);
+    await addDoc(notificationRef, notificationData);
+    console.log(`[createLeaveNotification] Notification created for faculty ${facultyId}`);
+  } catch (error) {
+    console.error('[createLeaveNotification] Error creating notification:', error);
+    // Don't throw - notification is non-critical
+  }
+};
+
 // Leave Request Management
 export const leaveService = {
+  // Create notification for leave request assignment
+  async createLeaveNotification(
+    facultyId: string, 
+    leaveId: string, 
+    leaveData: any, 
+    department: string
+  ): Promise<void> {
+    return createLeaveNotificationHelper(facultyId, leaveId, leaveData, department);
+  },
+
   // Create leave request with automatic department faculty assignment
   async createLeaveRequest(leaveData: Omit<LeaveRequest, 'id'>): Promise<string> {
+    
     const leaveRef = collection(db, COLLECTIONS.LEAVE_REQUESTS);
     const docData = {
       ...leaveData,
@@ -1883,153 +2067,156 @@ export const leaveService = {
     console.log('[createLeaveRequest] Writing leave request:', docData);
     const docRef = await addDoc(leaveRef, docData);
 
-    // Auto-detect student department and assign to department faculty
-    try {
-      const { year, sem, div, department, userId } = (leaveData as any) || {};
-      const subject = ((leaveData as any)?.subject as string) || 'General';
-      const fromDateStr = (leaveData as any)?.fromDate as string | undefined;
-
-      if (year && sem && div && fromDateStr && userId) {
-        const dateObj = new Date(fromDateStr);
-        const batch = getBatchYear(year);
-        
-        // Auto-detect department if not provided
-        let dept = department;
-        if (!dept) {
-          dept = await autoDetectDepartment(userId, 'student');
-          console.log(`[createLeaveRequest] Auto-detected department for student ${userId}: ${dept}`);
-        } else {
-          dept = getDepartment({ department: dept });
-        }
-        
-        // Get department faculty for leave approval
-        const departmentFaculty = await getDepartmentFaculty(dept);
-        const departmentHead = await getDepartmentHead(dept);
-        
-        // Prefer a regular faculty (teacher) for first stage; fallback to HOD
-        const firstTeacher = departmentFaculty.find(f => !f.isDepartmentHead) || null;
-        const assignedTo = firstTeacher || departmentHead || (departmentFaculty.length > 0 ? departmentFaculty[0] : null);
-        
-        // Update leave request with department and assigned faculty
-        await updateDoc(docRef, {
-          department: dept,
-          assignedTo: assignedTo ? {
-            id: assignedTo.id,
-            name: assignedTo.name,
-            email: assignedTo.email,
-            role: assignedTo.isDepartmentHead ? 'HOD' : 'Teacher'
-          } : null,
-          departmentFaculty: departmentFaculty.map(f => ({
-            id: f.id,
-            name: f.name,
-            email: f.email,
-            role: f.isDepartmentHead ? 'HOD' : 'Teacher'
-          })),
-          approvalFlow: ['Teacher', 'HOD'],
-          currentApprovalLevel: 'Teacher',
-          updatedAt: serverTimestamp()
-        });
-        
-        // Mirror to department-based structure
-        const hierPath = buildBatchPath.leave(batch, dept, year, sem, div, subject, dateObj);
-        const hierRef = doc(collection(db, hierPath), docRef.id);
-        await setDoc(hierRef, {
-          ...docData,
-          id: docRef.id,
-          batchYear: batch,
-          department: dept,
-          assignedTo: assignedTo ? {
-            id: assignedTo.id,
-            name: assignedTo.name,
-            email: assignedTo.email,
-            role: assignedTo.isDepartmentHead ? 'HOD' : 'Teacher'
-          } : null,
-          departmentFaculty: departmentFaculty.map(f => ({
-            id: f.id,
-            name: f.name,
-            email: f.email,
-            role: f.isDepartmentHead ? 'HOD' : 'Teacher'
-          })),
-          approvalFlow: ['Teacher', 'HOD'],
-          currentApprovalLevel: 'Teacher'
-        });
-
-        // Approver inbox mirror for instant teacher visibility
-        if (assignedTo?.id) {
-          const inboxCol = collection(db, 'leaveApprovals', assignedTo.id, 'inbox');
-          const approverRef = doc(inboxCol);
-          await setDoc(approverRef, {
-            leaveId: docRef.id,
-            approverId: assignedTo.id,
-            createdAt: serverTimestamp(),
-            status: 'pending',
-            studentId: (leaveData as any).userId,
-            studentName: (leaveData as any).studentName,
-            rollNumber: (leaveData as any).rollNumber,
-            year,
-            sem,
-            div,
-            department: dept,
-            fromDate: (leaveData as any).fromDate,
-            toDate: (leaveData as any).toDate,
-            reason: (leaveData as any).reason,
-            subject
-          });
-        }
-        
-        console.log(`[createLeaveRequest] Leave request assigned to department ${dept}, faculty: ${assignedTo?.name || 'No faculty found'}`);
-        console.log('[createLeaveRequest] Mirrored leave to department-based path:', hierPath, 'id:', docRef.id);
-        
-        // Create notification for assigned faculty
-        if (assignedTo) {
-          await this.createLeaveNotification(assignedTo.id, docRef.id, leaveData, dept);
-        }
-      } else {
-        console.warn('[createLeaveRequest] Skipped department assignment (missing year/sem/div/fromDate or userId)');
-      }
-    } catch (error) {
-      console.error('[createLeaveRequest] Error in department assignment:', error);
-      // Do not fail creation if department assignment fails
+    // Return immediately - process department assignment in background for faster response
+    const { year, sem, div, department, userId } = (leaveData as any) || {};
+    if (year && sem && div && department) {
+      // Update department immediately (fast operation)
+      updateDoc(docRef, {
+        department: getDepartment({ department }),
+        updatedAt: serverTimestamp()
+      }).catch(err => console.error('[createLeaveRequest] Error updating department:', err));
     }
+
+    // Process faculty assignment asynchronously (non-blocking)
+    (async () => {
+      try {
+        const subject = ((leaveData as any)?.subject as string) || 'General';
+        const fromDateStr = (leaveData as any)?.fromDate as string | undefined;
+
+        if (year && sem && div && fromDateStr && userId) {
+          const dateObj = new Date(fromDateStr);
+          const batch = getBatchYear(year);
+          
+          // Auto-detect department if not provided
+          let dept = department;
+          if (!dept) {
+            dept = await autoDetectDepartment(userId, 'student');
+            console.log(`[createLeaveRequest] Auto-detected department for student ${userId}: ${dept}`);
+          } else {
+            dept = getDepartment({ department: dept });
+          }
+          
+          // Get department faculty with timeout to avoid hanging
+          let departmentFaculty: any[] = [];
+          let departmentHead: any | null = null;
+          
+          try {
+            const facultyPromise = Promise.race([
+              getDepartmentFaculty(dept),
+              new Promise<any[]>((resolve) => setTimeout(() => resolve([]), 3000))
+            ]);
+            departmentFaculty = await facultyPromise;
+            
+            const headPromise = Promise.race([
+              getDepartmentHead(dept),
+              new Promise<any | null>((resolve) => setTimeout(() => resolve(null), 2000))
+            ]);
+            departmentHead = await headPromise;
+          } catch (facultyError) {
+            console.error('[createLeaveRequest] Error fetching faculty:', facultyError);
+            // Continue without faculty assignment
+          }
+          
+          // Prefer a regular faculty (teacher) for first stage; fallback to HOD
+          const firstTeacher = departmentFaculty.find(f => !f.isDepartmentHead) || null;
+          const assignedTo = firstTeacher || departmentHead || (departmentFaculty.length > 0 ? departmentFaculty[0] : null);
+          
+          // Update leave request with assigned faculty
+          await updateDoc(docRef, {
+            department: dept,
+            assignedTo: assignedTo ? {
+              id: assignedTo.id,
+              name: assignedTo.name,
+              email: assignedTo.email,
+              role: assignedTo.isDepartmentHead ? 'HOD' : 'Teacher'
+            } : null,
+            departmentFaculty: departmentFaculty.map(f => ({
+              id: f.id,
+              name: f.name,
+              email: f.email,
+              role: f.isDepartmentHead ? 'HOD' : 'Teacher'
+            })),
+            approvalFlow: ['Teacher', 'HOD'],
+            currentApprovalLevel: 'Teacher',
+            updatedAt: serverTimestamp()
+          });
+          
+          // Mirror to department-based structure (async)
+          try {
+            const hierPath = buildBatchPath.leave(batch, dept, year, sem, div, subject, dateObj);
+            const hierRef = doc(collection(db, hierPath), docRef.id);
+            await setDoc(hierRef, {
+              ...docData,
+              id: docRef.id,
+              batchYear: batch,
+              department: dept,
+              assignedTo: assignedTo ? {
+                id: assignedTo.id,
+                name: assignedTo.name,
+                email: assignedTo.email,
+                role: assignedTo.isDepartmentHead ? 'HOD' : 'Teacher'
+              } : null,
+              departmentFaculty: departmentFaculty.map(f => ({
+                id: f.id,
+                name: f.name,
+                email: f.email,
+                role: f.isDepartmentHead ? 'HOD' : 'Teacher'
+              })),
+              approvalFlow: ['Teacher', 'HOD'],
+              currentApprovalLevel: 'Teacher'
+            });
+            console.log('[createLeaveRequest] Mirrored leave to department-based path:', hierPath, 'id:', docRef.id);
+          } catch (hierError) {
+            console.error('[createLeaveRequest] Error mirroring to hierarchical structure:', hierError);
+          }
+
+          // Approver inbox mirror for instant teacher visibility
+          if (assignedTo?.id) {
+            try {
+              const inboxCol = collection(db, 'leaveApprovals', assignedTo.id, 'inbox');
+              const approverRef = doc(inboxCol);
+              await setDoc(approverRef, {
+                leaveId: docRef.id,
+                approverId: assignedTo.id,
+                createdAt: serverTimestamp(),
+                status: 'pending',
+                studentId: (leaveData as any).userId,
+                studentName: (leaveData as any).studentName,
+                rollNumber: (leaveData as any).rollNumber,
+                year,
+                sem,
+                div,
+                department: dept,
+                fromDate: (leaveData as any).fromDate,
+                toDate: (leaveData as any).toDate,
+                reason: (leaveData as any).reason,
+                subject
+              });
+            } catch (inboxError) {
+              console.error('[createLeaveRequest] Error creating inbox entry:', inboxError);
+            }
+          }
+          
+          console.log(`[createLeaveRequest] Leave request assigned to department ${dept}, faculty: ${assignedTo?.name || 'No faculty found'}`);
+          
+          // Create notification for assigned faculty
+          if (assignedTo) {
+            try {
+              await createLeaveNotificationHelper(assignedTo.id, docRef.id, leaveData, dept);
+            } catch (notifError) {
+              console.error('[createLeaveRequest] Error creating notification:', notifError);
+            }
+          }
+        } else {
+          console.warn('[createLeaveRequest] Skipped department assignment (missing year/sem/div/fromDate or userId)');
+        }
+      } catch (error) {
+        console.error('[createLeaveRequest] Error in department assignment:', error);
+        // Do not fail creation if department assignment fails
+      }
+    })();
     
     return docRef.id;
-  },
-
-  // Create notification for leave request assignment
-  async createLeaveNotification(
-    facultyId: string, 
-    leaveId: string, 
-    leaveData: any, 
-    department: string
-  ): Promise<void> {
-    try {
-      const notificationData = {
-        userId: facultyId,
-        type: 'leave_request',
-        title: 'New Leave Request',
-        message: `New leave request from ${leaveData.studentName || 'Student'} (${leaveData.rollNumber || leaveData.userId}) in ${getDepartmentDisplayName(department)} department`,
-        data: {
-          leaveId: leaveId,
-          studentId: leaveData.userId,
-          studentName: leaveData.studentName,
-          rollNumber: leaveData.rollNumber,
-          department: department,
-          fromDate: leaveData.fromDate,
-          toDate: leaveData.toDate,
-          reason: leaveData.reason
-        },
-        read: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      };
-      
-      const notificationRef = collection(db, COLLECTIONS.NOTIFICATIONS);
-      await addDoc(notificationRef, notificationData);
-      
-      console.log(`[createLeaveNotification] Notification created for faculty ${facultyId} for leave request ${leaveId}`);
-    } catch (error) {
-      console.error('[createLeaveNotification] Error creating notification:', error);
-    }
   },
 
   // Get leave request by ID
@@ -2256,8 +2443,8 @@ export const leaveService = {
           let approverLevel = '';
           if (approver?.role === 'hod') approverLevel = 'HOD';
           else if (approver?.role === 'teacher') approverLevel = 'Teacher';
-          else if (approver?.role === 'registrar') approverLevel = 'Registrar';
-          else if (approver?.role === 'principal') approverLevel = 'Principal';
+          else if ((approver as any)?.role === 'registrar') approverLevel = 'Registrar';
+          else if ((approver as any)?.role === 'principal') approverLevel = 'Principal';
           else if (approver?.role === 'admin') approverLevel = 'Admin';
           
           const currentLevel = leaveData.currentApprovalLevel || 'Teacher';
@@ -2294,12 +2481,38 @@ export const leaveService = {
 
       console.log('[updateLeaveRequestStatus] Will update with:', { newStatus, nextApprovalLevel });
 
+      // If moving to HOD level, get HOD and update assignedTo
+      let newAssignedTo = (leaveData as any).assignedTo;
+      if (newStatus === 'pending' && nextApprovalLevel === 'HOD') {
+        try {
+          const department = (leaveData as any)?.department || DEPARTMENTS.CSE;
+          const hod = await getDepartmentHead(department);
+          if (hod) {
+            newAssignedTo = {
+              id: hod.id,
+              name: hod.name || hod.email || 'HOD',
+              email: hod.email || '',
+              role: 'HOD'
+            };
+            console.log('[updateLeaveRequestStatus] Assigned to HOD:', newAssignedTo);
+          }
+        } catch (hodError) {
+          console.error('[updateLeaveRequestStatus] Error getting HOD:', hodError);
+          // Continue without HOD assignment
+        }
+      }
+
       // Simple update without complex fields
       const updateData: any = {
         status: newStatus,
         currentApprovalLevel: nextApprovalLevel,
         updatedAt: serverTimestamp()
       };
+
+      // Update assignedTo if moving to HOD
+      if (newAssignedTo && newAssignedTo !== (leaveData as any).assignedTo) {
+        (updateData as any).assignedTo = newAssignedTo;
+      }
 
       if (comments) {
         updateData.remarks = comments;
@@ -2392,11 +2605,24 @@ export const leaveService = {
 
         await notificationService.createNotification(notificationData);
 
-        // If moved to HOD, add to HOD inbox
+        // If moved to HOD, update assignedTo and add to HOD inbox
         if (newStatus === 'pending' && nextApprovalLevel === 'HOD') {
           try {
-            const hod = await getDepartmentHead(leaveData.department || DEPARTMENTS.CSE);
+            const department = (leaveData as any)?.department || DEPARTMENTS.CSE;
+            const hod = await getDepartmentHead(department);
             if (hod?.id) {
+              // Update assignedTo in the main leave document
+              await updateDoc(leaveRef, {
+                assignedTo: {
+                  id: hod.id,
+                  name: hod.name || hod.email || 'HOD',
+                  email: hod.email || '',
+                  role: 'HOD'
+                }
+              });
+              console.log('[updateLeaveRequestStatus] Updated assignedTo to HOD:', hod.id);
+
+              // Add to HOD inbox for instant visibility
               const inboxCol = collection(db, 'leaveApprovals', hod.id, 'inbox');
               const approverRef = doc(inboxCol);
               await setDoc(approverRef, {
@@ -2405,17 +2631,42 @@ export const leaveService = {
                 createdAt: serverTimestamp(),
                 status: 'pending',
                 studentId: (leaveData as any).userId,
-                studentName: (leaveData as any).studentName,
-                rollNumber: (leaveData as any).rollNumber,
+                studentName: (leaveData as any).userName || (leaveData as any).studentName || leaveData.userId,
+                rollNumber: (leaveData as any).rollNumber || '',
                 year: (leaveData as any).year,
                 sem: (leaveData as any).sem,
                 div: (leaveData as any).div,
-                department: leaveData.department,
+                department: department,
                 fromDate: (leaveData as any).fromDate,
                 toDate: (leaveData as any).toDate,
                 reason: (leaveData as any).reason,
                 subject: (leaveData as any).subject || 'General'
               });
+              console.log('[updateLeaveRequestStatus] Added leave to HOD inbox:', hod.id);
+
+              // Also send notification to HOD
+              const hodNotification = {
+                userId: hod.id,
+                title: 'New Leave Request for Approval',
+                message: `A leave request from ${(leaveData as any).userName || 'Student'} requires your approval`,
+                type: 'info' as 'info' | 'success' | 'warning' | 'error',
+                timestamp: new Date().toISOString(),
+                category: 'leave' as 'leave' | 'attendance' | 'system' | 'announcement',
+                priority: 'high' as 'low' | 'medium' | 'high',
+                actionRequired: true,
+                read: false,
+                details: {
+                  leaveId: requestId,
+                  leaveType: leaveData.leaveType,
+                  fromDate: leaveData.fromDate,
+                  toDate: leaveData.toDate,
+                  reason: leaveData.reason,
+                  status: 'pending',
+                  approvalLevel: 'HOD'
+                }
+              };
+              await notificationService.createNotification(hodNotification);
+              console.log('[updateLeaveRequestStatus] Notification sent to HOD:', hod.id);
             }
           } catch (err) {
             console.error('[updateLeaveRequestStatus] Failed to enqueue HOD approval:', err);
@@ -2498,27 +2749,81 @@ export const leaveService = {
         return [];
       }
 
-      // Optimized path: approver inbox mirror
-      const inboxRef = collection(db, 'leaveApprovals', approverId, 'inbox');
-      const inboxSnap = await getDocs(inboxRef);
-      const inbox = inboxSnap.docs.map(d => ({ id: (d.data() as any).leaveId })) as { id: string }[];
+      // Try optimized path: approver inbox mirror first
+      try {
+        const inboxRef = collection(db, 'leaveApprovals', approverId, 'inbox');
+        const inboxSnap = await getDocs(inboxRef);
+        const inbox = inboxSnap.docs.map(d => ({ id: (d.data() as any).leaveId })) as { id: string }[];
 
-      if (inbox.length === 0) {
-        // Fallback to global pending
-        const leaveRef = collection(db, COLLECTIONS.LEAVE_REQUESTS);
-        const q = query(leaveRef, where('status', '==', 'pending'));
+        if (inbox.length > 0) {
+          const results: LeaveRequest[] = [];
+          for (const entry of inbox) {
+            const full = await leaveService.getLeaveRequest(entry.id);
+            if (full && full.status === 'pending') {
+              results.push(full);
+            }
+          }
+          if (results.length > 0) {
+            return results.sort((a, b) => {
+              const aTime = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+              const bTime = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
+              return bTime.getTime() - aTime.getTime();
+            });
+          }
+        }
+      } catch (inboxError) {
+        console.warn('[getLeaveRequestsByApprover] Inbox read failed, using fallback:', inboxError);
+      }
+
+      // Fallback: Query by assignedTo.id (for student leaves assigned to this teacher)
+      const leaveRef = collection(db, COLLECTIONS.LEAVE_REQUESTS);
+      const q = query(
+        leaveRef, 
+        where('status', '==', 'pending'),
+        where('assignedTo.id', '==', approverId)
+      );
+      
+      try {
         const querySnapshot = await getDocs(q);
-        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as LeaveRequest[];
+        const requests = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as LeaveRequest[];
+        
+        // Sort by createdAt descending (most recent first)
+        return requests.sort((a, b) => {
+          const aTime = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+          const bTime = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
+          return bTime.getTime() - aTime.getTime();
+        });
+      } catch (queryError: any) {
+        // If query fails (e.g., missing index), try without assignedTo filter
+        if (queryError.code === 'failed-precondition' || queryError.message?.includes('index')) {
+          console.warn('[getLeaveRequestsByApprover] Index missing, fetching all pending and filtering in memory');
+          const allPendingRef = collection(db, COLLECTIONS.LEAVE_REQUESTS);
+          const allPendingQ = query(allPendingRef, where('status', '==', 'pending'));
+          const allPendingSnap = await getDocs(allPendingQ);
+          const allPending = allPendingSnap.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as LeaveRequest[];
+          
+          // Filter in memory by assignedTo.id
+          const filtered = allPending.filter(leave => {
+            const assignedTo = (leave as any).assignedTo;
+            return assignedTo && (assignedTo.id === approverId || assignedTo.email === user.email);
+          });
+          
+          return filtered.sort((a, b) => {
+            const aTime = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+            const bTime = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
+            return bTime.getTime() - aTime.getTime();
+          });
+        }
+        throw queryError;
       }
-
-      const results: LeaveRequest[] = [];
-      for (const entry of inbox) {
-        const full = await leaveService.getLeaveRequest(entry.id);
-        if (full) results.push(full);
-      }
-      return results.sort((a, b) => (b.createdAt as any)?.seconds - (a.createdAt as any)?.seconds);
     } catch (error) {
-      console.error('Error fetching leave requests by approver:', error);
+      console.error('[getLeaveRequestsByApprover] Error fetching leave requests by approver:', error);
       return [];
     }
   }
@@ -3317,7 +3622,8 @@ export const attendanceService = {
       throw new Error('Reason is required to edit attendance');
     }
 
-    const { year, sem, div, subject, date, userId, userName, rollNumber, status: oldStatus } = attendanceData;
+    const { year, sem, div, subject, date, userId, userName, status: oldStatus } = attendanceData;
+    const rollNumber = (attendanceData as any).rollNumber;
     
     if (!year || !sem || !div || !subject || !date) {
       throw new Error('Missing required attendance data');
@@ -6608,6 +6914,18 @@ export const complaintService = {
     }
   },
 
+  // Listen to complaints changes (real-time updates)
+  listenComplaints(callback: (complaints: Complaint[]) => void): () => void {
+    const complaintsRef = collection(db, COLLECTIONS.COMPLAINTS);
+    return onSnapshot(complaintsRef, (snapshot) => {
+      const complaints = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Complaint));
+      callback(complaints);
+    });
+  },
+
   // Get complaints by status
   async getComplaintsByStatus(status: Complaint['status']): Promise<Complaint[]> {
     try {
@@ -7080,8 +7398,8 @@ export const busService = {
       // If more than 10 locations, remove the oldest one
       if (locations.length > 10) {
         // Sort by timestamp to find the oldest
-        const sortedLocations = locations.sort((a, b) => 
-          (a.timestamp || 0) - (b.timestamp || 0)
+        const sortedLocations = locations.sort((a: any, b: any) => 
+          ((a.timestamp || 0) as number) - ((b.timestamp || 0) as number)
         );
         
         // Delete the oldest location
@@ -7370,8 +7688,21 @@ export const eventService = {
       const eventRef = doc(collection(db, COLLECTIONS.EVENTS));
       const eventId = eventRef.id;
       
+      // Preserve boolean values explicitly
+      const preservedData: any = { ...eventData };
+      
+      // Explicitly preserve registrationRequired
+      if ('registrationRequired' in eventData) {
+        preservedData.registrationRequired = eventData.registrationRequired;
+      }
+      
       // Clean data to avoid Firestore errors with undefined/null/empty values
-      const cleanEventData = cleanFirestoreData(eventData);
+      const cleanEventData = cleanFirestoreData(preservedData);
+      
+      // Re-add registrationRequired if it was removed
+      if ('registrationRequired' in preservedData) {
+        cleanEventData.registrationRequired = preservedData.registrationRequired;
+      }
       
       await setDoc(eventRef, {
         ...cleanEventData,
@@ -7380,7 +7711,7 @@ export const eventService = {
         updatedAt: serverTimestamp()
       });
       
-      console.log('[eventService] Event created:', eventId);
+      console.log('[eventService] Event created:', eventId, 'registrationRequired:', preservedData.registrationRequired);
       return eventId;
     } catch (error) {
       console.error('[eventService] Error creating event:', error);
@@ -7436,6 +7767,18 @@ export const eventService = {
       console.error('[eventService] Error getting events by status:', error);
       throw error;
     }
+  },
+
+  // Listen to events changes (real-time updates)
+  listenEvents(callback: (events: Event[]) => void): () => void {
+    const eventsRef = collection(db, COLLECTIONS.EVENTS);
+    return onSnapshot(eventsRef, (snapshot) => {
+      const events = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Event));
+      callback(events);
+    });
   },
 
   // Get events by department
@@ -7503,15 +7846,31 @@ export const eventService = {
     try {
       const eventRef = doc(db, COLLECTIONS.EVENTS, eventId);
       
+      // Preserve boolean values explicitly (cleanFirestoreData might remove false)
+      const preservedData: any = { ...updateData };
+      
+      // Explicitly preserve registrationRequired if it's in updateData
+      if ('registrationRequired' in updateData) {
+        preservedData.registrationRequired = updateData.registrationRequired;
+      }
+      
       // Clean data to avoid Firestore errors with undefined/null/empty values
-      const cleanUpdateData = cleanFirestoreData(updateData);
+      const cleanUpdateData = cleanFirestoreData(preservedData);
       
-      await updateDoc(eventRef, {
+      // Re-add registrationRequired if it was removed (it's a boolean, so it should be preserved)
+      if ('registrationRequired' in preservedData) {
+        cleanUpdateData.registrationRequired = preservedData.registrationRequired;
+      }
+      
+      // Use setDoc with merge: true to handle cases where document might not exist
+      // This will create the document if it doesn't exist, or update it if it does
+      await setDoc(eventRef, {
         ...cleanUpdateData,
+        id: eventId, // Ensure ID is set
         updatedAt: serverTimestamp()
-      });
+      }, { merge: true });
       
-      console.log('[eventService] Event updated:', eventId);
+      console.log('[eventService] Event updated:', eventId, 'registrationRequired:', preservedData.registrationRequired);
     } catch (error) {
       console.error('[eventService] Error updating event:', error);
       throw error;
@@ -7551,27 +7910,53 @@ export const eventService = {
   },
 
   // Register for event
-  async registerForEvent(eventId: string): Promise<void> {
+  async registerForEvent(eventId: string, userId: string, participantData: Omit<EventParticipant, 'id' | 'eventId' | 'registeredAt'>): Promise<void> {
     try {
       const eventRef = doc(db, COLLECTIONS.EVENTS, eventId);
       const eventSnap = await getDoc(eventRef);
       
-      if (eventSnap.exists()) {
-        const eventData = eventSnap.data() as Event;
-        const newCount = eventData.currentParticipants + 1;
-        
-        // Check if event has max participants limit
-        if (eventData.maxParticipants && newCount > eventData.maxParticipants) {
-          throw new Error('Event is full. Cannot register more participants.');
-        }
-        
-        await updateDoc(eventRef, {
-          currentParticipants: newCount,
-          updatedAt: serverTimestamp()
-        });
-        
-        console.log('[eventService] User registered for event:', eventId);
+      if (!eventSnap.exists()) {
+        throw new Error('Event not found.');
       }
+      
+      const eventData = eventSnap.data() as Event;
+      
+      // Check if user is already registered
+      const participants = eventData.participants || [];
+      const existingParticipant = participants.find(p => 
+        (p.email === participantData.email) || 
+        (participantData.rollNumber && p.rollNumber === participantData.rollNumber)
+      );
+      
+      if (existingParticipant) {
+        throw new Error('You are already registered for this event.');
+      }
+      
+      const newCount = eventData.currentParticipants + 1;
+      
+      // Check if event has max participants limit
+      if (eventData.maxParticipants && newCount > eventData.maxParticipants) {
+        throw new Error('Event is full. Cannot register more participants.');
+      }
+      
+      // Create participant record
+      const participantId = `participant_${userId}_${Date.now()}`;
+      const registeredAtTimestamp = new Date().toISOString();
+      const newParticipant: EventParticipant = {
+        id: participantId,
+        eventId: eventId,
+        ...participantData,
+        registeredAt: registeredAtTimestamp // Use ISO string instead of serverTimestamp() for array elements
+      };
+      
+      // Update event with new participant and count
+      await updateDoc(eventRef, {
+        currentParticipants: newCount,
+        participants: [...participants, newParticipant],
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('[eventService] User registered for event:', eventId, 'participant:', participantId);
     } catch (error) {
       console.error('[eventService] Error registering for event:', error);
       throw error;

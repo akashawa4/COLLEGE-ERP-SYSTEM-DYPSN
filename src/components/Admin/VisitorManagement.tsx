@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import {
-  User,
-  Search,
-  Filter,
-  Calendar,
-  Phone,
-  Mail,
-  MapPin,
-  Eye,
-  Trash2,
-  RefreshCw,
-  AlertCircle,
+import { 
+  User, 
+  Search, 
+  Filter, 
+  Calendar, 
+  Phone, 
+  Mail, 
+  MapPin, 
+  Eye, 
+  Trash2, 
+  RefreshCw, 
+  AlertCircle, 
   X,
   Loader2,
   Users,
@@ -116,7 +116,7 @@ const VisitorManagement: React.FC = () => {
           }
         ]);
       } else {
-        setError('Failed to load visitors. Please try again.');
+      setError('Failed to load visitors. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -128,7 +128,7 @@ const VisitorManagement: React.FC = () => {
   }, []);
 
   const filteredVisitors = visitors.filter(visitor => {
-    const matchesSearch = searchTerm === '' ||
+    const matchesSearch = searchTerm === '' || 
       visitor.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       visitor.phone?.includes(searchTerm) ||
       visitor.deviceId.toLowerCase().includes(searchTerm.toLowerCase());
