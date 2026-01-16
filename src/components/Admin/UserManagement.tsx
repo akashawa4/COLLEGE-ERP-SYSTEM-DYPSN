@@ -70,7 +70,7 @@ const UserManagement: React.FC = () => {
     try {
       setLoading(true);
       let usersData = await userService.getAllUsers().catch(() => []);
-      
+
       // Inject dummy data if enabled - merge real and dummy data
       if (USE_DUMMY_DATA) {
         // Get all dummy data
@@ -81,7 +81,7 @@ const UserManagement: React.FC = () => {
         const dummyNonTeaching = getDummyData.nonTeachingStaff();
         const dummyDrivers = getDummyData.drivers();
         const dummyVisitors = getDummyData.visitors();
-        
+
         // Separate real data by role
         const realStudents = usersData.filter(u => u.role === 'student');
         const realTeachers = usersData.filter(u => u.role === 'teacher');
@@ -90,7 +90,7 @@ const UserManagement: React.FC = () => {
         const realNonTeaching = usersData.filter(u => u.role === 'non-teaching');
         const realDrivers = usersData.filter(u => u.role === 'driver');
         const realVisitors = usersData.filter(u => u.role === 'visitor');
-        
+
         // Merge real and dummy data - use dummy if real is empty, otherwise use real
         const mergedStudents = realStudents.length > 0 ? realStudents : dummyStudents;
         const mergedTeachers = realTeachers.length > 0 ? realTeachers : dummyTeachers;
@@ -99,7 +99,7 @@ const UserManagement: React.FC = () => {
         const mergedNonTeaching = realNonTeaching.length > 0 ? realNonTeaching : dummyNonTeaching;
         const mergedDrivers = realDrivers.length > 0 ? realDrivers : dummyDrivers;
         const mergedVisitors = realVisitors.length > 0 ? realVisitors : dummyVisitors;
-        
+
         // Combine all users
         usersData = [
           ...mergedStudents,
@@ -110,7 +110,7 @@ const UserManagement: React.FC = () => {
           ...mergedDrivers,
           ...mergedVisitors
         ];
-        
+
         console.log('User Management - Loaded users:', {
           students: mergedStudents.length,
           teachers: mergedTeachers.length,
@@ -122,7 +122,7 @@ const UserManagement: React.FC = () => {
           total: usersData.length
         });
       }
-      
+
       setUsers(usersData);
       setFilteredUsers(usersData);
     } catch (error) {
@@ -187,42 +187,42 @@ const UserManagement: React.FC = () => {
   const getRoleIcon = (role: string) => {
     switch (role) {
       case "admin":
-        return <Shield className="w-4 h-4 text-red-600" />;
+        return <Shield className="w-4 h-4 text-slate-700" />;
       case "hod":
-        return <Crown className="w-4 h-4 text-purple-600" />;
+        return <Crown className="w-4 h-4 text-slate-700" />;
       case "teacher":
-        return <GraduationCap className="w-4 h-4 text-green-600" />;
+        return <GraduationCap className="w-4 h-4 text-slate-700" />;
       case "student":
-        return <Users className="w-4 h-4 text-blue-600" />;
+        return <Users className="w-4 h-4 text-slate-700" />;
       case "non-teaching":
-        return <Users className="w-4 h-4 text-orange-600" />;
+        return <Users className="w-4 h-4 text-slate-600" />;
       case "visitor":
-        return <Users className="w-4 h-4 text-indigo-600" />;
+        return <Users className="w-4 h-4 text-slate-600" />;
       case "driver":
-        return <Users className="w-4 h-4 text-cyan-600" />;
+        return <Users className="w-4 h-4 text-slate-600" />;
       default:
-        return <Users className="w-4 h-4 text-gray-600" />;
+        return <Users className="w-4 h-4 text-slate-500" />;
     }
   };
 
   const getRoleColor = (role: string) => {
     switch (role) {
       case "admin":
-        return "bg-red-100 text-red-800";
+        return "bg-slate-800 text-white";
       case "hod":
-        return "bg-purple-100 text-purple-800";
+        return "bg-slate-700 text-white";
       case "teacher":
-        return "bg-green-100 text-green-800";
+        return "bg-slate-600 text-white";
       case "student":
-        return "bg-blue-100 text-blue-800";
+        return "bg-slate-500 text-white";
       case "non-teaching":
-        return "bg-orange-100 text-orange-800";
+        return "bg-slate-200 text-slate-700";
       case "visitor":
-        return "bg-indigo-100 text-indigo-800";
+        return "bg-slate-100 text-slate-600";
       case "driver":
-        return "bg-cyan-100 text-cyan-800";
+        return "bg-slate-100 text-slate-600";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-slate-100 text-slate-700";
     }
   };
 
@@ -254,7 +254,7 @@ const UserManagement: React.FC = () => {
 
     try {
       setSaving(true);
-      
+
       // Check if user with email already exists
       const existingUsers = await userService.getAllUsers();
       const emailExists = existingUsers.some(user => user.email === newUser.email);
@@ -265,7 +265,7 @@ const UserManagement: React.FC = () => {
 
       // Generate unique ID
       const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
+
       // Create user data - filter out undefined values
       const userData: any = {
         id: userId,
@@ -303,10 +303,10 @@ const UserManagement: React.FC = () => {
 
       // Create user in Firestore
       await userService.createUser(userData);
-      
+
       // Reload data
       await loadUsers();
-      
+
       // Reset form and close modal
       setNewUser({
         name: '',
@@ -327,7 +327,7 @@ const UserManagement: React.FC = () => {
         workStatus: 'active'
       });
       setShowAddModal(false);
-      
+
       alert('User created successfully!');
     } catch (error) {
       console.error('Error creating user:', error);
@@ -347,11 +347,11 @@ const UserManagement: React.FC = () => {
 
     try {
       setSaving(true);
-      
+
       // Check if email is being changed and if it already exists
       if (selectedUser.email) {
         const existingUsers = await userService.getAllUsers();
-        const emailExists = existingUsers.some(user => 
+        const emailExists = existingUsers.some(user =>
           user.email === selectedUser.email && user.id !== selectedUser.id
         );
         if (emailExists) {
@@ -387,7 +387,7 @@ const UserManagement: React.FC = () => {
 
       // Reload data
       await loadUsers();
-      
+
       setShowEditModal(false);
       setSelectedUser(null);
       alert('User updated successfully!');
@@ -426,7 +426,7 @@ const UserManagement: React.FC = () => {
         isActive: !user.isActive,
         updatedAt: new Date().toISOString()
       });
-      
+
       await loadUsers();
       alert(`User ${!user.isActive ? 'activated' : 'deactivated'} successfully!`);
     } catch (error) {
@@ -445,59 +445,47 @@ const UserManagement: React.FC = () => {
       .toUpperCase();
 
   return (
-    <div className="p-4 lg:p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 lg:p-6 space-y-4 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">
-            User Management
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Create, edit, and manage user accounts and roles
-          </p>
+          <h1 className="text-xl lg:text-2xl font-bold text-slate-900">User Management</h1>
+          <p className="text-sm text-slate-500">Create, edit, and manage user accounts and roles</p>
         </div>
-
-        <div className="flex items-center gap-3">
-          {/* Mobile: search + filter toggle */}
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <div className="relative w-full md:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                aria-label="Search users"
-                type="text"
-                placeholder="Search users..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-              />
-            </div>
-
-            <button
-              onClick={() => setShowMobileFilters((s) => !s)}
-              className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 md:hidden"
-              aria-expanded={showMobileFilters}
-              aria-label="Toggle filters"
-            >
-              <Filter className="w-5 h-5 text-gray-600" />
-            </button>
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 md:w-56">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+            <input
+              aria-label="Search users"
+              type="text"
+              placeholder="Search users..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-transparent text-sm bg-white"
+            />
           </div>
-
+          <button
+            onClick={() => setShowMobileFilters((s) => !s)}
+            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 md:hidden"
+            aria-expanded={showMobileFilters}
+            aria-label="Toggle filters"
+          >
+            <Filter className="w-5 h-5 text-slate-600" />
+          </button>
           <button
             onClick={loadUsers}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-600 hover:bg-gray-700 text-white disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-50 transition-colors"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Refresh</span>
+            <span className="hidden sm:inline text-sm font-medium">Refresh</span>
           </button>
-
           <button
             onClick={() => setShowAddModal(true)}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 text-white hover:bg-slate-700 font-medium transition-colors"
           >
             <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Add User</span>
-            <span className="sm:hidden">Add</span>
+            <span className="hidden sm:inline text-sm">Add User</span>
           </button>
         </div>
       </div>
@@ -680,8 +668,8 @@ const UserManagement: React.FC = () => {
                 <tr>
                   <td colSpan={8} className="px-6 py-12 text-center">
                     <div className="flex items-center justify-center">
-                      <Loader2 className="w-6 h-6 animate-spin text-blue-600 mr-2" />
-                      <span className="text-gray-600">Loading users...</span>
+                      <Loader2 className="w-6 h-6 animate-spin text-slate-600 mr-2" />
+                      <span className="text-slate-600">Loading users...</span>
                     </div>
                   </td>
                 </tr>
@@ -693,101 +681,99 @@ const UserManagement: React.FC = () => {
                 </tr>
               ) : (
                 filteredUsers.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                          <span className="text-sm font-medium text-gray-700">
-                            {initials(user.name)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {user.name}
-                        </div>
-                        <div className="text-sm text-gray-500">{user.email}</div>
-                        {user.rollNumber && (
-                          <div className="text-xs text-gray-400">
-                            ID: {user.rollNumber}
+                  <tr key={user.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10">
+                          <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                            <span className="text-sm font-medium text-gray-700">
+                              {initials(user.name)}
+                            </span>
                           </div>
-                        )}
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {user.name}
+                          </div>
+                          <div className="text-sm text-gray-500">{user.email}</div>
+                          {user.rollNumber && (
+                            <div className="text-xs text-gray-400">
+                              ID: {user.rollNumber}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </td>
+                    </td>
 
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(
-                        user.role
-                      )}`}
-                    >
-                      {getRoleIcon(user.role)}
-                      <span className="ml-1 capitalize">{user.role}</span>
-                    </span>
-                  </td>
-
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.department}
-                  </td>
-
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      {getStatusIcon(user.isActive)}
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <span
-                        className={`ml-2 text-sm ${
-                          user.isActive ? "text-green-600" : "text-red-600"
-                        }`}
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(
+                          user.role
+                        )}`}
                       >
-                        {user.isActive ? "Active" : "Inactive"}
+                        {getRoleIcon(user.role)}
+                        <span className="ml-1 capitalize">{user.role}</span>
                       </span>
-                    </div>
-                  </td>
+                    </td>
 
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <div className="flex items-center">
-                      <Clock className="w-4 h-4 mr-1" />
-                      {formatLastLogin(user.lastLogin)}
-                    </div>
-                  </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {user.department}
+                    </td>
 
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex items-center justify-end space-x-2">
-                      <button
-                        onClick={() => handleEditUser(user)}
-                        className="text-blue-600 hover:text-blue-900 p-1 rounded"
-                        title="Edit user"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        {getStatusIcon(user.isActive)}
+                        <span
+                          className={`ml-2 text-sm ${user.isActive ? "text-green-600" : "text-red-600"
+                            }`}
+                        >
+                          {user.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </div>
+                    </td>
 
-                      <button
-                        onClick={() => handleToggleStatus(user.id)}
-                        className={`p-1 rounded ${
-                          user.isActive
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <div className="flex items-center">
+                        <Clock className="w-4 h-4 mr-1" />
+                        {formatLastLogin(user.lastLogin)}
+                      </div>
+                    </td>
+
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex items-center justify-end space-x-2">
+                        <button
+                          onClick={() => handleEditUser(user)}
+                          className="text-blue-600 hover:text-blue-900 p-1 rounded"
+                          title="Edit user"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          onClick={() => handleToggleStatus(user.id)}
+                          className={`p-1 rounded ${user.isActive
                             ? "text-yellow-600 hover:text-yellow-900"
                             : "text-green-600 hover:text-green-900"
-                        }`}
-                        title={user.isActive ? "Deactivate user" : "Activate user"}
-                      >
-                        {user.isActive ? (
-                          <XCircle className="w-4 h-4" />
-                        ) : (
-                          <CheckCircle className="w-4 h-4" />
-                        )}
-                      </button>
+                            }`}
+                          title={user.isActive ? "Deactivate user" : "Activate user"}
+                        >
+                          {user.isActive ? (
+                            <XCircle className="w-4 h-4" />
+                          ) : (
+                            <CheckCircle className="w-4 h-4" />
+                          )}
+                        </button>
 
-                      <button
-                        onClick={() => handleDeleteUser(user.id)}
-                        className="text-red-600 hover:text-red-900 p-1 rounded"
-                        title="Delete user"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                        <button
+                          onClick={() => handleDeleteUser(user.id)}
+                          className="text-red-600 hover:text-red-900 p-1 rounded"
+                          title="Delete user"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
                 ))
               )}
             </tbody>
@@ -798,8 +784,8 @@ const UserManagement: React.FC = () => {
         <div className="md:hidden space-y-2 p-3">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-600 mr-2" />
-              <span className="text-gray-600">Loading users...</span>
+              <Loader2 className="w-6 h-6 animate-spin text-slate-600 mr-2" />
+              <span className="text-slate-600">Loading users...</span>
             </div>
           ) : filteredUsers.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
@@ -807,133 +793,133 @@ const UserManagement: React.FC = () => {
             </div>
           ) : (
             filteredUsers.map((user) => (
-            <div
-              key={user.id}
-              className="bg-white border border-gray-100 rounded-lg p-3 shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-medium text-gray-700">
-                      {initials(user.name)}
-                    </span>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-gray-900">
-                      {user.name}
-                    </div>
-                    <div className="text-xs text-gray-500">{user.email}</div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getRoleColor(
-                          user.role
-                        )}`}
-                      >
-                        {getRoleIcon(user.role)}
-                        <span className="ml-1 capitalize">{user.role}</span>
-                      </span>
-
-                      <span className={`text-xs ${user.isActive ? "text-green-600" : "text-red-600"}`}>
-                        {user.isActive ? "Active" : "Inactive"}
+              <div
+                key={user.id}
+                className="bg-white border border-gray-100 rounded-lg p-3 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm font-medium text-gray-700">
+                        {initials(user.name)}
                       </span>
                     </div>
-                  </div>
-                </div>
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">
+                        {user.name}
+                      </div>
+                      <div className="text-xs text-gray-500">{user.email}</div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getRoleColor(
+                            user.role
+                          )}`}
+                        >
+                          {getRoleIcon(user.role)}
+                          <span className="ml-1 capitalize">{user.role}</span>
+                        </span>
 
-                <div className="relative" ref={actionMenuRef}>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setOpenActionFor((cur) => (cur === user.id ? null : user.id));
-                    }}
-                    className="p-2 rounded hover:bg-gray-100"
-                    aria-expanded={openActionFor === user.id}
-                    aria-haspopup="true"
-                    aria-label="Open user actions"
-                  >
-                    <MoreVertical className="w-5 h-5 text-gray-600" />
-                  </button>
-
-                  {openActionFor === user.id && (
-                    <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-20">
-                      <button
-                        onClick={() => {
-                          handleEditUser(user);
-                          setOpenActionFor(null);
-                        }}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
-                      >
-                        <Edit className="w-4 h-4" />
-                        Edit
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          handleToggleStatus(user.id);
-                          setOpenActionFor(null);
-                        }}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
-                      >
-                        {user.isActive ? (
-                          <>
-                            <XCircle className="w-4 h-4" />
-                            Deactivate
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle className="w-4 h-4" />
-                            Activate
-                          </>
-                        )}
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          handleDeleteUser(user.id);
-                          setOpenActionFor(null);
-                        }}
-                        className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-50 flex items-center gap-2"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete
-                      </button>
+                        <span className={`text-xs ${user.isActive ? "text-green-600" : "text-red-600"}`}>
+                          {user.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </div>
                     </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" />
-                    <span>{formatLastLogin(user.lastLogin)}</span>
                   </div>
-                  <div className="text-xs text-gray-400">Dept: {user.department}</div>
-                </div>
 
-                <div className="flex items-center gap-2">
-                  {/* quick action icons for faster mobile access */}
-                  <button
-                    onClick={() => handleEditUser(user)}
-                    className="p-1 rounded hover:bg-gray-100"
-                    aria-label="Edit"
-                  >
-                    <Edit className="w-4 h-4 text-gray-600" />
-                  </button>
-                  <button
-                    onClick={() => handleToggleStatus(user.id)}
-                    className="p-1 rounded hover:bg-gray-100"
-                    aria-label={user.isActive ? "Deactivate" : "Activate"}
-                  >
-                    {user.isActive ? (
-                      <XCircle className="w-4 h-4 text-yellow-600" />
-                    ) : (
-                      <CheckCircle className="w-4 h-4 text-green-600" />
+                  <div className="relative" ref={actionMenuRef}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenActionFor((cur) => (cur === user.id ? null : user.id));
+                      }}
+                      className="p-2 rounded hover:bg-gray-100"
+                      aria-expanded={openActionFor === user.id}
+                      aria-haspopup="true"
+                      aria-label="Open user actions"
+                    >
+                      <MoreVertical className="w-5 h-5 text-gray-600" />
+                    </button>
+
+                    {openActionFor === user.id && (
+                      <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-20">
+                        <button
+                          onClick={() => {
+                            handleEditUser(user);
+                            setOpenActionFor(null);
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
+                        >
+                          <Edit className="w-4 h-4" />
+                          Edit
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            handleToggleStatus(user.id);
+                            setOpenActionFor(null);
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
+                        >
+                          {user.isActive ? (
+                            <>
+                              <XCircle className="w-4 h-4" />
+                              Deactivate
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-4 h-4" />
+                              Activate
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            handleDeleteUser(user.id);
+                            setOpenActionFor(null);
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-50 flex items-center gap-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete
+                        </button>
+                      </div>
                     )}
-                  </button>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>{formatLastLogin(user.lastLogin)}</span>
+                    </div>
+                    <div className="text-xs text-gray-400">Dept: {user.department}</div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {/* quick action icons for faster mobile access */}
+                    <button
+                      onClick={() => handleEditUser(user)}
+                      className="p-1 rounded hover:bg-gray-100"
+                      aria-label="Edit"
+                    >
+                      <Edit className="w-4 h-4 text-gray-600" />
+                    </button>
+                    <button
+                      onClick={() => handleToggleStatus(user.id)}
+                      className="p-1 rounded hover:bg-gray-100"
+                      aria-label={user.isActive ? "Deactivate" : "Activate"}
+                    >
+                      {user.isActive ? (
+                        <XCircle className="w-4 h-4 text-yellow-600" />
+                      ) : (
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
             ))
           )}
         </div>
@@ -941,46 +927,54 @@ const UserManagement: React.FC = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
           <div className="flex items-center">
-            <Users className="w-8 h-8 text-blue-600" />
+            <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
+              <Users className="w-5 h-5 text-slate-700" />
+            </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Users</p>
-              <p className="text-2xl font-bold text-gray-900">{users.length}</p>
+              <p className="text-sm font-medium text-slate-500">Total Users</p>
+              <p className="text-2xl font-bold text-slate-900">{users.length}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
           <div className="flex items-center">
-            <CheckCircle className="w-8 h-8 text-green-600" />
+            <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
+              <CheckCircle className="w-5 h-5 text-emerald-600" />
+            </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Active Users</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm font-medium text-slate-500">Active Users</p>
+              <p className="text-2xl font-bold text-slate-900">
                 {users.filter((u) => u.isActive).length}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
           <div className="flex items-center">
-            <Crown className="w-8 h-8 text-purple-600" />
+            <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
+              <Crown className="w-5 h-5 text-slate-700" />
+            </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">HODs</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm font-medium text-slate-500">HODs</p>
+              <p className="text-2xl font-bold text-slate-900">
                 {users.filter((u) => u.role === "hod").length}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
           <div className="flex items-center">
-            <Shield className="w-8 h-8 text-red-600" />
+            <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center">
+              <Shield className="w-5 h-5 text-white" />
+            </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Admins</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm font-medium text-slate-500">Admins</p>
+              <p className="text-2xl font-bold text-slate-900">
                 {users.filter((u) => u.role === "admin").length}
               </p>
             </div>
@@ -1058,7 +1052,7 @@ const UserManagement: React.FC = () => {
                   <input
                     type="text"
                     value={newUser.name || ''}
-                    onChange={(e) => setNewUser({...newUser, name: e.target.value})}
+                    onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter full name"
                   />
@@ -1069,7 +1063,7 @@ const UserManagement: React.FC = () => {
                   <input
                     type="email"
                     value={newUser.email || ''}
-                    onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter email address"
                   />
@@ -1079,7 +1073,7 @@ const UserManagement: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Role *</label>
                   <select
                     value={newUser.role || 'admin'}
-                    onChange={(e) => setNewUser({...newUser, role: e.target.value as any})}
+                    onChange={(e) => setNewUser({ ...newUser, role: e.target.value as any })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="admin">Admin</option>
@@ -1096,7 +1090,7 @@ const UserManagement: React.FC = () => {
                   <input
                     type="text"
                     value={newUser.department || ''}
-                    onChange={(e) => setNewUser({...newUser, department: e.target.value})}
+                    onChange={(e) => setNewUser({ ...newUser, department: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter department"
                   />
@@ -1107,7 +1101,7 @@ const UserManagement: React.FC = () => {
                   <input
                     type="tel"
                     value={newUser.phone || ''}
-                    onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
+                    onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter phone number"
                   />
@@ -1118,7 +1112,7 @@ const UserManagement: React.FC = () => {
                   <input
                     type="text"
                     value={newUser.rollNumber || ''}
-                    onChange={(e) => setNewUser({...newUser, rollNumber: e.target.value})}
+                    onChange={(e) => setNewUser({ ...newUser, rollNumber: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter roll number"
                   />
@@ -1129,7 +1123,7 @@ const UserManagement: React.FC = () => {
                     <input
                       type="checkbox"
                       checked={newUser.isActive || false}
-                      onChange={(e) => setNewUser({...newUser, isActive: e.target.checked})}
+                      onChange={(e) => setNewUser({ ...newUser, isActive: e.target.checked })}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                     <span className="text-sm font-medium text-gray-700">Active User</span>
@@ -1140,14 +1134,14 @@ const UserManagement: React.FC = () => {
               <div className="flex justify-end space-x-3 mt-6">
                 <button
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="px-4 py-2 text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleAddUser}
                   disabled={saving}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {saving ? (
                     <>
@@ -1185,7 +1179,7 @@ const UserManagement: React.FC = () => {
                   <input
                     type="text"
                     value={selectedUser.name}
-                    onChange={(e) => setSelectedUser({...selectedUser, name: e.target.value})}
+                    onChange={(e) => setSelectedUser({ ...selectedUser, name: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -1195,7 +1189,7 @@ const UserManagement: React.FC = () => {
                   <input
                     type="email"
                     value={selectedUser.email}
-                    onChange={(e) => setSelectedUser({...selectedUser, email: e.target.value})}
+                    onChange={(e) => setSelectedUser({ ...selectedUser, email: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -1204,7 +1198,7 @@ const UserManagement: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Role *</label>
                   <select
                     value={selectedUser.role}
-                    onChange={(e) => setSelectedUser({...selectedUser, role: e.target.value as any})}
+                    onChange={(e) => setSelectedUser({ ...selectedUser, role: e.target.value as any })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="admin">Admin</option>
@@ -1221,7 +1215,7 @@ const UserManagement: React.FC = () => {
                   <input
                     type="text"
                     value={selectedUser.department}
-                    onChange={(e) => setSelectedUser({...selectedUser, department: e.target.value})}
+                    onChange={(e) => setSelectedUser({ ...selectedUser, department: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -1231,7 +1225,7 @@ const UserManagement: React.FC = () => {
                   <input
                     type="tel"
                     value={selectedUser.phone || ''}
-                    onChange={(e) => setSelectedUser({...selectedUser, phone: e.target.value})}
+                    onChange={(e) => setSelectedUser({ ...selectedUser, phone: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -1241,7 +1235,7 @@ const UserManagement: React.FC = () => {
                   <input
                     type="text"
                     value={selectedUser.rollNumber || ''}
-                    onChange={(e) => setSelectedUser({...selectedUser, rollNumber: e.target.value})}
+                    onChange={(e) => setSelectedUser({ ...selectedUser, rollNumber: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -1251,7 +1245,7 @@ const UserManagement: React.FC = () => {
                     <input
                       type="checkbox"
                       checked={selectedUser.isActive}
-                      onChange={(e) => setSelectedUser({...selectedUser, isActive: e.target.checked})}
+                      onChange={(e) => setSelectedUser({ ...selectedUser, isActive: e.target.checked })}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                     <span className="text-sm font-medium text-gray-700">Active User</span>
@@ -1262,14 +1256,14 @@ const UserManagement: React.FC = () => {
               <div className="flex justify-end space-x-3 mt-6">
                 <button
                   onClick={() => setShowEditModal(false)}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="px-4 py-2 text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleUpdateUser}
                   disabled={saving}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {saving ? (
                     <>

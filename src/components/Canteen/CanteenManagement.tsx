@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { 
-  Utensils, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Clock, 
+import {
+  Utensils,
+  Plus,
+  Edit,
+  Trash2,
+  Clock,
   Search,
   Phone,
   MessageCircle
@@ -30,7 +30,7 @@ const CanteenManagement: React.FC = () => {
   const CALL_NUMBER = '+917721906820';
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
 
-  const [activeTab, setActiveTab] = useState<'menu'>('menu');
+  const [activeTab] = useState<'menu'>('menu');
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -99,7 +99,7 @@ const CanteenManagement: React.FC = () => {
 
   const filteredItems = menuItems.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.description.toLowerCase().includes(searchTerm.toLowerCase());
+      item.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = filterCategory === 'all' || item.category === filterCategory;
     const matchesAvailability = filterAvailability === 'all' || item.availability === filterAvailability;
     return matchesSearch && matchesCategory && matchesAvailability;
@@ -134,17 +134,17 @@ const CanteenManagement: React.FC = () => {
   }, []);
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-3">
+    <div className="p-4 lg:p-6 space-y-4 max-w-7xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-xl lg:text-2xl font-bold text-slate-900">
             {isVisitor ? 'Canteen Menu' : user?.role === 'student' ? 'Canteen' : 'Canteen Management'}
           </h1>
-          <p className="text-gray-600 mt-1">
-            {isVisitor 
-              ? 'View our delicious menu and contact us for orders' 
-              : user?.role === 'student' 
-                ? 'View menu and contact canteen' 
+          <p className="text-sm text-slate-500">
+            {isVisitor
+              ? 'View our delicious menu and contact us for orders'
+              : user?.role === 'student'
+                ? 'View menu and contact canteen'
                 : 'Manage menu items'
             }
           </p>
@@ -154,53 +154,43 @@ const CanteenManagement: React.FC = () => {
             href={`https://wa.me/${WHATSAPP_NUMBER}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-3 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors flex items-center space-x-2"
+            className="px-3 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition-colors flex items-center gap-2 text-sm font-medium"
           >
-            <MessageCircle className="w-5 h-5" />
+            <MessageCircle className="w-4 h-4" />
             <span className="hidden sm:inline">WhatsApp</span>
           </a>
           <a
             href={`tel:${CALL_NUMBER}`}
-            className="px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors flex items-center space-x-2"
+            className="px-3 py-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors flex items-center gap-2 text-sm font-medium"
           >
-            <Phone className="w-5 h-5" />
+            <Phone className="w-4 h-4" />
             <span className="hidden sm:inline">Call</span>
           </a>
-          <button
-            onClick={() => setActiveTab('menu')}
-            className={`px-4 py-2 rounded-lg transition-colors ${
-              activeTab === 'menu' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Menu
-          </button>
         </div>
       </div>
 
       {activeTab === 'menu' && (
         <>
           {/* Menu Filters */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-4">
-              <div className="flex flex-wrap gap-4 flex-1 w-full">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+              <div className="flex flex-wrap gap-3 flex-1 w-full">
                 <div className="flex-1 min-w-0">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                     <input
                       type="text"
-                      placeholder="Search menu items..."
+                      placeholder="Search menu..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-transparent text-sm"
                     />
                   </div>
                 </div>
                 <select
                   value={filterCategory}
                   onChange={(e) => setFilterCategory(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-auto"
+                  className="px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-transparent w-full sm:w-auto text-sm"
                 >
                   <option value="all">All Categories</option>
                   <option value="Breakfast">Breakfast</option>
@@ -212,7 +202,7 @@ const CanteenManagement: React.FC = () => {
                 <select
                   value={filterAvailability}
                   onChange={(e) => setFilterAvailability(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-auto"
+                  className="px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-transparent w-full sm:w-auto text-sm"
                 >
                   <option value="all">All Availability</option>
                   <option value="Available">Available</option>
@@ -223,19 +213,18 @@ const CanteenManagement: React.FC = () => {
               {user?.role !== 'student' && !isVisitor && (
                 <button
                   onClick={() => setShowForm(true)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 sm:ml-4"
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors text-sm font-medium"
                 >
-                  <Plus className="w-5 h-5" />
+                  <Plus className="w-4 h-4" />
                   <span>Add Item</span>
                 </button>
               )}
             </div>
           </div>
-
           {/* Menu Items Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredItems.map((item) => (
-              <div key={item.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+              <div key={item.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-start mb-3">
                   <h3 className="text-lg font-semibold text-gray-900">{item.name}</h3>
                   {user?.role !== 'student' && !isVisitor && (
@@ -278,7 +267,7 @@ const CanteenManagement: React.FC = () => {
                   </span>
                 </div>
 
-                
+
               </div>
             ))}
           </div>
@@ -293,7 +282,7 @@ const CanteenManagement: React.FC = () => {
         </>
       )}
 
-      
+
 
       {/* Menu Item Form Modal */}
       {showForm && (
@@ -303,7 +292,7 @@ const CanteenManagement: React.FC = () => {
               <h2 className="text-2xl font-bold text-gray-900 mb-6">
                 {editingItem ? 'Edit Menu Item' : 'Add New Menu Item'}
               </h2>
-              
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>

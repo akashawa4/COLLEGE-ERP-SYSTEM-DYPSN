@@ -72,7 +72,7 @@ const ClubManagement: React.FC = () => {
     name: "",
     email: "",
     role: "Member",
-    joinDate: new Date().toISOString().slice(0,10),
+    joinDate: new Date().toISOString().slice(0, 10),
     status: "active",
     studentId: "",
     phone: "",
@@ -134,7 +134,7 @@ const ClubManagement: React.FC = () => {
     return () => document.removeEventListener("click", onDocClick);
   }, [openActionFor]);
 
-  /* ---------- Keyboard handling (Escape): close any open modal */ 
+  /* ---------- Keyboard handling (Escape): close any open modal */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -157,7 +157,7 @@ const ClubManagement: React.FC = () => {
       setError(null);
       const clubsData = await clubService.getAllClubs();
       setClubs(clubsData);
-      
+
       // Load members for each club
       const membersData: Record<string, ClubMember[]> = {};
       for (const club of clubsData) {
@@ -304,13 +304,13 @@ const ClubManagement: React.FC = () => {
         socialMedia: (() => {
           const social = clubForm.socialMedia;
           if (!social) return undefined;
-          
+
           const cleanedSocial: any = {};
           if (social.facebook?.trim()) cleanedSocial.facebook = social.facebook.trim();
           if (social.instagram?.trim()) cleanedSocial.instagram = social.instagram.trim();
           if (social.twitter?.trim()) cleanedSocial.twitter = social.twitter.trim();
           if (social.linkedin?.trim()) cleanedSocial.linkedin = social.linkedin.trim();
-          
+
           return Object.keys(cleanedSocial).length > 0 ? cleanedSocial : undefined;
         })(),
       };
@@ -334,13 +334,13 @@ const ClubManagement: React.FC = () => {
 
   const deleteClub = async (id: string) => {
     if (!confirm("Delete this club? This action cannot be undone.")) return;
-    
+
     try {
       setSaving(true);
       setError(null);
       await clubService.deleteClub(id);
       await loadData(); // Reload data from Firestore
-      
+
       if (selectedClub?.id === id) {
         setSelectedClub(null);
         setShowClubDetail(false);
@@ -391,18 +391,18 @@ const ClubManagement: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${(clubs.find(c=>c.id===clubId)?.name || "members").replace(/\s+/g,'_')}_members.csv`;
+    a.download = `${(clubs.find(c => c.id === clubId)?.name || "members").replace(/\s+/g, '_')}_members.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
   const openAddMemberForm = (clubId: string) => {
     setEditingMember({ clubId, member: null });
-    setMemberForm({ 
-      name: "", 
-      email: "", 
-      role: "Member", 
-      joinDate: new Date().toISOString().slice(0,10), 
+    setMemberForm({
+      name: "",
+      email: "",
+      role: "Member",
+      joinDate: new Date().toISOString().slice(0, 10),
       status: "active",
       studentId: "",
       phone: "",
@@ -413,11 +413,11 @@ const ClubManagement: React.FC = () => {
 
   const openEditMemberForm = (clubId: string, member: ClubMember) => {
     setEditingMember({ clubId, member });
-    setMemberForm({ 
-      name: member.name, 
-      email: member.email, 
-      role: member.role, 
-      joinDate: member.joinDate, 
+    setMemberForm({
+      name: member.name,
+      email: member.email,
+      role: member.role,
+      joinDate: member.joinDate,
       status: member.status,
       studentId: member.studentId || "",
       phone: member.phone || "",
@@ -429,12 +429,12 @@ const ClubManagement: React.FC = () => {
   const submitMemberForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingMember) return;
-    
+
     try {
       setSaving(true);
       setError(null);
       const { clubId, member } = editingMember;
-      
+
       const memberData = {
         clubId,
         name: memberForm.name.trim(),
@@ -456,11 +456,11 @@ const ClubManagement: React.FC = () => {
 
       await loadData(); // Reload data from Firestore
       setEditingMember(null);
-      setMemberForm({ 
-        name: "", 
-        email: "", 
-        role: "Member", 
-        joinDate: new Date().toISOString().slice(0,10), 
+      setMemberForm({
+        name: "",
+        email: "",
+        role: "Member",
+        joinDate: new Date().toISOString().slice(0, 10),
         status: "active",
         studentId: "",
         phone: "",
@@ -477,7 +477,7 @@ const ClubManagement: React.FC = () => {
 
   const removeMember = async (clubId: string, memberId: string) => {
     if (!confirm("Remove this member?")) return;
-    
+
     try {
       setSaving(true);
       setError(null);
@@ -730,13 +730,12 @@ const ClubManagement: React.FC = () => {
                       <td className="px-4 py-3 font-medium text-gray-900">{m.name}</td>
                       <td className="px-4 py-3 text-gray-700">{m.email}</td>
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          m.role === "President" ? "bg-purple-100 text-purple-800" :
-                          m.role === "Vice President" ? "bg-blue-100 text-blue-800" :
-                          m.role === "Secretary" ? "bg-green-100 text-green-800" :
-                          m.role === "Treasurer" ? "bg-yellow-100 text-yellow-800" :
-                          "bg-gray-100 text-gray-800"
-                        }`}>{m.role}</span>
+                        <span className={`px-2 py-1 rounded-full text-xs ${m.role === "President" ? "bg-purple-100 text-purple-800" :
+                            m.role === "Vice President" ? "bg-blue-100 text-blue-800" :
+                              m.role === "Secretary" ? "bg-green-100 text-green-800" :
+                                m.role === "Treasurer" ? "bg-yellow-100 text-yellow-800" :
+                                  "bg-gray-100 text-gray-800"
+                          }`}>{m.role}</span>
                       </td>
                       <td className="px-4 py-3 text-gray-700">{new Date(m.joinDate).toLocaleDateString()}</td>
                       <td className="px-4 py-3">
@@ -771,13 +770,13 @@ const ClubManagement: React.FC = () => {
                 <form key={memberFormKey} onSubmit={submitMemberForm} className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm text-gray-700 mb-1">Name</label>
-                    <input 
+                    <input
                       key={`name-${memberFormKey}`}
-                      ref={memberNameRef} 
-                      value={memberForm.name} 
-                      onChange={(e) => handleMemberFormChange('name', e.target.value)} 
-                      className="w-full px-3 py-2 border rounded" 
-                      required 
+                      ref={memberNameRef}
+                      value={memberForm.name}
+                      onChange={(e) => handleMemberFormChange('name', e.target.value)}
+                      className="w-full px-3 py-2 border rounded"
+                      required
                     />
                   </div>
 
@@ -806,7 +805,7 @@ const ClubManagement: React.FC = () => {
                     <input id="m-status" type="checkbox" checked={memberForm.status === "active"} onChange={(e) => handleMemberFormChange('status', e.target.checked ? "active" : "inactive")} className="h-4 w-4" />
                     <label htmlFor="m-status" className="text-sm text-gray-700">Active</label>
                     <div className="ml-auto flex gap-2">
-                      <button type="button" onClick={() => { setEditingMember(null); setMemberForm({ name: "", email: "", role: "Member", joinDate: new Date().toISOString().slice(0,10), status: "active", studentId: "", phone: "", department: "", year: "" }); }} className="px-3 py-2 bg-gray-100 rounded">Cancel</button>
+                      <button type="button" onClick={() => { setEditingMember(null); setMemberForm({ name: "", email: "", role: "Member", joinDate: new Date().toISOString().slice(0, 10), status: "active", studentId: "", phone: "", department: "", year: "" }); }} className="px-3 py-2 bg-gray-100 rounded">Cancel</button>
                       <button type="submit" disabled={saving} className="px-3 py-2 bg-green-600 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
                         {saving ? (
                           <>
@@ -831,27 +830,28 @@ const ClubManagement: React.FC = () => {
   /* ---------- Layout ---------- */
 
   return (
-    <div className="max-w-7xl mx-auto p-4 lg:p-6">
+    <div className="p-4 lg:p-6 space-y-4 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">{user?.role === "student" ? "Clubs" : "Club Management"}</h1>
-          <p className="text-sm text-gray-600 mt-1">{user?.role === "student" ? "Explore student clubs" : "Create and manage student clubs"}</p>
+          <h1 className="text-xl lg:text-2xl font-bold text-slate-900">{user?.role === "student" ? "Clubs" : "Club Management"}</h1>
+          <p className="text-sm text-slate-500">{user?.role === "student" ? "Explore student clubs" : "Create and manage student clubs"}</p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             onClick={loadData}
             disabled={loading}
-            className="bg-gray-600 text-white px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 disabled:opacity-50 transition-colors"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Refresh</span>
+            <span className="hidden sm:inline text-sm font-medium">Refresh</span>
           </button>
 
           {user?.role !== "student" && user?.role !== 'visitor' && (
-            <button onClick={openCreateClub} className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-              <Plus className="w-4 h-4" /> Add Club
+            <button onClick={openCreateClub} className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors">
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline text-sm font-medium">Add Club</span>
             </button>
           )}
         </div>
@@ -875,21 +875,21 @@ const ClubManagement: React.FC = () => {
 
       {/* Loading State */}
       {loading && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
           <div className="flex items-center gap-2">
-            <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-            <p className="text-blue-800">Loading clubs...</p>
+            <Loader2 className="w-5 h-5 text-slate-600 animate-spin" />
+            <p className="text-slate-700">Loading clubs...</p>
           </div>
         </div>
       )}
 
       {/* Controls */}
-      <div className="bg-white border border-gray-100 rounded-lg p-4 mb-6">
+      <div className="bg-white border border-slate-200 rounded-xl p-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div className="flex-1 flex items-center gap-3 min-w-0">
-            <div className="relative w-full md:w-80">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search clubs by name or description" className="w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />
+            <div className="relative w-full md:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+              <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search clubs..." className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 text-sm" />
             </div>
 
             <div className="hidden md:flex items-center gap-2">

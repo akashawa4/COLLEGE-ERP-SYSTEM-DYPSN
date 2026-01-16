@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { 
-  Package, 
-  Plus, 
-  Edit, 
-  Trash2, 
+import {
+  Package,
+  Plus,
+  Edit,
+  Trash2,
   Search,
   Book,
   Pen,
@@ -35,7 +35,7 @@ const StationaryManagement: React.FC = () => {
   const CALL_NUMBER = '+919421367600  ';
   const [items, setItems] = useState<StationaryItem[]>([]);
 
-  const [activeTab, setActiveTab] = useState<'inventory'>('inventory');
+  const [activeTab] = useState<'inventory'>('inventory');
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<StationaryItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -107,7 +107,7 @@ const StationaryManagement: React.FC = () => {
 
   const filteredItems = items.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.description.toLowerCase().includes(searchTerm.toLowerCase());
+      item.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = filterCategory === 'all' || item.category === filterCategory;
     const matchesStatus = filterStatus === 'all' || item.status === filterStatus;
     return matchesSearch && matchesCategory && matchesStatus;
@@ -156,17 +156,17 @@ const StationaryManagement: React.FC = () => {
   }, []);
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-3">
+    <div className="p-4 lg:p-6 space-y-4 max-w-7xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-xl lg:text-2xl font-bold text-slate-900">
             {isVisitor ? 'Stationary & Xerox Centre' : user?.role === 'student' ? 'Stationary & Xerox Centre' : 'Xerox/Stationary Centre'}
           </h1>
-          <p className="text-gray-600 mt-1">
-            {isVisitor 
-              ? 'Browse our stationery and printing services' 
-              : user?.role === 'student' 
-                ? 'Browse items and contact centre' 
+          <p className="text-sm text-slate-500">
+            {isVisitor
+              ? 'Browse our stationery and printing services'
+              : user?.role === 'student'
+                ? 'Browse items and contact centre'
                 : 'Manage inventory'
             }
           </p>
@@ -176,53 +176,43 @@ const StationaryManagement: React.FC = () => {
             href={`https://wa.me/${WHATSAPP_NUMBER}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-3 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors flex items-center space-x-2"
+            className="px-3 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition-colors flex items-center gap-2 text-sm font-medium"
           >
-            <MessageCircle className="w-5 h-5" />
+            <MessageCircle className="w-4 h-4" />
             <span className="hidden sm:inline">WhatsApp</span>
           </a>
           <a
             href={`tel:${CALL_NUMBER}`}
-            className="px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors flex items-center space-x-2"
+            className="px-3 py-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors flex items-center gap-2 text-sm font-medium"
           >
-            <Phone className="w-5 h-5" />
+            <Phone className="w-4 h-4" />
             <span className="hidden sm:inline">Call</span>
           </a>
-          <button
-            onClick={() => setActiveTab('inventory')}
-            className={`px-4 py-2 rounded-lg transition-colors ${
-              activeTab === 'inventory' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Inventory
-          </button>
         </div>
       </div>
 
       {activeTab === 'inventory' && (
         <>
           {/* Inventory Filters */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-4">
-              <div className="flex flex-wrap gap-4 flex-1 w-full">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+              <div className="flex flex-wrap gap-3 flex-1 w-full">
                 <div className="flex-1 min-w-0">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                     <input
                       type="text"
                       placeholder="Search items..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-transparent text-sm"
                     />
                   </div>
                 </div>
                 <select
                   value={filterCategory}
                   onChange={(e) => setFilterCategory(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-auto"
+                  className="px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-transparent w-full sm:w-auto text-sm"
                 >
                   <option value="all">All Categories</option>
                   <option value="Books">Books</option>
@@ -236,7 +226,7 @@ const StationaryManagement: React.FC = () => {
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-auto"
+                  className="px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-transparent w-full sm:w-auto text-sm"
                 >
                   <option value="all">All Status</option>
                   <option value="Available">Available</option>
@@ -247,9 +237,9 @@ const StationaryManagement: React.FC = () => {
               {user?.role !== 'student' && !isVisitor && (
                 <button
                   onClick={() => setShowForm(true)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 sm:ml-4"
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors text-sm font-medium"
                 >
-                  <Plus className="w-5 h-5" />
+                  <Plus className="w-4 h-4" />
                   <span>Add Item</span>
                 </button>
               )}
@@ -257,9 +247,9 @@ const StationaryManagement: React.FC = () => {
           </div>
 
           {/* Inventory Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredItems.map((item) => (
-              <div key={item.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+              <div key={item.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex items-center space-x-3">
                     <div className="text-gray-400">
@@ -294,15 +284,14 @@ const StationaryManagement: React.FC = () => {
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Stock:</span>
-                    <span className={`font-semibold ${
-                      (item.stockQuantity ?? Infinity) === 0 ? 'text-red-600' :
+                    <span className={`font-semibold ${(item.stockQuantity ?? Infinity) === 0 ? 'text-red-600' :
                       (item.stockQuantity ?? Infinity) <= 5 ? 'text-yellow-600' :
-                      'text-green-600'
-                    }`}>
+                        'text-green-600'
+                      }`}>
                       {item.stockQuantity ?? 'N/A'}{item.stockQuantity !== undefined ? ' units' : ''}
                     </span>
                   </div>
-                  
+
                 </div>
 
                 <div className="flex flex-wrap gap-2 mb-4">
@@ -320,7 +309,7 @@ const StationaryManagement: React.FC = () => {
                   </div>
                 )}
 
-                
+
               </div>
             ))}
           </div>
@@ -335,7 +324,7 @@ const StationaryManagement: React.FC = () => {
         </>
       )}
 
-      
+
 
       {/* Item Form Modal */}
       {showForm && (
@@ -345,7 +334,7 @@ const StationaryManagement: React.FC = () => {
               <h2 className="text-2xl font-bold text-gray-900 mb-6">
                 {editingItem ? 'Edit Item' : 'Add New Item'}
               </h2>
-              
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -409,7 +398,7 @@ const StationaryManagement: React.FC = () => {
                   </div>
                 </div>
 
-                
+
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Specifications (Optional)</label>

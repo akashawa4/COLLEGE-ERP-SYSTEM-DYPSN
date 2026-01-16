@@ -238,13 +238,13 @@ const EventManagement: React.FC = () => {
 
   const deleteEvent = async (id: string) => {
     if (!confirm("Delete this event?")) return;
-    
+
     try {
       setSaving(true);
       setError(null);
       await eventService.deleteEvent(id);
       await loadData(); // Reload data from Firestore
-      
+
       // if the deleted event is open in detail, close it
       if (detailEvent?.id === id) {
         setShowDetail(false);
@@ -264,7 +264,7 @@ const EventManagement: React.FC = () => {
       setError(null);
       await eventService.updateEventStatus(id, newStatus);
       await loadData(); // Reload data from Firestore
-      
+
       // update detailEvent too
       if (detailEvent?.id === id) {
         setDetailEvent({ ...detailEvent, status: newStatus });
@@ -604,44 +604,37 @@ const EventManagement: React.FC = () => {
 
   /* ---------- Page layout ---------- */
   return (
-    <div className="max-w-7xl mx-auto p-4 lg:p-6">
+    <div className="p-4 lg:p-6 space-y-4 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+          <h1 className="text-xl lg:text-2xl font-bold text-slate-900">
             {user?.role === "student" ? "Events" : "Event Management"}
           </h1>
-          <p className="text-sm text-gray-600 mt-1">
+          <p className="text-sm text-slate-500">
             {user?.role === "student"
               ? "Browse upcoming college events"
               : "Create and manage events, workshops and activities"}
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center gap-3 text-sm text-gray-600">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-gray-400" />
-              <span>{new Date().toLocaleDateString()}</span>
-            </div>
-          </div>
-
+        <div className="flex items-center gap-2">
           <button
             onClick={loadData}
             disabled={loading}
-            className="bg-gray-600 text-white px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 disabled:opacity-50 transition-colors"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Refresh</span>
+            <span className="hidden sm:inline text-sm font-medium">Refresh</span>
           </button>
 
           {user?.role !== "student" && user?.role !== 'visitor' && (
             <button
               onClick={openCreateForm}
-              className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors"
             >
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Add Event</span>
+              <span className="hidden sm:inline text-sm font-medium">Add Event</span>
             </button>
           )}
         </div>
@@ -665,25 +658,25 @@ const EventManagement: React.FC = () => {
 
       {/* Loading State */}
       {loading && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
           <div className="flex items-center gap-2">
-            <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-            <p className="text-blue-800">Loading events...</p>
+            <Loader2 className="w-5 h-5 text-slate-600 animate-spin" />
+            <p className="text-slate-700">Loading events...</p>
           </div>
         </div>
       )}
 
       {/* Controls */}
-      <div className="bg-white border border-gray-100 rounded-lg p-4 mb-6">
+      <div className="bg-white border border-slate-200 rounded-xl p-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div className="flex-1 flex items-center gap-3 min-w-0">
-            <div className="relative w-full md:w-80">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <div className="relative w-full md:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search title or description"
-                className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="Search events..."
+                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 text-sm"
               />
             </div>
 

@@ -30,8 +30,7 @@ import {
   User,
   Bus,
   Phone,
-  Home as HomeIcon,
-  MapPin
+  Home as HomeIcon
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -226,39 +225,39 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onPageC
       {/* Mobile Overlay */}
       {isOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40 animate-fade-in"
+          className="lg:hidden fixed inset-0 bg-black/50 z-40 animate-fade-in backdrop-blur-sm"
           onClick={onClose}
         />
       )}
 
       {/* Sidebar */}
       <div className={`sidebar
-        fixed top-0 left-0 h-full w-80 max-w-[85vw] bg-white shadow-mobile-lg transform transition-transform duration-300 ease-in-out z-50
+        fixed top-0 left-0 h-full w-80 max-w-[85vw] bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-50
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:translate-x-0 lg:sticky lg:top-0 lg:shadow-none lg:border-r lg:border-gray-200 lg:w-64
+        lg:translate-x-0 lg:sticky lg:top-0 lg:shadow-none lg:border-r lg:border-slate-200 lg:w-64
         flex flex-col max-h-screen
       `}>
         {/* Header - Fixed */}
-        <div className="flex-shrink-0 flex items-center justify-between p-6 border-b border-gray-200 bg-white">
+        <div className="flex-shrink-0 flex items-center justify-between p-5 border-b border-slate-100 bg-white">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-sky-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg font-heading">D</span>
+            <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center shadow-sm">
+              <span className="text-white font-bold text-lg">D</span>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900 font-heading">DYPSN</h1>
-              <p className="text-sm text-gray-500 font-heading">Leave & Attendance</p>
+              <h1 className="text-lg font-bold text-slate-900">DYPSN</h1>
+              <p className="text-xs text-slate-500">Leave & Attendance</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="lg:hidden p-2 hover:bg-slate-100 rounded-xl transition-colors"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5 text-slate-500" />
           </button>
         </div>
 
         {/* Navigation - Scrollable */}
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-6 space-y-1 scrollbar-mobile min-h-0 scroll-smooth">
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-1 scrollbar-mobile min-h-0 scroll-smooth">
           <div className="space-y-1">
             {navigationItems.map((item) => {
               const Icon = item.icon;
@@ -271,10 +270,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onPageC
                     onPageChange(item.id);
                     onClose();
                   }}
-                  className={isActive ? 'theme-nav-item-active' : 'theme-nav-item-inactive'}
+                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${isActive
+                      ? 'bg-slate-800 text-white shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
                 >
-                  <Icon className={`w-6 h-6 ${isActive ? 'text-indigo-600' : 'text-gray-400'}`} />
-                  <span className="font-medium text-base font-heading">{item.label}</span>
+                  <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                  <span className="font-medium text-sm">{item.label}</span>
                 </button>
               );
             })}
@@ -282,24 +284,24 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onPageC
         </nav>
 
         {/* User Profile Section - Fixed */}
-        <div className="flex-shrink-0 p-4 border-t border-gray-200 bg-gray-50">
+        <div className="flex-shrink-0 p-4 border-t border-slate-100 bg-slate-50">
           <div className="flex items-center space-x-3 mb-3">
-            <div className="w-12 h-12 rounded-full bg-sky-500 flex items-center justify-center text-white font-semibold text-base border-2 border-white shadow-sm font-heading">
+            <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-white font-semibold text-sm shadow-sm">
               {user?.name?.charAt(0)?.toUpperCase() || 'U'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 truncate font-heading">{user?.name}</p>
-              <p className="text-xs text-gray-500 capitalize font-heading">{user?.role}</p>
+              <p className="text-sm font-semibold text-slate-900 truncate">{user?.name}</p>
+              <p className="text-xs text-slate-500 capitalize">{user?.role}</p>
             </div>
           </div>
 
           {/* Logout Button */}
           <button
             onClick={logout}
-            className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-red-50 text-red-600 rounded-xl font-medium hover:bg-red-100 transition-colors active:scale-95 font-heading"
+            className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-300 transition-colors text-sm"
           >
             <LogOut className="w-4 h-4" />
-            <span className="font-heading">Logout</span>
+            <span>Logout</span>
           </button>
         </div>
       </div>

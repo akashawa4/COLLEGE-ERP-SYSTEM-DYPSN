@@ -39,7 +39,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
   const [selectedDiv, setSelectedDiv] = useState('A');
   const [availableSemesters, setAvailableSemesters] = useState<string[]>(getAvailableSemesters('2'));
   const [formAvailableSemesters, setFormAvailableSemesters] = useState<string[]>(getAvailableSemesters('2'));
-  
+
   // Generate batch years (current year and previous 4 years)
   const availableBatches = Array.from({ length: 5 }, (_, i) => {
     const year = new Date().getFullYear() - i;
@@ -52,7 +52,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
     const normalizedYear = newYear.replace(/(st|nd|rd|th)/i, '');
     const newAvailableSemesters = getAvailableSemesters(normalizedYear);
     setAvailableSemesters(newAvailableSemesters);
-    
+
     // If current semester is not valid for new year, reset to first available
     if (!isValidSemesterForYear(normalizedYear, selectedSem)) {
       const defaultSem = getDefaultSemesterForYear(normalizedYear);
@@ -138,7 +138,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
     const filtered = students.filter(student => {
       // Role filter
       if (student.role !== 'student') return false;
-      
+
       // Batch filter - check if student's batchYear matches selected batch
       // If student doesn't have batchYear field, include them (for backward compatibility and newly added students)
       if (selectedBatch) {
@@ -150,26 +150,26 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
         // If student doesn't have batchYear field, include them to show newly added students
         // This handles cases where batchYear hasn't been set yet or for backward compatibility
       }
-      
+
       // Year filter (only if a specific year is selected)
       if (selectedYear && student.year !== selectedYear) return false;
-      
+
       // Semester filter (only if a specific semester is selected)
       if (selectedSem && student.sem !== selectedSem) return false;
-      
+
       // Division filter (only if a specific division is selected)
       if (selectedDiv && student.div !== selectedDiv) return false;
-      
+
       // Search filter
-      const matchesSearch = 
+      const matchesSearch =
         student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (student.rollNumber && student.rollNumber.toLowerCase().includes(searchTerm.toLowerCase()));
       if (!matchesSearch) return false;
-      
+
       // Department filter
       if (departmentFilter !== 'all' && student.department !== departmentFilter) return false;
-      
+
       return true;
     });
     setFilteredStudents(filtered);
@@ -233,29 +233,29 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
             resolve(students);
           } else {
             // Excel
-          const data = new Uint8Array(e.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet);
-          const students: StudentData[] = jsonData.map((row: any) => ({
-            name: row.name || row.Name || row.NAME || '',
-            email: row.email || row.Email || row.EMAIL || '',
-            phone: row.phone || row.Phone || row.PHONE || '',
-            gender: row.gender || row.Gender || row.GENDER || '',
-            rollNumber: row.rollNumber || row.roll || row.RollNumber || row.roll_number || '',
-            year: row.year || row.Year || row.YEAR || '2nd',
-            sem: row.sem || row.Sem || row.SEM || '3',
-            div: row.div || row.Div || row.DIV || 'A',
-            department: row.department || row.Department || row.DEPARTMENT || 'Computer Science'
-          }));
+            const data = new Uint8Array(e.target?.result as ArrayBuffer);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+            const students: StudentData[] = jsonData.map((row: any) => ({
+              name: row.name || row.Name || row.NAME || '',
+              email: row.email || row.Email || row.EMAIL || '',
+              phone: row.phone || row.Phone || row.PHONE || '',
+              gender: row.gender || row.Gender || row.GENDER || '',
+              rollNumber: row.rollNumber || row.roll || row.RollNumber || row.roll_number || '',
+              year: row.year || row.Year || row.YEAR || '2nd',
+              sem: row.sem || row.Sem || row.SEM || '3',
+              div: row.div || row.Div || row.DIV || 'A',
+              department: row.department || row.Department || row.DEPARTMENT || 'Computer Science'
+            }));
             // Check required columns
             const missing = students.find(s => !s.name || !s.email || !s.rollNumber);
             if (missing) {
               reject(new Error('Missing required columns (name, email, rollNumber) in one or more rows.'));
               return;
             }
-          resolve(students);
+            resolve(students);
           }
         } catch (error) {
           // Handle error silently
@@ -266,7 +266,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
       if (file.name.endsWith('.csv')) {
         reader.readAsText(file);
       } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-      reader.readAsArrayBuffer(file);
+        reader.readAsArrayBuffer(file);
       } else {
         reject(new Error('Unsupported file format. Please upload .xlsx, .xls, or .csv file.'));
       }
@@ -328,7 +328,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
     try {
       // Ensure Firebase Auth so Firestore rules allow writes
       if (!auth.currentUser) {
-        try { await signInAnonymously(auth); } catch {}
+        try { await signInAnonymously(auth); } catch { }
       }
       const student: User & { batchYear?: string } = {
         id: `student_${safeRollNumber}_${Date.now()}_${Math.random()}`,
@@ -352,7 +352,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
 
       // Create student (automatically creates in batch structure)
       await userService.createUser(student);
-      
+
       setShowAddModal(false);
       setNewStudent({
         name: '',
@@ -369,7 +369,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
         accessLevel: 'basic',
         isActive: true
       });
-      
+
       // Add a small delay to ensure Firestore has indexed the new document
       // Then fetch with retry mechanism
       setTimeout(() => {
@@ -440,17 +440,17 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
     const exportData = students
       .filter(s => s.role === 'student' && s.year === exportYear && s.sem === exportSem && s.div === exportDiv)
       .map(student => ({
-      name: student.name,
-      email: student.email,
-      phone: student.phone || '',
-      gender: student.gender || '',
-      rollNumber: student.rollNumber || '',
-      year: student.year || '',
-      sem: student.sem || '',
-      div: student.div || '',
-      department: student.department || '',
-      status: student.isActive ? 'Active' : 'Inactive'
-    }));
+        name: student.name,
+        email: student.email,
+        phone: student.phone || '',
+        gender: student.gender || '',
+        rollNumber: student.rollNumber || '',
+        year: student.year || '',
+        sem: student.sem || '',
+        div: student.div || '',
+        department: student.department || '',
+        status: student.isActive ? 'Active' : 'Inactive'
+      }));
 
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
@@ -580,83 +580,88 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-3 lg:p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Modern Header Section */}
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 lg:p-8 mb-6">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6">
-            <div className="mb-4 lg:mb-0">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Student Management</h1>
-              <p className="text-gray-600">Manage students by year, semester, and division</p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={() => setShowImportModal(true)}
-                className="flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
-              >
-                <Upload size={18} />
-                <span>Import Excel</span>
-              </button>
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="flex items-center justify-center gap-2 bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
-              >
-                <Plus size={18} />
-                <span>Add Student</span>
-              </button>
+    <div className="p-4 lg:p-6 space-y-4">
+      <div className="max-w-7xl mx-auto space-y-4">
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div>
+            <h1 className="text-xl lg:text-2xl font-bold text-slate-900">Student Management</h1>
+            <p className="text-sm text-slate-500">Manage students by year, semester, and division</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 font-medium transition-colors"
+            >
+              <Upload size={16} />
+              <span className="hidden sm:inline text-sm">Import</span>
+            </button>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 font-medium transition-colors"
+            >
+              <Plus size={16} />
+              <span className="hidden sm:inline text-sm">Add Student</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-white p-4 rounded-xl border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-500 text-xs font-medium">Total Students</p>
+                <p className="text-xl font-bold text-slate-900">{filteredStudents.length}</p>
+              </div>
+              <div className="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center">
+                <Users className="w-4 h-4 text-slate-600" />
+              </div>
             </div>
           </div>
-
-          {/* Statistics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-blue-100 text-sm font-medium">Total Students</p>
-                  <p className="text-2xl font-bold">{filteredStudents.length}</p>
-                </div>
-                <Users className="w-8 h-8 text-blue-200" />
+          <div className="bg-white p-4 rounded-xl border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-500 text-xs font-medium">Active</p>
+                <p className="text-xl font-bold text-slate-900">{filteredStudents.filter(s => s.isActive).length}</p>
+              </div>
+              <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center">
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
               </div>
             </div>
-            <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-4 text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-green-100 text-sm font-medium">Active Students</p>
-                  <p className="text-2xl font-bold">{filteredStudents.filter(s => s.isActive).length}</p>
-                </div>
-                <CheckCircle className="w-8 h-8 text-green-200" />
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-500 text-xs font-medium">Current Class</p>
+                <p className="text-sm font-bold text-slate-900">{selectedYear} - {selectedSem} - {selectedDiv}</p>
+              </div>
+              <div className="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center">
+                <Calendar className="w-4 h-4 text-slate-600" />
               </div>
             </div>
-            <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-4 text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-purple-100 text-sm font-medium">Current Class</p>
-                  <p className="text-lg font-bold">{selectedYear} - {selectedSem} - {selectedDiv}</p>
-                </div>
-                <Calendar className="w-8 h-8 text-purple-200" />
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-500 text-xs font-medium">Departments</p>
+                <p className="text-xl font-bold text-slate-900">{new Set(filteredStudents.map(s => s.department)).size}</p>
               </div>
-            </div>
-            <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-4 text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-orange-100 text-sm font-medium">Departments</p>
-                  <p className="text-2xl font-bold">{new Set(filteredStudents.map(s => s.department)).size}</p>
-                </div>
-                <BarChart3 className="w-8 h-8 text-orange-200" />
+              <div className="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center">
+                <BarChart3 className="w-4 h-4 text-slate-600" />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Modern Filters Section */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 lg:p-8 mb-6">
-          <div className="flex items-center space-x-3 mb-6">
-            <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-              <Filter className="w-5 h-5 text-white" />
+        {/* Filters Section */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 lg:p-5">
+          <div className="flex items-center space-x-2 mb-4">
+            <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
+              <Filter className="w-4 h-4 text-slate-600" />
             </div>
             <div>
-              <h3 className="text-xl font-semibold text-gray-900">Filter Students</h3>
-              <p className="text-gray-600">Search and filter students by various criteria</p>
+              <h3 className="text-base font-semibold text-slate-900">Filter Students</h3>
             </div>
           </div>
 
@@ -750,16 +755,13 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div className="space-y-2">
-              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
-                <BarChart3 className="w-4 h-4" />
-                <span>Department</span>
-              </label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-600">Department</label>
               <select
                 value={departmentFilter}
                 onChange={(e) => setDepartmentFilter(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent bg-white text-sm"
               >
                 <option value="all">All Departments</option>
                 <option value="Computer Science">Computer Science</option>
@@ -769,762 +771,760 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
                 <option value="Civil">Civil</option>
               </select>
             </div>
-            <div className="flex items-end gap-3">
+            <div className="flex items-end gap-2">
               <button
                 onClick={downloadTemplate}
-                className="flex items-center gap-2 bg-gray-600 text-white px-6 py-3 rounded-xl hover:bg-gray-700 font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
+                className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 font-medium text-sm transition-colors"
               >
-                <Download size={18} />
+                <Download size={16} />
                 <span>Template</span>
               </button>
               <button
                 onClick={() => setShowExportModal(true)}
-                className="flex items-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-xl hover:bg-purple-700 font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
+                className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 font-medium text-sm transition-colors"
               >
-                <Download size={18} />
-                <span>Export Data</span>
+                <Download size={16} />
+                <span>Export</span>
               </button>
             </div>
           </div>
         </div>
 
-      {/* Students List - Mobile (cards) */}
-      <div className="md:hidden space-y-3">
-        {loading ? (
-          <div className="text-center text-gray-500 py-6">Loading students...</div>
-        ) : filteredStudents.length === 0 ? (
-          <div className="text-center text-gray-500 py-6">No students found</div>
-        ) : (
-          filteredStudents.map((student) => (
-            <div key={student.id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-mobile">
-              <div className="flex items-center">
-                <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-                  <span className="text-sm font-semibold text-blue-600">
-                    {student.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+        {/* Students List - Mobile (cards) */}
+        <div className="md:hidden space-y-3">
+          {loading ? (
+            <div className="text-center text-gray-500 py-6">Loading students...</div>
+          ) : filteredStudents.length === 0 ? (
+            <div className="text-center text-gray-500 py-6">No students found</div>
+          ) : (
+            filteredStudents.map((student) => (
+              <div key={student.id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-mobile">
+                <div className="flex items-center">
+                  <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                    <span className="text-sm font-semibold text-blue-600">
+                      {student.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="ml-3 min-w-0">
+                    <div className="font-semibold text-gray-900 truncate">{student.name}</div>
+                    <div className="text-sm text-gray-600 truncate">{student.email}</div>
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <div className="text-gray-500">Roll No.</div>
+                    <div className="text-gray-900 font-medium">{student.rollNumber}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500">Contact</div>
+                    <div className="text-gray-900 font-medium">{student.phone || '-'}</div>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex items-center justify-between">
+                  <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${student.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                    {student.isActive ? 'Active' : 'Inactive'}
                   </span>
-                </div>
-                <div className="ml-3 min-w-0">
-                  <div className="font-semibold text-gray-900 truncate">{student.name}</div>
-                  <div className="text-sm text-gray-600 truncate">{student.email}</div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setDetailStudent(student)}
+                      className="text-blue-600 hover:text-blue-800"
+                      aria-label="View details"
+                    >
+                      <Eye size={18} />
+                    </button>
+                    <button
+                      onClick={() => setEditingStudent(student)}
+                      className="text-green-600 hover:text-green-800"
+                      aria-label="Edit student"
+                    >
+                      <Edit size={18} />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setStudentToDelete(student); setShowDeleteModal(true); }}
+                      className="text-red-600 hover:text-red-800"
+                      aria-label="Delete student"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
               </div>
+            ))
+          )}
+        </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <div className="text-gray-500">Roll No.</div>
-                  <div className="text-gray-900 font-medium">{student.rollNumber}</div>
-                </div>
-                <div>
-                  <div className="text-gray-500">Contact</div>
-                  <div className="text-gray-900 font-medium">{student.phone || '-'}</div>
-                </div>
-              </div>
-
-              <div className="mt-3 flex items-center justify-between">
-                <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${
-                  student.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                }`}>
-                  {student.isActive ? 'Active' : 'Inactive'}
-                </span>
-                <div className="flex gap-3">
-                  <button
+        {/* Students Table - Desktop */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="min-w-full bg-white border border-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Roll Number</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500">Loading students...</td>
+                </tr>
+              ) : filteredStudents.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500">No students found</td>
+                </tr>
+              ) : (
+                filteredStudents.map((student) => (
+                  <tr
+                    key={student.id}
+                    className="hover:bg-gray-50 cursor-pointer"
                     onClick={() => setDetailStudent(student)}
-                    className="text-blue-600 hover:text-blue-800"
-                    aria-label="View details"
                   >
-                    <Eye size={18} />
-                  </button>
-                  <button
-                    onClick={() => setEditingStudent(student)}
-                    className="text-green-600 hover:text-green-800"
-                    aria-label="Edit student"
-                  >
-                    <Edit size={18} />
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setStudentToDelete(student); setShowDeleteModal(true); }}
-                    className="text-red-600 hover:text-red-800"
-                    aria-label="Delete student"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Students Table - Desktop */}
-      <div className="hidden md:block overflow-x-auto">
-        <table className="min-w-full bg-white border border-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Roll Number</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {loading ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-4 text-center text-gray-500">Loading students...</td>
-              </tr>
-            ) : filteredStudents.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-4 text-center text-gray-500">No students found</td>
-              </tr>
-            ) : (
-              filteredStudents.map((student) => (
-                <tr
-                  key={student.id}
-                  className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => setDetailStudent(student)}
-                >
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                          <span className="text-sm font-medium text-blue-600">
-                            {student.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                          </span>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10">
+                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                            <span className="text-sm font-medium text-blue-600">
+                              {student.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">{student.name}</div>
+                          <div className="text-sm text-gray-500">{student.email}</div>
                         </div>
                       </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{student.name}</div>
-                        <div className="text-sm text-gray-500">{student.email}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {student.rollNumber}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {student.phone || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${student.isActive
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                        }`}>
+                        {student.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={e => { e.stopPropagation(); setEditingStudent(student); }}
+                          className="text-indigo-600 hover:text-indigo-900"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setStudentToDelete(student); setShowDeleteModal(true); }}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {student.rollNumber}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {student.phone || '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      student.isActive 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {student.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={e => { e.stopPropagation(); setEditingStudent(student); }}
-                        className="text-indigo-600 hover:text-indigo-900"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setStudentToDelete(student); setShowDeleteModal(true); }}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
 
-      {/* Import Modal */}
-      {showImportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-lg relative max-h-[90vh] overflow-y-auto">
-            {/* Close (X) button */}
-            <button
-              onClick={() => setShowImportModal(false)}
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 text-xl font-bold focus:outline-none z-10"
-              aria-label="Close"
-            >
-              &times;
-            </button>
-            <h3 className="text-lg font-semibold mb-4 sticky top-0 bg-white pb-2">Import Students from Excel</h3>
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row gap-2 items-center">
-                <label className="block text-sm font-medium text-gray-700 mb-2 sm:mb-0 w-full sm:w-auto">
-                  <span className="mr-2">Select Excel File</span>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".xlsx,.xls,.csv"
-                    onChange={e => { setImportFile(e.target.files?.[0] || null); }}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                    style={{ maxWidth: 220 }}
-                  />
-                </label>
-                <button
-                  onClick={async () => { if (importFile) await handleFileUpload({ target: { files: [importFile] } }); }}
-                  className="flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2.5 sm:py-2 rounded-lg hover:bg-green-700 whitespace-nowrap disabled:opacity-50 touch-manipulation active:scale-95 transition-transform w-full sm:w-auto"
-                  disabled={!importFile || uploading}
-                >
-                  {uploading ? 'Uploading...' : 'Upload'}
-                </button>
-                <button
-                  onClick={downloadTemplate}
-                  className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 sm:py-2 rounded-lg hover:bg-blue-700 whitespace-nowrap touch-manipulation active:scale-95 transition-transform w-full sm:w-auto"
-                >
-                  Download Template
-                </button>
-              </div>
-              {uploading && (
-                <div className="w-full mt-2">
-                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div className="h-2 bg-green-500" style={{ width: `${uploadProgress}%` }}></div>
+        {/* Import Modal */}
+        {showImportModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-lg relative max-h-[90vh] overflow-y-auto">
+              {/* Close (X) button */}
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 text-xl font-bold focus:outline-none z-10"
+                aria-label="Close"
+              >
+                &times;
+              </button>
+              <h3 className="text-lg font-semibold mb-4 sticky top-0 bg-white pb-2">Import Students from Excel</h3>
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row gap-2 items-center">
+                  <label className="block text-sm font-medium text-gray-700 mb-2 sm:mb-0 w-full sm:w-auto">
+                    <span className="mr-2">Select Excel File</span>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      onChange={e => { setImportFile(e.target.files?.[0] || null); }}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                      style={{ maxWidth: 220 }}
+                    />
+                  </label>
+                  <button
+                    onClick={async () => { if (importFile) await handleFileUpload({ target: { files: [importFile] } }); }}
+                    className="flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2.5 sm:py-2 rounded-lg hover:bg-green-700 whitespace-nowrap disabled:opacity-50 touch-manipulation active:scale-95 transition-transform w-full sm:w-auto"
+                    disabled={!importFile || uploading}
+                  >
+                    {uploading ? 'Uploading...' : 'Upload'}
+                  </button>
+                  <button
+                    onClick={downloadTemplate}
+                    className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 sm:py-2 rounded-lg hover:bg-blue-700 whitespace-nowrap touch-manipulation active:scale-95 transition-transform w-full sm:w-auto"
+                  >
+                    Download Template
+                  </button>
+                </div>
+                {uploading && (
+                  <div className="w-full mt-2">
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-2 bg-green-500" style={{ width: `${uploadProgress}%` }}></div>
+                    </div>
+                    <div className="text-xs text-gray-700 mt-1 text-center">Uploading... {uploadProgress}% complete</div>
                   </div>
-                  <div className="text-xs text-gray-700 mt-1 text-center">Uploading... {uploadProgress}% complete</div>
+                )}
+                <div className="text-sm text-gray-600">
+                  <p><span className="font-semibold">Required columns:</span> name, email, rollNumber</p>
+                  <p><span className="font-semibold">Optional columns:</span> phone, gender, year, sem, div, department</p>
                 </div>
-              )}
-              <div className="text-sm text-gray-600">
-                <p><span className="font-semibold">Required columns:</span> name, email, rollNumber</p>
-                <p><span className="font-semibold">Optional columns:</span> phone, gender, year, sem, div, department</p>
-              </div>
-              <div className="flex justify-between items-center mt-2 sticky bottom-0 bg-white pt-2">
-                <button
-                  onClick={() => setShowImportModal(false)}
-                  className="text-gray-500 hover:underline bg-transparent px-2 py-1 rounded touch-manipulation active:scale-95 transition-transform"
-                >
-                  Cancel
-                </button>
+                <div className="flex justify-between items-center mt-2 sticky bottom-0 bg-white pt-2">
+                  <button
+                    onClick={() => setShowImportModal(false)}
+                    className="text-gray-500 hover:underline bg-transparent px-2 py-1 rounded touch-manipulation active:scale-95 transition-transform"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Add Student Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4 sticky top-0 bg-white pb-2">Add New Student</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                <input
-                  type="text"
-                  value={newStudent.name}
-                  onChange={(e) => setNewStudent({...newStudent, name: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                  placeholder="Full Name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                <input
-                  type="email"
-                  value={newStudent.email}
-                  onChange={(e) => setNewStudent({...newStudent, email: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                  placeholder="Email Address"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Roll Number *</label>
-                <input
-                  type="text"
-                  value={newStudent.rollNumber}
-                  onChange={(e) => setNewStudent({...newStudent, rollNumber: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                  placeholder="Roll Number"
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Add Student Modal */}
+        {showAddModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+              <h3 className="text-lg font-semibold mb-4 sticky top-0 bg-white pb-2">Add New Student</h3>
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
                   <input
-                    type="tel"
-                    value={newStudent.phone}
-                    onChange={(e) => setNewStudent({...newStudent, phone: e.target.value})}
+                    type="text"
+                    value={newStudent.name}
+                    onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                    placeholder="Phone Number"
+                    placeholder="Full Name"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-                  <select
-                    value={newStudent.gender}
-                    onChange={(e) => setNewStudent({...newStudent, gender: e.target.value})}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                  >
-                    <option value="">Select Gender</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
-                  <select
-                    value={newStudent.batchYear || getCurrentBatchYear()}
-                    onChange={(e) => setNewStudent({...newStudent, batchYear: e.target.value})}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                  >
-                    {availableBatches.map(batch => (
-                      <option key={batch} value={batch}>Batch {batch}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Branch/Department</label>
-                  <select
-                    value={newStudent.department}
-                    onChange={(e) => setNewStudent({...newStudent, department: e.target.value})}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                  >
-                    <option value="Computer Science">Computer Science</option>
-                    <option value="Information Technology">Information Technology</option>
-                    <option value="Mechanical">Mechanical</option>
-                    <option value="Electrical">Electrical</option>
-                    <option value="Civil">Civil</option>
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
-                  <select
-                    value={newStudent.year}
-                    onChange={(e) => {
-                      const newYear = e.target.value;
-                      const normalizedYear = newYear.replace(/(st|nd|rd|th)/i, '');
-                      const newAvailableSemesters = getAvailableSemesters(normalizedYear);
-                      const defaultSem = getDefaultSemesterForYear(normalizedYear);
-                      setFormAvailableSemesters(newAvailableSemesters);
-                      setNewStudent({
-                        ...newStudent, 
-                        year: newYear,
-                        sem: isValidSemesterForYear(normalizedYear, newStudent.sem || '') ? newStudent.sem : defaultSem
-                      });
-                    }}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                  >
-                    {YEARS.map(year => (
-                      <option key={year} value={year}>{year}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Semester</label>
-                  <select
-                    value={newStudent.sem}
-                    onChange={(e) => setNewStudent({...newStudent, sem: e.target.value})}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                  >
-                    {formAvailableSemesters.map(sem => (
-                      <option key={sem} value={sem}>{sem}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
-                  <select
-                    value={newStudent.div}
-                    onChange={(e) => setNewStudent({...newStudent, div: e.target.value})}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                  >
-                    {DIVS.map(div => (
-                      <option key={div} value={div}>{div}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2 sticky bottom-0 bg-white pt-2">
-                <button
-                  onClick={() => setShowAddModal(false)}
-                  className="flex-1 bg-gray-300 text-gray-700 px-4 py-2.5 sm:py-2 rounded-lg hover:bg-gray-400 touch-manipulation active:scale-95 transition-transform"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={addStudent}
-                  className="flex-1 bg-green-600 text-white px-4 py-2.5 sm:py-2 rounded-lg hover:bg-green-700 touch-manipulation active:scale-95 transition-transform"
-                >
-                  Add Student
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Student Modal */}
-      {editingStudent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4 sticky top-0 bg-white pb-2">Edit Student</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                <input
-                  type="text"
-                  value={editingStudent.name}
-                  onChange={(e) => setEditingStudent({...editingStudent, name: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={editingStudent.email}
-                  onChange={(e) => setEditingStudent({...editingStudent, email: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Roll Number</label>
-                <input
-                  type="text"
-                  value={editingStudent.rollNumber}
-                  onChange={(e) => setEditingStudent({...editingStudent, rollNumber: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
                   <input
-                    type="tel"
-                    value={editingStudent.phone}
-                    onChange={(e) => setEditingStudent({...editingStudent, phone: e.target.value})}
+                    type="email"
+                    value={newStudent.email}
+                    onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    placeholder="Email Address"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-                  <select
-                    value={editingStudent.gender}
-                    onChange={(e) => setEditingStudent({...editingStudent, gender: e.target.value})}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                  >
-                    <option value="">Select Gender</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
-                  <select
-                    value={(editingStudent as any).batchYear || getCurrentBatchYear()}
-                    onChange={(e) => setEditingStudent({...editingStudent, batchYear: e.target.value} as User & { batchYear?: string })}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                  >
-                    {availableBatches.map(batch => (
-                      <option key={batch} value={batch}>Batch {batch}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Branch/Department</label>
-                  <select
-                    value={editingStudent.department}
-                    onChange={(e) => setEditingStudent({...editingStudent, department: e.target.value})}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                  >
-                    <option value="Computer Science">Computer Science</option>
-                    <option value="Information Technology">Information Technology</option>
-                    <option value="Mechanical">Mechanical</option>
-                    <option value="Electrical">Electrical</option>
-                    <option value="Civil">Civil</option>
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
-                  <select
-                    value={editingStudent.year}
-                    onChange={(e) => {
-                      const newYear = e.target.value;
-                      const normalizedYear = newYear.replace(/(st|nd|rd|th)/i, '');
-                      const newAvailableSemesters = getAvailableSemesters(normalizedYear);
-                      const defaultSem = getDefaultSemesterForYear(normalizedYear);
-                      setFormAvailableSemesters(newAvailableSemesters);
-                      setEditingStudent({
-                        ...editingStudent, 
-                        year: newYear,
-                        sem: isValidSemesterForYear(normalizedYear, editingStudent.sem || '') ? editingStudent.sem : defaultSem
-                      });
-                    }}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                  >
-                    {YEARS.map(year => (
-                      <option key={year} value={year}>{year}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Semester</label>
-                  <select
-                    value={editingStudent.sem}
-                    onChange={(e) => setEditingStudent({...editingStudent, sem: e.target.value})}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                  >
-                    {formAvailableSemesters.map(sem => (
-                      <option key={sem} value={sem}>{sem}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
-                  <select
-                    value={editingStudent.div}
-                    onChange={(e) => setEditingStudent({...editingStudent, div: e.target.value})}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                  >
-                    {DIVS.map(div => (
-                      <option key={div} value={div}>{div}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2 sticky bottom-0 bg-white pt-2">
-                <button
-                  onClick={() => setEditingStudent(null)}
-                  className="flex-1 bg-gray-300 text-gray-700 px-4 py-2.5 sm:py-2 rounded-lg hover:bg-gray-400 touch-manipulation active:scale-95 transition-transform"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={updateStudent}
-                  className="flex-1 bg-blue-600 text-white px-4 py-2.5 sm:py-2 rounded-lg hover:bg-blue-700 touch-manipulation active:scale-95 transition-transform"
-                >
-                  Update Student
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Export Modal */}
-      {showExportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4 sticky top-0 bg-white pb-2">Export Student Data</h3>
-            <div className="space-y-4">
-              {/* Always show Year, Semester, Division dropdowns */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
-                  <select
-                    value={exportYear}
-                    onChange={e => setExportYear(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                  >
-                    {YEARS.map(year => (
-                      <option key={year} value={year}>{year}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Semester</label>
-                  <select
-                    value={exportSem}
-                    onChange={e => setExportSem(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                  >
-                    {availableSemesters.map(sem => (
-                      <option key={sem} value={sem}>{sem}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
-                  <select
-                    value={exportDiv}
-                    onChange={e => setExportDiv(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                  >
-                    {DIVS.map(div => (
-                      <option key={div} value={div}>{div}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              {/* Export Type and other filters remain below */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Export Type</label>
-                <select
-                  value={exportType}
-                  onChange={(e) => setExportType(e.target.value as any)}
-                  className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                >
-                  <option value="basic">Basic Student List</option>
-                  <option value="monthly">Monthly Attendance Report</option>
-                  <option value="custom">Custom Date Range Report</option>
-                  <option value="subject">Subject-wise Attendance Report</option>
-                </select>
-              </div>
-              {exportType === 'monthly' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Select Month</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Roll Number *</label>
                   <input
-                    type="month"
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    type="text"
+                    value={newStudent.rollNumber}
+                    onChange={(e) => setNewStudent({ ...newStudent, rollNumber: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    placeholder="Roll Number"
                   />
                 </div>
-              )}
-              {exportType === 'custom' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
                     <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
+                      type="tel"
+                      value={newStudent.phone}
+                      onChange={(e) => setNewStudent({ ...newStudent, phone: e.target.value })}
                       className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                      placeholder="Phone Number"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                    <select
+                      value={newStudent.gender}
+                      onChange={(e) => setNewStudent({ ...newStudent, gender: e.target.value })}
                       className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                    />
+                    >
+                      <option value="">Select Gender</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
                   </div>
                 </div>
-              )}
-              {exportType === 'subject' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Select Subject</label>
-                  <select
-                    value={selectedSubject}
-                    onChange={(e) => setSelectedSubject(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
-                  >
-                    <option value="">Select a subject</option>
-                    <option value="Mathematics">Mathematics</option>
-                    <option value="Physics">Physics</option>
-                    <option value="Chemistry">Chemistry</option>
-                    <option value="Computer Science">Computer Science</option>
-                    <option value="English">English</option>
-                    <option value="Engineering Drawing">Engineering Drawing</option>
-                    <option value="Programming">Programming</option>
-                    <option value="Data Structures">Data Structures</option>
-                    <option value="Database Management">Database Management</option>
-                    <option value="Web Development">Web Development</option>
-                    <option value="Software Engineering">Software Engineering</option>
-                  </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
+                    <select
+                      value={newStudent.batchYear || getCurrentBatchYear()}
+                      onChange={(e) => setNewStudent({ ...newStudent, batchYear: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      {availableBatches.map(batch => (
+                        <option key={batch} value={batch}>Batch {batch}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Branch/Department</label>
+                    <select
+                      value={newStudent.department}
+                      onChange={(e) => setNewStudent({ ...newStudent, department: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      <option value="Computer Science">Computer Science</option>
+                      <option value="Information Technology">Information Technology</option>
+                      <option value="Mechanical">Mechanical</option>
+                      <option value="Electrical">Electrical</option>
+                      <option value="Civil">Civil</option>
+                    </select>
+                  </div>
                 </div>
-              )}
-              <div className="text-sm text-gray-600">
-                {exportType === 'basic' && (
-                  <p>Export basic student information including contact details and academic info.</p>
-                )}
-                {exportType === 'monthly' && (
-                  <p>Export student attendance data for the selected month with attendance statistics.</p>
-                )}
-                {exportType === 'custom' && (
-                  <p>Export student attendance data for the custom date range with attendance statistics.</p>
-                )}
-                {exportType === 'subject' && (
-                  <p>Export student attendance data for the selected subject for the current academic year.</p>
-                )}
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2 sticky bottom-0 bg-white pt-2">
-                <button
-                  onClick={() => setShowExportModal(false)}
-                  className="flex-1 bg-gray-300 text-gray-700 px-4 py-2.5 sm:py-2 rounded-lg hover:bg-gray-400 touch-manipulation active:scale-95 transition-transform"
-                  disabled={exporting}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleExport}
-                  disabled={exporting}
-                  className="flex-1 bg-purple-600 text-white px-4 py-2.5 sm:py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 touch-manipulation active:scale-95 transition-transform"
-                >
-                  {exporting ? 'Exporting...' : 'Export'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {detailStudent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4 sticky top-0 bg-white pb-2">Student Details</h3>
-            <div className="space-y-2">
-              <div><strong>Name:</strong> {detailStudent.name}</div>
-              <div><strong>Email:</strong> {detailStudent.email}</div>
-              <div><strong>Roll Number:</strong> {detailStudent.rollNumber}</div>
-              <div><strong>Phone:</strong> {detailStudent.phone || '-'}</div>
-              <div><strong>Gender:</strong> {detailStudent.gender || '-'}</div>
-              <div><strong>Year:</strong> {detailStudent.year}</div>
-              <div><strong>Semester:</strong> {detailStudent.sem}</div>
-              <div><strong>Division:</strong> {detailStudent.div}</div>
-              <div><strong>Department:</strong> {detailStudent.department}</div>
-              <div><strong>Status:</strong> {detailStudent.isActive ? 'Active' : 'Inactive'}</div>
-              <div><strong>Created At:</strong> {detailStudent.createdAt ? new Date(detailStudent.createdAt).toLocaleString() : '-'}</div>
-              {/* Add more fields as needed */}
-            </div>
-            <div className="flex justify-end mt-4 sticky bottom-0 bg-white pt-2">
-              <button
-                onClick={() => setDetailStudent(null)}
-                className="bg-gray-300 text-gray-700 px-4 py-2.5 sm:py-2 rounded-lg hover:bg-gray-400 touch-manipulation active:scale-95 transition-transform"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && studentToDelete && (
-        <div className="modal-mobile">
-          <div className="modal-content-mobile max-w-md">
-            <div className="p-4 lg:p-6">
-              <div className="flex items-center mb-4">
-                <div className="flex-shrink-0 w-10 h-10 mx-auto bg-red-100 rounded-full flex items-center justify-center">
-                  <Trash2 className="w-6 h-6 text-red-600" />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                    <select
+                      value={newStudent.year}
+                      onChange={(e) => {
+                        const newYear = e.target.value;
+                        const normalizedYear = newYear.replace(/(st|nd|rd|th)/i, '');
+                        const newAvailableSemesters = getAvailableSemesters(normalizedYear);
+                        const defaultSem = getDefaultSemesterForYear(normalizedYear);
+                        setFormAvailableSemesters(newAvailableSemesters);
+                        setNewStudent({
+                          ...newStudent,
+                          year: newYear,
+                          sem: isValidSemesterForYear(normalizedYear, newStudent.sem || '') ? newStudent.sem : defaultSem
+                        });
+                      }}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      {YEARS.map(year => (
+                        <option key={year} value={year}>{year}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Semester</label>
+                    <select
+                      value={newStudent.sem}
+                      onChange={(e) => setNewStudent({ ...newStudent, sem: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      {formAvailableSemesters.map(sem => (
+                        <option key={sem} value={sem}>{sem}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
+                    <select
+                      value={newStudent.div}
+                      onChange={(e) => setNewStudent({ ...newStudent, div: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      {DIVS.map(div => (
+                        <option key={div} value={div}>{div}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-              </div>
-              <div className="text-center">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Delete Student</h3>
-                <p className="text-sm text-gray-500 mb-6">
-                  Are you sure you want to delete "{studentToDelete.name}"? This will remove their record from both users and organized collections.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <div className="flex flex-col sm:flex-row gap-2 sticky bottom-0 bg-white pt-2">
                   <button
-                    onClick={() => { setShowDeleteModal(false); setStudentToDelete(null); }}
-                    className="btn-mobile bg-gray-500 hover:bg-gray-600 text-white"
+                    onClick={() => setShowAddModal(false)}
+                    className="flex-1 bg-gray-300 text-gray-700 px-4 py-2.5 sm:py-2 rounded-lg hover:bg-gray-400 touch-manipulation active:scale-95 transition-transform"
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={() => deleteStudent(studentToDelete.id)}
-                    className="btn-mobile bg-red-600 hover:bg-red-700 text-white"
+                    onClick={addStudent}
+                    className="flex-1 bg-green-600 text-white px-4 py-2.5 sm:py-2 rounded-lg hover:bg-green-700 touch-manipulation active:scale-95 transition-transform"
                   >
-                    Delete
+                    Add Student
                   </button>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Edit Student Modal */}
+        {editingStudent && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+              <h3 className="text-lg font-semibold mb-4 sticky top-0 bg-white pb-2">Edit Student</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={editingStudent.name}
+                    onChange={(e) => setEditingStudent({ ...editingStudent, name: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={editingStudent.email}
+                    onChange={(e) => setEditingStudent({ ...editingStudent, email: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Roll Number</label>
+                  <input
+                    type="text"
+                    value={editingStudent.rollNumber}
+                    onChange={(e) => setEditingStudent({ ...editingStudent, rollNumber: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                    <input
+                      type="tel"
+                      value={editingStudent.phone}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, phone: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                    <select
+                      value={editingStudent.gender}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, gender: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      <option value="">Select Gender</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
+                    <select
+                      value={(editingStudent as any).batchYear || getCurrentBatchYear()}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, batchYear: e.target.value } as User & { batchYear?: string })}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      {availableBatches.map(batch => (
+                        <option key={batch} value={batch}>Batch {batch}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Branch/Department</label>
+                    <select
+                      value={editingStudent.department}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, department: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      <option value="Computer Science">Computer Science</option>
+                      <option value="Information Technology">Information Technology</option>
+                      <option value="Mechanical">Mechanical</option>
+                      <option value="Electrical">Electrical</option>
+                      <option value="Civil">Civil</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                    <select
+                      value={editingStudent.year}
+                      onChange={(e) => {
+                        const newYear = e.target.value;
+                        const normalizedYear = newYear.replace(/(st|nd|rd|th)/i, '');
+                        const newAvailableSemesters = getAvailableSemesters(normalizedYear);
+                        const defaultSem = getDefaultSemesterForYear(normalizedYear);
+                        setFormAvailableSemesters(newAvailableSemesters);
+                        setEditingStudent({
+                          ...editingStudent,
+                          year: newYear,
+                          sem: isValidSemesterForYear(normalizedYear, editingStudent.sem || '') ? editingStudent.sem : defaultSem
+                        });
+                      }}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      {YEARS.map(year => (
+                        <option key={year} value={year}>{year}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Semester</label>
+                    <select
+                      value={editingStudent.sem}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, sem: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      {formAvailableSemesters.map(sem => (
+                        <option key={sem} value={sem}>{sem}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
+                    <select
+                      value={editingStudent.div}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, div: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      {DIVS.map(div => (
+                        <option key={div} value={div}>{div}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2 sticky bottom-0 bg-white pt-2">
+                  <button
+                    onClick={() => setEditingStudent(null)}
+                    className="flex-1 bg-gray-300 text-gray-700 px-4 py-2.5 sm:py-2 rounded-lg hover:bg-gray-400 touch-manipulation active:scale-95 transition-transform"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={updateStudent}
+                    className="flex-1 bg-blue-600 text-white px-4 py-2.5 sm:py-2 rounded-lg hover:bg-blue-700 touch-manipulation active:scale-95 transition-transform"
+                  >
+                    Update Student
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Export Modal */}
+        {showExportModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+              <h3 className="text-lg font-semibold mb-4 sticky top-0 bg-white pb-2">Export Student Data</h3>
+              <div className="space-y-4">
+                {/* Always show Year, Semester, Division dropdowns */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                    <select
+                      value={exportYear}
+                      onChange={e => setExportYear(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      {YEARS.map(year => (
+                        <option key={year} value={year}>{year}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Semester</label>
+                    <select
+                      value={exportSem}
+                      onChange={e => setExportSem(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      {availableSemesters.map(sem => (
+                        <option key={sem} value={sem}>{sem}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
+                    <select
+                      value={exportDiv}
+                      onChange={e => setExportDiv(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      {DIVS.map(div => (
+                        <option key={div} value={div}>{div}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {/* Export Type and other filters remain below */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Export Type</label>
+                  <select
+                    value={exportType}
+                    onChange={(e) => setExportType(e.target.value as any)}
+                    className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                  >
+                    <option value="basic">Basic Student List</option>
+                    <option value="monthly">Monthly Attendance Report</option>
+                    <option value="custom">Custom Date Range Report</option>
+                    <option value="subject">Subject-wise Attendance Report</option>
+                  </select>
+                </div>
+                {exportType === 'monthly' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Select Month</label>
+                    <input
+                      type="month"
+                      value={selectedMonth}
+                      onChange={(e) => setSelectedMonth(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    />
+                  </div>
+                )}
+                {exportType === 'custom' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                      />
+                    </div>
+                  </div>
+                )}
+                {exportType === 'subject' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Select Subject</label>
+                    <select
+                      value={selectedSubject}
+                      onChange={(e) => setSelectedSubject(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 sm:p-2 touch-manipulation"
+                    >
+                      <option value="">Select a subject</option>
+                      <option value="Mathematics">Mathematics</option>
+                      <option value="Physics">Physics</option>
+                      <option value="Chemistry">Chemistry</option>
+                      <option value="Computer Science">Computer Science</option>
+                      <option value="English">English</option>
+                      <option value="Engineering Drawing">Engineering Drawing</option>
+                      <option value="Programming">Programming</option>
+                      <option value="Data Structures">Data Structures</option>
+                      <option value="Database Management">Database Management</option>
+                      <option value="Web Development">Web Development</option>
+                      <option value="Software Engineering">Software Engineering</option>
+                    </select>
+                  </div>
+                )}
+                <div className="text-sm text-gray-600">
+                  {exportType === 'basic' && (
+                    <p>Export basic student information including contact details and academic info.</p>
+                  )}
+                  {exportType === 'monthly' && (
+                    <p>Export student attendance data for the selected month with attendance statistics.</p>
+                  )}
+                  {exportType === 'custom' && (
+                    <p>Export student attendance data for the custom date range with attendance statistics.</p>
+                  )}
+                  {exportType === 'subject' && (
+                    <p>Export student attendance data for the selected subject for the current academic year.</p>
+                  )}
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2 sticky bottom-0 bg-white pt-2">
+                  <button
+                    onClick={() => setShowExportModal(false)}
+                    className="flex-1 bg-gray-300 text-gray-700 px-4 py-2.5 sm:py-2 rounded-lg hover:bg-gray-400 touch-manipulation active:scale-95 transition-transform"
+                    disabled={exporting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleExport}
+                    disabled={exporting}
+                    className="flex-1 bg-purple-600 text-white px-4 py-2.5 sm:py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 touch-manipulation active:scale-95 transition-transform"
+                  >
+                    {exporting ? 'Exporting...' : 'Export'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {detailStudent && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+              <h3 className="text-lg font-semibold mb-4 sticky top-0 bg-white pb-2">Student Details</h3>
+              <div className="space-y-2">
+                <div><strong>Name:</strong> {detailStudent.name}</div>
+                <div><strong>Email:</strong> {detailStudent.email}</div>
+                <div><strong>Roll Number:</strong> {detailStudent.rollNumber}</div>
+                <div><strong>Phone:</strong> {detailStudent.phone || '-'}</div>
+                <div><strong>Gender:</strong> {detailStudent.gender || '-'}</div>
+                <div><strong>Year:</strong> {detailStudent.year}</div>
+                <div><strong>Semester:</strong> {detailStudent.sem}</div>
+                <div><strong>Division:</strong> {detailStudent.div}</div>
+                <div><strong>Department:</strong> {detailStudent.department}</div>
+                <div><strong>Status:</strong> {detailStudent.isActive ? 'Active' : 'Inactive'}</div>
+                <div><strong>Created At:</strong> {detailStudent.createdAt ? new Date(detailStudent.createdAt).toLocaleString() : '-'}</div>
+                {/* Add more fields as needed */}
+              </div>
+              <div className="flex justify-end mt-4 sticky bottom-0 bg-white pt-2">
+                <button
+                  onClick={() => setDetailStudent(null)}
+                  className="bg-gray-300 text-gray-700 px-4 py-2.5 sm:py-2 rounded-lg hover:bg-gray-400 touch-manipulation active:scale-95 transition-transform"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && studentToDelete && (
+          <div className="modal-mobile">
+            <div className="modal-content-mobile max-w-md">
+              <div className="p-4 lg:p-6">
+                <div className="flex items-center mb-4">
+                  <div className="flex-shrink-0 w-10 h-10 mx-auto bg-red-100 rounded-full flex items-center justify-center">
+                    <Trash2 className="w-6 h-6 text-red-600" />
+                  </div>
+                </div>
+                <div className="text-center">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Delete Student</h3>
+                  <p className="text-sm text-gray-500 mb-6">
+                    Are you sure you want to delete "{studentToDelete.name}"? This will remove their record from both users and organized collections.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <button
+                      onClick={() => { setShowDeleteModal(false); setStudentToDelete(null); }}
+                      className="btn-mobile bg-gray-500 hover:bg-gray-600 text-white"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => deleteStudent(studentToDelete.id)}
+                      className="btn-mobile bg-red-600 hover:bg-red-700 text-white"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  User, 
-  Search, 
-  Filter, 
-  Calendar, 
-  Phone, 
-  Mail, 
-  MapPin, 
-  Eye, 
-  Trash2, 
-  RefreshCw, 
-  AlertCircle, 
+import {
+  User,
+  Search,
+  Filter,
+  Calendar,
+  Phone,
+  Mail,
+  MapPin,
+  Eye,
+  Trash2,
+  RefreshCw,
+  AlertCircle,
   X,
   Loader2,
   Users,
@@ -36,7 +36,7 @@ const VisitorManagement: React.FC = () => {
       setLoading(true);
       setError(null);
       let visitorsData = await visitorService.getAllVisitors();
-      
+
       // Add demo visitors if enabled and real data is empty
       if (USE_DUMMY_DATA && visitorsData.length === 0) {
         visitorsData = [
@@ -87,7 +87,7 @@ const VisitorManagement: React.FC = () => {
           }
         ];
       }
-      
+
       setVisitors(visitorsData);
     } catch (error) {
       console.error('Error loading visitors:', error);
@@ -126,7 +126,7 @@ const VisitorManagement: React.FC = () => {
   }, []);
 
   const filteredVisitors = visitors.filter(visitor => {
-    const matchesSearch = searchTerm === '' || 
+    const matchesSearch = searchTerm === '' ||
       visitor.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       visitor.phone?.includes(searchTerm) ||
       visitor.deviceId.toLowerCase().includes(searchTerm.toLowerCase());
@@ -167,23 +167,21 @@ const VisitorManagement: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
+    <div className="p-4 lg:p-6 space-y-4 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Visitor Management</h1>
-          <p className="text-gray-600 mt-1">Manage and track campus visitors</p>
+          <h1 className="text-xl lg:text-2xl font-bold text-slate-900">Visitor Management</h1>
+          <p className="text-sm text-slate-500">Manage and track campus visitors</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={loadVisitors}
-            disabled={loading}
-            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </button>
-        </div>
+        <button
+          onClick={loadVisitors}
+          disabled={loading}
+          className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 disabled:opacity-50 transition-colors"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          <span className="text-sm font-medium">Refresh</span>
+        </button>
       </div>
 
       {/* Error Message */}
@@ -204,10 +202,10 @@ const VisitorManagement: React.FC = () => {
 
       {/* Loading State */}
       {loading && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
           <div className="flex items-center gap-2">
-            <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-            <p className="text-blue-800">Loading visitors...</p>
+            <Loader2 className="w-5 h-5 text-slate-600 animate-spin" />
+            <p className="text-slate-700">Loading visitors...</p>
           </div>
         </div>
       )}
@@ -243,39 +241,39 @@ const VisitorManagement: React.FC = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-shadow">
           <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Users className="w-6 h-6 text-blue-600" />
+            <div className="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center">
+              <Users className="w-4 h-4 text-slate-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Visitors</p>
-              <p className="text-2xl font-bold text-gray-900">{visitors.length}</p>
+            <div className="ml-3">
+              <p className="text-xs font-medium text-slate-500">Total Visitors</p>
+              <p className="text-xl font-bold text-slate-900">{visitors.length}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-shadow">
           <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <CheckCircle className="w-6 h-6 text-green-600" />
+            <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center">
+              <CheckCircle className="w-4 h-4 text-emerald-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">With Details</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="ml-3">
+              <p className="text-xs font-medium text-slate-500">With Details</p>
+              <p className="text-xl font-bold text-slate-900">
                 {visitors.filter(v => v.name && v.phone).length}
               </p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-shadow">
           <div className="flex items-center">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <Clock className="w-6 h-6 text-yellow-600" />
+            <div className="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center">
+              <Clock className="w-4 h-4 text-amber-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Today's Visits</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="ml-3">
+              <p className="text-xs font-medium text-slate-500">Today's Visits</p>
+              <p className="text-xl font-bold text-slate-900">
                 {visitors.filter(v => {
                   if (!v.lastLogin) return false;
                   const today = new Date().toDateString();
@@ -285,14 +283,14 @@ const VisitorManagement: React.FC = () => {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-shadow">
           <div className="flex items-center">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <User className="w-6 h-6 text-purple-600" />
+            <div className="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center">
+              <User className="w-4 h-4 text-slate-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Anonymous</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="ml-3">
+              <p className="text-xs font-medium text-slate-500">Anonymous</p>
+              <p className="text-xl font-bold text-slate-900">
                 {visitors.filter(v => !v.name).length}
               </p>
             </div>

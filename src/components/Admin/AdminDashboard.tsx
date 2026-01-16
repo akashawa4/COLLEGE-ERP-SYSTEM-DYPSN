@@ -235,256 +235,234 @@ const AdminDashboard: React.FC = () => {
 
   const getAlertIcon = (type: string) => {
     switch (type) {
-      case 'warning': return <AlertTriangle className="w-5 h-5 text-yellow-500" />;
-      case 'info': return <FileText className="w-5 h-5 text-blue-500" />;
-      case 'success': return <CheckCircle className="w-5 h-5 text-green-500" />;
-      default: return <AlertTriangle className="w-5 h-5 text-gray-500" />;
+      case 'warning': return <AlertTriangle className="w-5 h-5 text-amber-600" />;
+      case 'info': return <FileText className="w-5 h-5 text-slate-600" />;
+      case 'success': return <CheckCircle className="w-5 h-5 text-emerald-600" />;
+      default: return <AlertTriangle className="w-5 h-5 text-slate-500" />;
     }
   };
 
   const getAlertColor = (type: string) => {
     switch (type) {
-      case 'warning': return 'border-l-yellow-500 bg-yellow-50';
-      case 'info': return 'border-l-blue-500 bg-blue-50';
-      case 'success': return 'border-l-green-500 bg-green-50';
-      default: return 'border-l-gray-500 bg-gray-50';
+      case 'warning': return 'border-l-amber-500 bg-amber-50';
+      case 'info': return 'border-l-slate-400 bg-slate-50';
+      case 'success': return 'border-l-emerald-500 bg-emerald-50';
+      default: return 'border-l-slate-400 bg-slate-50';
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'text-red-600 bg-red-100';
-      case 'medium': return 'text-yellow-600 bg-yellow-100';
-      case 'low': return 'text-green-600 bg-green-100';
-      default: return 'text-gray-600 bg-gray-100';
+      case 'high': return 'text-red-700 bg-red-100';
+      case 'medium': return 'text-amber-700 bg-amber-100';
+      case 'low': return 'text-emerald-700 bg-emerald-100';
+      default: return 'text-slate-600 bg-slate-100';
     }
   };
 
   return (
-    <div className="space-y-4 lg:space-y-6 px-4 lg:px-0">
-      {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-red-50 to-pink-50 rounded-2xl p-6 lg:p-8 border border-red-100">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-          <div className="mb-4 lg:mb-0">
-            <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">
-              Welcome, Admin! 👋
-            </h1>
-            <p className="text-gray-600 text-base lg:text-lg">
-              Here's your institution overview and management center for today
-            </p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="flex items-center space-x-2 text-sm text-gray-600 bg-white/60 px-3 py-2 rounded-xl hover:bg-white/80 transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:block">Refresh</span>
-            </button>
-            <div className="flex items-center space-x-2 text-sm text-gray-500 bg-white/60 px-4 py-2 rounded-xl">
-              <Calendar className="w-4 h-4" />
-              <span className="hidden sm:block">{new Date().toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}</span>
-              <span className="sm:hidden">{new Date().toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric'
-              })}</span>
-            </div>
+    <div className="space-y-5 px-4 lg:px-0">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-xl lg:text-2xl font-bold text-slate-900">Admin Dashboard</h1>
+          <p className="text-sm text-slate-500">Institution overview and management center</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center space-x-2 text-sm font-medium text-slate-600 bg-slate-100 px-4 py-2 rounded-xl hover:bg-slate-200 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+          <div className="flex items-center space-x-2 text-sm text-slate-500 bg-slate-100 px-3 py-2 rounded-xl">
+            <Calendar className="w-4 h-4" />
+            <span className="hidden sm:block">{new Date().toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            })}</span>
           </div>
         </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Students</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {loading ? (
-                  <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  stats.totalStudents.toLocaleString()
-                )}
-              </p>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        {/* Total Students */}
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
+              <Users className="w-5 h-5 text-slate-700" />
             </div>
-            <Users className="w-8 h-8 text-blue-600" />
+            {loading ? (
+              <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
+            ) : (
+              <TrendingUp className="w-4 h-4 text-emerald-500" />
+            )}
           </div>
-          <div className="mt-2 flex items-center text-sm text-green-600">
-            <TrendingUp className="w-4 h-4 mr-1" />
-            <span>Real-time data</span>
-          </div>
+          <p className="text-2xl font-bold text-slate-900">
+            {loading ? '—' : stats.totalStudents.toLocaleString()}
+          </p>
+          <p className="text-sm text-slate-500 mt-1">Total Students</p>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Teachers</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {loading ? (
-                  <div className="w-8 h-8 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  stats.totalTeachers
-                )}
-              </p>
+        {/* Total Teachers */}
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
+              <GraduationCap className="w-5 h-5 text-slate-700" />
             </div>
-            <GraduationCap className="w-8 h-8 text-green-600" />
+            {loading ? (
+              <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
+            ) : (
+              <TrendingUp className="w-4 h-4 text-emerald-500" />
+            )}
           </div>
-          <div className="mt-2 flex items-center text-sm text-green-600">
-            <TrendingUp className="w-4 h-4 mr-1" />
-            <span>Including HODs</span>
-          </div>
+          <p className="text-2xl font-bold text-slate-900">
+            {loading ? '—' : stats.totalTeachers}
+          </p>
+          <p className="text-sm text-slate-500 mt-1">Total Teachers</p>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Departments</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {loading ? (
-                  <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  stats.totalDepartments
-                )}
-              </p>
+        {/* Departments */}
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
+              <Building2 className="w-5 h-5 text-slate-700" />
             </div>
-            <Building2 className="w-8 h-8 text-purple-600" />
+            {loading && (
+              <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
+            )}
           </div>
-          <div className="mt-2 flex items-center text-sm text-gray-600">
-            <span>All active</span>
-          </div>
+          <p className="text-2xl font-bold text-slate-900">
+            {loading ? '—' : stats.totalDepartments}
+          </p>
+          <p className="text-sm text-slate-500 mt-1">Departments</p>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Pending Leaves</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {loading ? (
-                  <div className="w-8 h-8 border-2 border-yellow-600 border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  stats.pendingLeaves
-                )}
-              </p>
+        {/* Pending Leaves */}
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center">
+              <Clock className="w-5 h-5 text-amber-600" />
             </div>
-            <Clock className="w-8 h-8 text-yellow-600" />
+            {loading ? (
+              <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
+            ) : stats.pendingLeaves > 0 ? (
+              <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">Action</span>
+            ) : null}
           </div>
-          <div className="mt-2 flex items-center text-sm text-yellow-600">
-            <span>Requires attention</span>
-          </div>
+          <p className="text-2xl font-bold text-slate-900">
+            {loading ? '—' : stats.pendingLeaves}
+          </p>
+          <p className="text-sm text-slate-500 mt-1">Pending Leaves</p>
         </div>
 
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Active Users</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {loading ? (
-                  <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  stats.activeUsers
-                )}
-              </p>
+        {/* Active Users */}
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow col-span-2 md:col-span-1">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
+              <BarChart3 className="w-5 h-5 text-emerald-600" />
             </div>
-            <BarChart3 className="w-8 h-8 text-indigo-600" />
+            {loading ? (
+              <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
+            ) : (
+              <span className="px-2 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700 rounded-full">Live</span>
+            )}
           </div>
-          <div className="mt-2 flex items-center text-sm text-green-600">
-            <span>Online today</span>
-          </div>
+          <p className="text-2xl font-bold text-slate-900">
+            {loading ? '—' : stats.activeUsers}
+          </p>
+          <p className="text-sm text-slate-500 mt-1">Active Today</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Alerts Section */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+          <div className="p-5 border-b border-slate-100">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-900">System Alerts</h2>
-              <span className="px-2 py-1 text-xs font-medium text-red-600 bg-red-100 rounded-full">
+              <h2 className="text-lg font-semibold text-slate-900">System Alerts</h2>
+              <span className="px-2.5 py-1 text-xs font-medium text-slate-600 bg-slate-100 rounded-full">
                 {alerts.length} alerts
               </span>
             </div>
           </div>
-          <div className="p-6 space-y-4">
+          <div className="p-5 space-y-3 max-h-96 overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                <span className="ml-2 text-sm text-gray-600">Loading alerts...</span>
+                <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
+                <span className="ml-3 text-sm text-slate-500">Loading alerts...</span>
               </div>
             ) : alerts.length > 0 ? (
               alerts.map((alert) => (
                 <div
                   key={alert.id}
-                  className={`p-4 rounded-lg border-l-4 ${getAlertColor(alert.type)}`}
+                  className={`p-4 rounded-xl border-l-4 ${getAlertColor(alert.type)}`}
                 >
                   <div className="flex items-start space-x-3">
                     {getAlertIcon(alert.type)}
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-medium text-gray-900">{alert.title}</h3>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(alert.priority)}`}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="text-sm font-medium text-slate-900 truncate">{alert.title}</h3>
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap ${getPriorityColor(alert.priority)}`}>
                           {alert.priority}
                         </span>
                       </div>
-                      <p className="mt-1 text-sm text-gray-600">{alert.message}</p>
-                      <p className="mt-2 text-xs text-gray-500">{alert.timestamp}</p>
+                      <p className="mt-1 text-sm text-slate-600">{alert.message}</p>
+                      <p className="mt-2 text-xs text-slate-400">{alert.timestamp}</p>
                     </div>
                   </div>
                 </div>
               ))
             ) : (
               <div className="text-center py-8">
-                <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-                <p className="text-gray-500">No alerts at the moment</p>
-                <p className="text-sm text-gray-400">System is running smoothly</p>
+                <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
+                <p className="text-slate-600 font-medium">All Clear</p>
+                <p className="text-sm text-slate-400">No alerts at the moment</p>
               </div>
             )}
           </div>
         </div>
 
         {/* Recent Activities */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">Recent Activities</h2>
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+          <div className="p-5 border-b border-slate-100">
+            <h2 className="text-lg font-semibold text-slate-900">Recent Activities</h2>
           </div>
-          <div className="p-6 space-y-4">
+          <div className="p-5 space-y-4 max-h-96 overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                <span className="ml-2 text-sm text-gray-600">Loading activities...</span>
+                <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
+                <span className="ml-3 text-sm text-slate-500">Loading activities...</span>
               </div>
             ) : recentActivities.length > 0 ? (
               recentActivities.map((activity) => (
-                <div key={activity.id} className="flex items-center space-x-3">
+                <div key={activity.id} className="flex items-start space-x-3">
                   <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <FileText className="w-4 h-4 text-blue-600" />
+                    <div className="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center">
+                      <FileText className="w-4 h-4 text-slate-600" />
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900">{activity.action}</p>
-                    <p className="text-sm text-gray-600">{activity.user}</p>
-                    <p className="text-xs text-gray-500">{activity.timestamp}</p>
+                    <p className="text-sm font-medium text-slate-900">{activity.action}</p>
+                    <p className="text-sm text-slate-500">{activity.user}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{activity.timestamp}</p>
                   </div>
                 </div>
               ))
             ) : (
               <div className="text-center py-8">
-                <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No recent activities</p>
-                <p className="text-sm text-gray-400">Activities will appear here</p>
+                <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-600 font-medium">No Recent Activities</p>
+                <p className="text-sm text-slate-400">Activities will appear here</p>
               </div>
             )}
           </div>
         </div>
       </div>
-
     </div>
   );
 };

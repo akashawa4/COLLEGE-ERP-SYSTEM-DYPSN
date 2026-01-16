@@ -77,13 +77,13 @@ interface LibraryTransaction {
 
 const LibraryManagement: React.FC = () => {
   const { user } = useAuth();
-  
+
   // State management
   const [activeTab, setActiveTab] = useState<'books' | 'members' | 'transactions' | 'reports'>('books');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Books state
   const [books, setBooks] = useState<LibraryBook[]>([]);
   const [filteredBooks, setFilteredBooks] = useState<LibraryBook[]>([]);
@@ -108,7 +108,7 @@ const LibraryManagement: React.FC = () => {
     purchaseDate: new Date().toISOString().split('T')[0],
     tags: ''
   });
-  
+
   // Members state
   const [members, setMembers] = useState<LibraryMember[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<LibraryMember[]>([]);
@@ -131,7 +131,7 @@ const LibraryManagement: React.FC = () => {
     maxBooksAllowed: 3,
     status: 'Active' as LibraryMember['status']
   });
-  
+
   // Transactions state
   const [transactions, setTransactions] = useState<LibraryTransaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<LibraryTransaction[]>([]);
@@ -143,7 +143,7 @@ const LibraryManagement: React.FC = () => {
     dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     notes: ''
   });
-  
+
   // Search and filter state
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -199,8 +199,8 @@ const LibraryManagement: React.FC = () => {
     const q = searchTerm.trim().toLowerCase();
     let filtered = books.filter(book => {
       const matchesSearch = !q || book.title.toLowerCase().includes(q) ||
-                           book.author.toLowerCase().includes(q) ||
-                           book.isbn.includes(q);
+        book.author.toLowerCase().includes(q) ||
+        book.isbn.includes(q);
       const matchesCategory = categoryFilter === 'all' || book.category === categoryFilter;
       const matchesStatus = statusFilter === 'all' || book.status === statusFilter;
       return matchesSearch && matchesCategory && matchesStatus;
@@ -212,8 +212,8 @@ const LibraryManagement: React.FC = () => {
     const q = searchTerm.trim().toLowerCase();
     let filtered = members.filter(member => {
       const matchesSearch = !q || member.name.toLowerCase().includes(q) ||
-                           member.email.toLowerCase().includes(q) ||
-                           member.memberId.toLowerCase().includes(q);
+        member.email.toLowerCase().includes(q) ||
+        member.memberId.toLowerCase().includes(q);
       const matchesStatus = memberStatusFilter === 'all' || member.status === memberStatusFilter;
       return matchesSearch && matchesStatus;
     });
@@ -224,7 +224,7 @@ const LibraryManagement: React.FC = () => {
     const q = searchTerm.trim().toLowerCase();
     let filtered = transactions.filter(transaction => {
       const matchesSearch = !q || transaction.bookTitle.toLowerCase().includes(q) ||
-                           transaction.memberName.toLowerCase().includes(q);
+        transaction.memberName.toLowerCase().includes(q);
       const matchesStatus = transactionStatusFilter === 'all' || transaction.status === transactionStatusFilter;
       return matchesSearch && matchesStatus;
     });
@@ -390,46 +390,45 @@ const LibraryManagement: React.FC = () => {
 
   // UI render helpers and responsive cards for small screens
   const renderBooksTab = () => (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Books Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Library Books</h2>
-          <p className="text-gray-600">Manage library book collection</p>
+          <h2 className="text-xl lg:text-2xl font-bold text-slate-900">Library Books</h2>
+          <p className="text-sm text-slate-500">Manage library book collection</p>
         </div>
         <div className="flex gap-2 items-center">
           <button
             onClick={() => { setEditingBook(null); setBookForm(prev => ({ ...prev, title: '' })); setShowBookForm(true); }}
-            className="inline-flex items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors text-sm font-medium"
             aria-label="Add book"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Add Book</span>
-            <span className="sm:hidden">Add</span>
           </button>
         </div>
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white p-4 rounded-lg border border-gray-200">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+      <div className="bg-white p-4 rounded-xl border border-slate-200">
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
           <div className="flex-1 w-full">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
               <input
                 type="text"
-                placeholder="Search books by title, author, or ISBN..."
+                placeholder="Search books..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-transparent text-sm"
               />
             </div>
           </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 w-full sm:w-auto text-sm"
+              className="px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 w-full sm:w-auto text-sm"
             >
               <option value="all">All Categories</option>
               <option value="Academic">Academic</option>
@@ -442,7 +441,7 @@ const LibraryManagement: React.FC = () => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 w-full sm:w-auto text-sm"
+              className="px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 w-full sm:w-auto text-sm"
             >
               <option value="all">All Status</option>
               <option value="Available">Available</option>
@@ -456,7 +455,7 @@ const LibraryManagement: React.FC = () => {
       </div>
 
       {/* Books Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredBooks.map((book) => (
           <div key={book.id} className="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow flex flex-col">
             <div className="flex items-start justify-between mb-4 gap-4">
@@ -465,16 +464,15 @@ const LibraryManagement: React.FC = () => {
                 <p className="text-sm text-gray-600 mt-1 truncate">by {book.author}</p>
                 <p className="text-xs text-gray-500 mt-1">ISBN: {book.isbn}</p>
               </div>
-              <span className={`px-2 py-1 text-xs rounded-full flex-shrink-0 ${
-                book.status === 'Available' ? 'bg-green-100 text-green-800' :
-                book.status === 'Issued' ? 'bg-yellow-100 text-yellow-800' :
-                book.status === 'Reserved' ? 'bg-blue-100 text-blue-800' :
-                'bg-red-100 text-red-800'
-              }`}>
+              <span className={`px-2 py-1 text-xs rounded-full flex-shrink-0 ${book.status === 'Available' ? 'bg-green-100 text-green-800' :
+                  book.status === 'Issued' ? 'bg-yellow-100 text-yellow-800' :
+                    book.status === 'Reserved' ? 'bg-blue-100 text-blue-800' :
+                      'bg-red-100 text-red-800'
+                }`}>
                 {book.status}
               </span>
             </div>
-            
+
             <div className="space-y-2 mb-4 text-sm text-gray-700">
               <div className="flex justify-between">
                 <span>Category</span>
@@ -491,7 +489,7 @@ const LibraryManagement: React.FC = () => {
             </div>
 
             <div className="mt-auto flex gap-2">
-              <button 
+              <button
                 onClick={() => {
                   setEditingBook(book);
                   setBookForm({
@@ -520,7 +518,7 @@ const LibraryManagement: React.FC = () => {
                 <Edit className="w-4 h-4" />
                 <span className="hidden sm:inline">Edit</span>
               </button>
-              <button 
+              <button
                 onClick={() => {
                   if (confirm(`Delete book "${book.title}"?`)) {
                     libraryBookService.deleteBook(book.id).then(() => loadData());
@@ -626,18 +624,17 @@ const LibraryManagement: React.FC = () => {
                     <div className="text-sm text-gray-900">{member.currentBooksIssued}/{member.maxBooksAllowed}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      member.status === 'Active' ? 'bg-green-100 text-green-800' :
-                      member.status === 'Inactive' ? 'bg-gray-100 text-gray-800' :
-                      member.status === 'Suspended' ? 'bg-red-100 text-red-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
+                    <span className={`px-2 py-1 text-xs rounded-full ${member.status === 'Active' ? 'bg-green-100 text-green-800' :
+                        member.status === 'Inactive' ? 'bg-gray-100 text-gray-800' :
+                          member.status === 'Suspended' ? 'bg-red-100 text-red-800' :
+                            'bg-yellow-100 text-yellow-800'
+                      }`}>
                       {member.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex gap-2">
-                      <button 
+                      <button
                         onClick={() => {
                           setEditingMember(member);
                           setMemberForm({
@@ -665,7 +662,7 @@ const LibraryManagement: React.FC = () => {
                         <Edit className="w-4 h-4" />
                         <span className="hidden md:inline">Edit</span>
                       </button>
-                      <button 
+                      <button
                         onClick={() => {
                           if (confirm(`Are you sure you want to delete member ${member.name}?`)) {
                             libraryMemberService.deleteMember(member.id).then(() => loadData());
@@ -696,12 +693,11 @@ const LibraryManagement: React.FC = () => {
                   <div className="text-xs text-gray-500 truncate">{member.email}</div>
                   <div className="text-xs text-gray-500 truncate">{member.phone}</div>
                 </div>
-                <span className={`px-2 py-1 text-xs rounded-full flex-shrink-0 ${
-                  member.status === 'Active' ? 'bg-green-100 text-green-800' :
-                  member.status === 'Inactive' ? 'bg-gray-100 text-gray-800' :
-                  member.status === 'Suspended' ? 'bg-red-100 text-red-800' :
-                  'bg-yellow-100 text-yellow-800'
-                }`}>
+                <span className={`px-2 py-1 text-xs rounded-full flex-shrink-0 ${member.status === 'Active' ? 'bg-green-100 text-green-800' :
+                    member.status === 'Inactive' ? 'bg-gray-100 text-gray-800' :
+                      member.status === 'Suspended' ? 'bg-red-100 text-red-800' :
+                        'bg-yellow-100 text-yellow-800'
+                  }`}>
                   {member.status}
                 </span>
               </div>
@@ -827,12 +823,11 @@ const LibraryManagement: React.FC = () => {
                     {new Date(transaction.dueDate).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      transaction.status === 'Issued' ? 'bg-blue-100 text-blue-800' :
-                      transaction.status === 'Returned' ? 'bg-green-100 text-green-800' :
-                      transaction.status === 'Overdue' ? 'bg-red-100 text-red-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
+                    <span className={`px-2 py-1 text-xs rounded-full ${transaction.status === 'Issued' ? 'bg-blue-100 text-blue-800' :
+                        transaction.status === 'Returned' ? 'bg-green-100 text-green-800' :
+                          transaction.status === 'Overdue' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
+                      }`}>
                       {transaction.status}
                     </span>
                   </td>
@@ -842,7 +837,7 @@ const LibraryManagement: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex gap-2">
                       {transaction.status === 'Issued' && (
-                        <button 
+                        <button
                           onClick={() => {
                             if (confirm(`Return book "${transaction.bookTitle}" from ${transaction.memberName}?`)) {
                               libraryTransactionService.returnBook(transaction.id, user?.name || 'Library Staff').then(() => loadData());
@@ -872,12 +867,11 @@ const LibraryManagement: React.FC = () => {
                   <div className="text-xs text-gray-500">Issue: {new Date(tx.issueDate).toLocaleDateString()}</div>
                   <div className="text-xs text-gray-500">Due: {new Date(tx.dueDate).toLocaleDateString()}</div>
                 </div>
-                <span className={`px-2 py-1 text-xs rounded-full flex-shrink-0 ${
-                  tx.status === 'Issued' ? 'bg-yellow-100 text-yellow-800' :
-                  tx.status === 'Returned' ? 'bg-green-100 text-green-800' :
-                  tx.status === 'Overdue' ? 'bg-red-100 text-red-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
+                <span className={`px-2 py-1 text-xs rounded-full flex-shrink-0 ${tx.status === 'Issued' ? 'bg-yellow-100 text-yellow-800' :
+                    tx.status === 'Returned' ? 'bg-green-100 text-green-800' :
+                      tx.status === 'Overdue' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                  }`}>
                   {tx.status}
                 </span>
               </div>
@@ -979,7 +973,7 @@ const LibraryManagement: React.FC = () => {
               <p className="text-sm text-gray-600">Export complete book list</p>
             </div>
           </button>
-          
+
           <button className="flex items-center gap-3 p-3 sm:p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
             <Download className="w-5 h-5 text-green-600" />
             <div className="text-left">
@@ -987,7 +981,7 @@ const LibraryManagement: React.FC = () => {
               <p className="text-sm text-gray-600">Export member details</p>
             </div>
           </button>
-          
+
           <button className="flex items-center gap-3 p-3 sm:p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
             <Download className="w-5 h-5 text-purple-600" />
             <div className="text-left">
@@ -1059,11 +1053,10 @@ const LibraryManagement: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex-none flex items-center gap-2 py-3 sm:py-4 px-2 sm:px-4 border-b-2 font-medium text-sm whitespace-nowrap ${
-                  activeTab === tab.id
+                className={`flex-none flex items-center gap-2 py-3 sm:py-4 px-2 sm:px-4 border-b-2 font-medium text-sm whitespace-nowrap ${activeTab === tab.id
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
                 aria-current={activeTab === tab.id ? 'page' : undefined}
               >
                 <tab.icon className="w-4 h-4" />
@@ -1146,7 +1139,7 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="text"
                       value={bookForm.title}
-                      onChange={(e) => setBookForm({...bookForm, title: e.target.value})}
+                      onChange={(e) => setBookForm({ ...bookForm, title: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                       autoFocus
@@ -1157,7 +1150,7 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="text"
                       value={bookForm.author}
-                      onChange={(e) => setBookForm({...bookForm, author: e.target.value})}
+                      onChange={(e) => setBookForm({ ...bookForm, author: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     />
@@ -1168,7 +1161,7 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="text"
                       value={bookForm.isbn}
-                      onChange={(e) => setBookForm({...bookForm, isbn: e.target.value})}
+                      onChange={(e) => setBookForm({ ...bookForm, isbn: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     />
@@ -1177,7 +1170,7 @@ const LibraryManagement: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
                     <select
                       value={bookForm.category}
-                      onChange={(e) => setBookForm({...bookForm, category: e.target.value as LibraryBook['category']})}
+                      onChange={(e) => setBookForm({ ...bookForm, category: e.target.value as LibraryBook['category'] })}
                       className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     >
@@ -1195,7 +1188,7 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="text"
                       value={bookForm.publisher}
-                      onChange={(e) => setBookForm({...bookForm, publisher: e.target.value})}
+                      onChange={(e) => setBookForm({ ...bookForm, publisher: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -1205,7 +1198,7 @@ const LibraryManagement: React.FC = () => {
                       type="number"
                       inputMode="numeric"
                       value={bookForm.publicationYear}
-                      onChange={(e) => setBookForm({...bookForm, publicationYear: e.target.value})}
+                      onChange={(e) => setBookForm({ ...bookForm, publicationYear: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -1215,7 +1208,7 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="text"
                       value={bookForm.edition}
-                      onChange={(e) => setBookForm({...bookForm, edition: e.target.value})}
+                      onChange={(e) => setBookForm({ ...bookForm, edition: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -1225,7 +1218,7 @@ const LibraryManagement: React.FC = () => {
                       type="number"
                       inputMode="numeric"
                       value={bookForm.pages}
-                      onChange={(e) => setBookForm({...bookForm, pages: e.target.value})}
+                      onChange={(e) => setBookForm({ ...bookForm, pages: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -1235,7 +1228,7 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="text"
                       value={bookForm.language}
-                      onChange={(e) => setBookForm({...bookForm, language: e.target.value})}
+                      onChange={(e) => setBookForm({ ...bookForm, language: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -1245,7 +1238,7 @@ const LibraryManagement: React.FC = () => {
                       type="number"
                       inputMode="numeric"
                       value={bookForm.totalCopies}
-                      onChange={(e) => setBookForm({...bookForm, totalCopies: e.target.value})}
+                      onChange={(e) => setBookForm({ ...bookForm, totalCopies: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       min={1}
                       required
@@ -1257,7 +1250,7 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="text"
                       value={bookForm.location}
-                      onChange={(e) => setBookForm({...bookForm, location: e.target.value})}
+                      onChange={(e) => setBookForm({ ...bookForm, location: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -1266,7 +1259,7 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="text"
                       value={bookForm.shelfNumber}
-                      onChange={(e) => setBookForm({...bookForm, shelfNumber: e.target.value})}
+                      onChange={(e) => setBookForm({ ...bookForm, shelfNumber: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -1278,7 +1271,7 @@ const LibraryManagement: React.FC = () => {
                       step="0.01"
                       inputMode="decimal"
                       value={bookForm.price}
-                      onChange={(e) => setBookForm({...bookForm, price: e.target.value})}
+                      onChange={(e) => setBookForm({ ...bookForm, price: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -1287,7 +1280,7 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="date"
                       value={bookForm.purchaseDate}
-                      onChange={(e) => setBookForm({...bookForm, purchaseDate: e.target.value})}
+                      onChange={(e) => setBookForm({ ...bookForm, purchaseDate: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -1297,7 +1290,7 @@ const LibraryManagement: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                   <textarea
                     value={bookForm.description}
-                    onChange={(e) => setBookForm({...bookForm, description: e.target.value})}
+                    onChange={(e) => setBookForm({ ...bookForm, description: e.target.value })}
                     rows={3}
                     className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
@@ -1308,7 +1301,7 @@ const LibraryManagement: React.FC = () => {
                   <input
                     type="text"
                     value={bookForm.tags}
-                    onChange={(e) => setBookForm({...bookForm, tags: e.target.value})}
+                    onChange={(e) => setBookForm({ ...bookForm, tags: e.target.value })}
                     placeholder="e.g., programming, algorithms, computer science"
                     className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
@@ -1320,7 +1313,7 @@ const LibraryManagement: React.FC = () => {
                     onClick={() => {
                       setShowBookForm(false);
                       setEditingBook(null);
-                    setBookForm({
+                      setBookForm({
                         title: '',
                         author: '',
                         isbn: '',
@@ -1402,7 +1395,7 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="text"
                       value={memberForm.memberId}
-                      onChange={(e) => setMemberForm({...memberForm, memberId: e.target.value})}
+                      onChange={(e) => setMemberForm({ ...memberForm, memberId: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     />
@@ -1412,7 +1405,7 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="text"
                       value={memberForm.name}
-                      onChange={(e) => setMemberForm({...memberForm, name: e.target.value})}
+                      onChange={(e) => setMemberForm({ ...memberForm, name: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     />
@@ -1423,7 +1416,7 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="email"
                       value={memberForm.email}
-                      onChange={(e) => setMemberForm({...memberForm, email: e.target.value})}
+                      onChange={(e) => setMemberForm({ ...memberForm, email: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     />
@@ -1433,7 +1426,7 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="tel"
                       value={memberForm.phone}
-                      onChange={(e) => setMemberForm({...memberForm, phone: e.target.value})}
+                      onChange={(e) => setMemberForm({ ...memberForm, phone: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     />
@@ -1443,7 +1436,7 @@ const LibraryManagement: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Role *</label>
                     <select
                       value={memberForm.role}
-                      onChange={(e) => setMemberForm({...memberForm, role: e.target.value as LibraryMember['role']})}
+                      onChange={(e) => setMemberForm({ ...memberForm, role: e.target.value as LibraryMember['role'] })}
                       className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     >
@@ -1459,7 +1452,7 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="text"
                       value={memberForm.department}
-                      onChange={(e) => setMemberForm({...memberForm, department: e.target.value})}
+                      onChange={(e) => setMemberForm({ ...memberForm, department: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -1469,7 +1462,7 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="text"
                       value={memberForm.year}
-                      onChange={(e) => setMemberForm({...memberForm, year: e.target.value})}
+                      onChange={(e) => setMemberForm({ ...memberForm, year: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -1479,7 +1472,7 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="text"
                       value={memberForm.semester}
-                      onChange={(e) => setMemberForm({...memberForm, semester: e.target.value})}
+                      onChange={(e) => setMemberForm({ ...memberForm, semester: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -1489,7 +1482,7 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="text"
                       value={memberForm.rollNumber}
-                      onChange={(e) => setMemberForm({...memberForm, rollNumber: e.target.value})}
+                      onChange={(e) => setMemberForm({ ...memberForm, rollNumber: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -1498,7 +1491,7 @@ const LibraryManagement: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Membership Type *</label>
                     <select
                       value={memberForm.membershipType}
-                      onChange={(e) => setMemberForm({...memberForm, membershipType: e.target.value as LibraryMember['membershipType']})}
+                      onChange={(e) => setMemberForm({ ...memberForm, membershipType: e.target.value as LibraryMember['membershipType'] })}
                       className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     >
@@ -1513,7 +1506,7 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="number"
                       value={memberForm.maxBooksAllowed}
-                      onChange={(e) => setMemberForm({...memberForm, maxBooksAllowed: Math.max(1, parseInt(e.target.value || '1'))})}
+                      onChange={(e) => setMemberForm({ ...memberForm, maxBooksAllowed: Math.max(1, parseInt(e.target.value || '1')) })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       min={1}
                       required
@@ -1524,7 +1517,7 @@ const LibraryManagement: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Status *</label>
                     <select
                       value={memberForm.status}
-                      onChange={(e) => setMemberForm({...memberForm, status: e.target.value as LibraryMember['status']})}
+                      onChange={(e) => setMemberForm({ ...memberForm, status: e.target.value as LibraryMember['status'] })}
                       className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     >
@@ -1540,7 +1533,7 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="date"
                       value={memberForm.membershipStartDate}
-                      onChange={(e) => setMemberForm({...memberForm, membershipStartDate: e.target.value})}
+                      onChange={(e) => setMemberForm({ ...memberForm, membershipStartDate: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     />
@@ -1551,7 +1544,7 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="date"
                       value={memberForm.membershipEndDate}
-                      onChange={(e) => setMemberForm({...memberForm, membershipEndDate: e.target.value})}
+                      onChange={(e) => setMemberForm({ ...memberForm, membershipEndDate: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     />
@@ -1562,7 +1555,7 @@ const LibraryManagement: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
                   <textarea
                     value={memberForm.address}
-                    onChange={(e) => setMemberForm({...memberForm, address: e.target.value})}
+                    onChange={(e) => setMemberForm({ ...memberForm, address: e.target.value })}
                     rows={3}
                     className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
@@ -1642,7 +1635,7 @@ const LibraryManagement: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Select Book *</label>
                     <select
                       value={transactionForm.bookId}
-                      onChange={(e) => setTransactionForm({...transactionForm, bookId: e.target.value})}
+                      onChange={(e) => setTransactionForm({ ...transactionForm, bookId: e.target.value })}
                       className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     >
@@ -1658,7 +1651,7 @@ const LibraryManagement: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Select Member *</label>
                     <select
                       value={transactionForm.memberId}
-                      onChange={(e) => setTransactionForm({...transactionForm, memberId: e.target.value})}
+                      onChange={(e) => setTransactionForm({ ...transactionForm, memberId: e.target.value })}
                       className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     >
@@ -1676,7 +1669,7 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="date"
                       value={transactionForm.issueDate}
-                      onChange={(e) => setTransactionForm({...transactionForm, issueDate: e.target.value})}
+                      onChange={(e) => setTransactionForm({ ...transactionForm, issueDate: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     />
@@ -1686,7 +1679,7 @@ const LibraryManagement: React.FC = () => {
                     <input
                       type="date"
                       value={transactionForm.dueDate}
-                      onChange={(e) => setTransactionForm({...transactionForm, dueDate: e.target.value})}
+                      onChange={(e) => setTransactionForm({ ...transactionForm, dueDate: e.target.value })}
                       className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     />
@@ -1697,7 +1690,7 @@ const LibraryManagement: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                   <textarea
                     value={transactionForm.notes}
-                    onChange={(e) => setTransactionForm({...transactionForm, notes: e.target.value})}
+                    onChange={(e) => setTransactionForm({ ...transactionForm, notes: e.target.value })}
                     rows={3}
                     className="w-full pl-3 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Any additional notes about this transaction..."

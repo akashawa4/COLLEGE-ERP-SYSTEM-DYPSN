@@ -1,25 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Search, 
-  Filter, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Eye, 
-  Phone, 
-  Mail, 
-  MapPin, 
-  Calendar, 
-  Clock, 
-  User, 
-  Package, 
-  CheckCircle, 
-  XCircle, 
-  AlertCircle, 
-  Save, 
-  X, 
-  Loader2,
-  RefreshCw
+import {
+  Search,
+  Filter,
+  Plus,
+  Edit,
+  Trash2,
+  Eye,
+  Phone,
+  Mail,
+  MapPin,
+  Calendar,
+  Clock,
+  User,
+  Package,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Save,
+  X,
+  Loader2
 } from 'lucide-react';
 import { LostFoundItem } from '../../types';
 import { lostFoundService } from '../../firebase/firestore';
@@ -85,7 +84,7 @@ const LostFoundManagement: React.FC<{ user: any }> = ({ user }) => {
 
     // Search filter
     if (searchTerm) {
-      filtered = filtered.filter(item => 
+      filtered = filtered.filter(item =>
         item.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.foundBy.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -157,13 +156,17 @@ const LostFoundManagement: React.FC<{ user: any }> = ({ user }) => {
 
     try {
       setSaving(true);
-      await lostFoundService.createLostFoundItem(newItem);
-      
+      await lostFoundService.createLostFoundItem({
+        ...newItem,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+
       // Reload items
       const itemsData = await lostFoundService.getAllLostFoundItems();
       setItems(itemsData);
       setFilteredItems(itemsData);
-      
+
       // Reset form and close modal
       setNewItem({
         itemName: '',
@@ -183,7 +186,7 @@ const LostFoundManagement: React.FC<{ user: any }> = ({ user }) => {
         notes: ''
       });
       setShowAddModal(false);
-      
+
       alert('Lost and found item added successfully!');
     } catch (error) {
       console.error('Error adding item:', error);
@@ -200,15 +203,15 @@ const LostFoundManagement: React.FC<{ user: any }> = ({ user }) => {
     try {
       setSaving(true);
       await lostFoundService.updateLostFoundItem(selectedItem.id, selectedItem);
-      
+
       // Reload items
       const itemsData = await lostFoundService.getAllLostFoundItems();
       setItems(itemsData);
       setFilteredItems(itemsData);
-      
+
       setShowEditModal(false);
       setSelectedItem(null);
-      
+
       alert('Item updated successfully!');
     } catch (error) {
       console.error('Error updating item:', error);
@@ -225,12 +228,12 @@ const LostFoundManagement: React.FC<{ user: any }> = ({ user }) => {
     try {
       setSaving(true);
       await lostFoundService.deleteLostFoundItem(itemId);
-      
+
       // Reload items
       const itemsData = await lostFoundService.getAllLostFoundItems();
       setItems(itemsData);
       setFilteredItems(itemsData);
-      
+
       alert('Item deleted successfully!');
     } catch (error) {
       console.error('Error deleting item:', error);
@@ -244,7 +247,7 @@ const LostFoundManagement: React.FC<{ user: any }> = ({ user }) => {
   const handleClaimItem = async (item: LostFoundItem) => {
     const claimedBy = prompt('Enter your name:');
     const claimedByPhone = prompt('Enter your phone number:');
-    
+
     if (!claimedBy || !claimedByPhone) return;
 
     try {
@@ -255,12 +258,12 @@ const LostFoundManagement: React.FC<{ user: any }> = ({ user }) => {
         claimedByPhone,
         claimedDate: new Date().toISOString()
       });
-      
+
       // Reload items
       const itemsData = await lostFoundService.getAllLostFoundItems();
       setItems(itemsData);
       setFilteredItems(itemsData);
-      
+
       alert('Item claimed successfully!');
     } catch (error) {
       console.error('Error claiming item:', error);
@@ -282,21 +285,21 @@ const LostFoundManagement: React.FC<{ user: any }> = ({ user }) => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-4 sm:p-6">
+    <div className="p-4 lg:p-6 space-y-4 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Lost and Found</h1>
-          <p className="text-gray-600 mt-1">Manage lost and found items</p>
+          <h1 className="text-xl lg:text-2xl font-bold text-slate-900">Lost and Found</h1>
+          <p className="text-sm text-slate-500">Manage lost and found items</p>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-600">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-slate-500">
             {filteredItems.length} item{filteredItems.length !== 1 ? 's' : ''}
           </span>
           {canManageItems && (
             <button
               onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors text-sm font-medium"
             >
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">Add Item</span>
@@ -307,7 +310,7 @@ const LostFoundManagement: React.FC<{ user: any }> = ({ user }) => {
 
       {/* Error Message */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-red-600" />
             <p className="text-red-800">{error}</p>
@@ -323,27 +326,27 @@ const LostFoundManagement: React.FC<{ user: any }> = ({ user }) => {
 
       {/* Loading State */}
       {loading && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
           <div className="flex items-center gap-2">
-            <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-            <p className="text-blue-800">Loading items...</p>
+            <Loader2 className="w-5 h-5 text-slate-600 animate-spin" />
+            <p className="text-slate-700">Loading items...</p>
           </div>
         </div>
       )}
 
       {/* Search and Filters */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-        <div className="flex flex-col lg:flex-row gap-4">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+        <div className="flex flex-col lg:flex-row gap-3">
           {/* Search Bar */}
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
               <input
                 type="text"
-                placeholder="Search by item name, description, finder, location..."
+                placeholder="Search items..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-transparent text-sm"
               />
             </div>
           </div>
@@ -351,7 +354,7 @@ const LostFoundManagement: React.FC<{ user: any }> = ({ user }) => {
           {/* Filter Toggle Button */}
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors text-sm"
           >
             <Filter className="w-4 h-4" />
             <span className="hidden sm:inline">Filters</span>

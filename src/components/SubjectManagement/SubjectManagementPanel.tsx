@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Search, 
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Search,
   Save,
   X,
   Download,
@@ -65,7 +65,7 @@ const SubjectManagementPanel: React.FC = () => {
     setFilterYear(newYear);
     const newAvailableSemesters = getAvailableSemesters(newYear);
     setAvailableSemesters(newAvailableSemesters);
-    
+
     // If current semester is not valid for new year, reset to first available
     if (!isValidSemesterForYear(newYear, filterSem)) {
       const defaultSem = getDefaultSemesterForYear(newYear);
@@ -91,7 +91,7 @@ const SubjectManagementPanel: React.FC = () => {
     try {
       setLoading(true);
       setLoadingError(null);
-      
+
       // Check if user is authenticated
       if (!user) {
         setSubjects([]);
@@ -99,10 +99,10 @@ const SubjectManagementPanel: React.FC = () => {
         setLoadingError('User not authenticated');
         return;
       }
-      
+
       // Load subjects data
       const subjectsData = await loadSubjectsData();
-      
+
       setSubjects(subjectsData);
     } catch (error) {
       setLoadingError(error instanceof Error ? error.message : 'Unknown error occurred');
@@ -116,10 +116,10 @@ const SubjectManagementPanel: React.FC = () => {
   const loadSubjectsData = async (): Promise<Subject[]> => {
     try {
       let subjectsData: Subject[] = [];
-      
+
       const deptCode = getDepartmentCode(user?.department);
       const mappedYear = formatYear(filterYear);
-      
+
       console.log('[SubjectManagement] Loading subjects with filters:', {
         userRole: user?.role,
         userDepartment: user?.department,
@@ -130,21 +130,21 @@ const SubjectManagementPanel: React.FC = () => {
         filterType,
         filterDiv
       });
-      
+
       subjectsData = await subjectService.getSubjectsByDepartment(
         deptCode,
         mappedYear,
         filterSem
       );
-      
+
       console.log('[SubjectManagement] Raw subjects data:', subjectsData.length, subjectsData);
-      
+
       // Apply type filter (client-side for both roles)
       if (filterType) {
         subjectsData = subjectsData.filter(subject => subject.subjectType === filterType);
         console.log('[SubjectManagement] After type filter:', subjectsData.length);
       }
-      
+
       return subjectsData;
     } catch (error) {
       console.error('[SubjectManagement] Error loading subjects:', error);
@@ -190,7 +190,7 @@ const SubjectManagementPanel: React.FC = () => {
       if (editingSubject) {
         // Map year format for updateSubject
         const mappedYear = formatYear(formData.year);
-        
+
         await subjectService.updateSubject(
           '2025',
           formData.department,
@@ -227,7 +227,7 @@ const SubjectManagementPanel: React.FC = () => {
 
   const handleDelete = async () => {
     if (!subjectToDelete) return;
-    
+
     try {
       await subjectService.deleteSubject(
         subjectToDelete.batch,
@@ -287,7 +287,7 @@ const SubjectManagementPanel: React.FC = () => {
     const ws = XLSX.utils.json_to_sheet(templateData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Subjects');
-    
+
     const columnWidths = [
       { wch: 15 }, // Subject Code
       { wch: 30 }, // Subject Name
@@ -314,14 +314,14 @@ const SubjectManagementPanel: React.FC = () => {
 
       const subjects = jsonData.map((row: any) => {
         const getValue = (key: string) => row[key] || row[key.toLowerCase()] || '';
-        
+
         const dept = getDepartmentCode(String(getValue('Department') || user?.department || 'CSE'));
         const yearVal = formatYear(String(getValue('Year') || filterYear));
         const semVal = String(getValue('Semester') || filterSem);
         const code = String(getValue('Subject Code')).trim();
         const name = String(getValue('Subject Name') || '').trim();
         const type = String(getValue('Subject Type') || 'Theory');
-        
+
         return {
           id: `${code}_2025_${dept}_${semVal}_A`,
           subjectCode: code,
@@ -367,14 +367,14 @@ const SubjectManagementPanel: React.FC = () => {
     try {
       // Map year format for exportSubjects
       const mappedYear = formatYear(formData.year);
-      
+
       const result = await subjectService.exportSubjects(
         '2025',
         formData.department,
         mappedYear,
         formData.sem
       );
-      
+
       if (result.success && result.data) {
         const ws = XLSX.utils.json_to_sheet(result.data);
         const wb = XLSX.utils.book_new();
@@ -389,35 +389,33 @@ const SubjectManagementPanel: React.FC = () => {
 
   const filteredSubjects = subjects.filter(subject =>
     (subject.subjectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    subject.subjectCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    subject.subjectType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    subject.department.toLowerCase().includes(searchTerm.toLowerCase())) &&
+      subject.subjectCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      subject.subjectType.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      subject.department.toLowerCase().includes(searchTerm.toLowerCase())) &&
     (filterDepartment === 'all' || subject.department === filterDepartment)
   );
 
   return (
-    <div className="p-4 lg:p-6 space-y-6">
+    <div className="p-4 lg:p-6 space-y-4 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Subject Management</h1>
-          <p className="text-gray-600 mt-1">Manage subjects and course curriculum</p>
+          <h1 className="text-xl lg:text-2xl font-bold text-slate-900">Subject Management</h1>
+          <p className="text-sm text-slate-500">Manage subjects and course curriculum</p>
         </div>
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={downloadTemplate}
-            className="btn-mobile bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-2"
+            className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl transition-colors text-sm font-medium"
           >
             <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">Excel Template</span>
-            <span className="sm:hidden">Template</span>
+            <span className="hidden sm:inline">Template</span>
           </button>
-          
-          <label className="btn-mobile bg-blue-600 hover:bg-blue-700 text-white cursor-pointer flex items-center justify-center gap-2">
+
+          <label className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer rounded-xl transition-colors text-sm font-medium">
             <Upload className="w-4 h-4" />
-            <span className="hidden sm:inline">{isImporting ? 'Importing...' : 'Import Excel'}</span>
-            <span className="sm:hidden">{isImporting ? 'Importing...' : 'Import'}</span>
+            <span className="hidden sm:inline">{isImporting ? 'Importing...' : 'Import'}</span>
             <input
               type="file"
               accept=".xlsx,.xls,.csv"
@@ -425,107 +423,88 @@ const SubjectManagementPanel: React.FC = () => {
               className="hidden"
             />
           </label>
-          
+
           <button
             onClick={exportSubjects}
-            className="btn-mobile bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center gap-2"
+            className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-colors text-sm font-medium"
           >
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Export</span>
-            <span className="sm:hidden">Export</span>
           </button>
-          
+
           <button
             onClick={() => setShowForm(true)}
-            className="btn-mobile bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-2"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-colors text-sm font-medium"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Add Subject</span>
-            <span className="sm:hidden">Add</span>
           </button>
-          
-          
-          
         </div>
       </div>
 
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow-mobile p-4 lg:p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <div>
-            <label className="label-mobile">Search</label>
+            <label className="text-xs font-medium text-slate-500 mb-1 block">Search</label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="input-mobile pl-10"
+                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400 text-sm"
                 placeholder="Search subjects..."
               />
             </div>
           </div>
-          
+
           <div>
-            <label className="label-mobile">Year *</label>
+            <label className="text-xs font-medium text-slate-500 mb-1 block">Year</label>
             <select
               value={filterYear}
               onChange={(e) => handleYearChange(e.target.value)}
-              className="input-mobile"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400 text-sm"
             >
               {years.map(year => (
                 <option key={year} value={year}>Year {year}</option>
               ))}
             </select>
           </div>
-          
+
           <div>
-            <label className="label-mobile">Semester *</label>
+            <label className="text-xs font-medium text-slate-500 mb-1 block">Semester</label>
             <select
               value={filterSem}
               onChange={(e) => setFilterSem(e.target.value)}
-              className="input-mobile"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400 text-sm"
             >
               {availableSemesters.map(sem => (
                 <option key={sem} value={sem}>Sem {sem}</option>
               ))}
             </select>
           </div>
-          
+
           <div>
-            <label className="label-mobile">Division *</label>
+            <label className="text-xs font-medium text-slate-500 mb-1 block">Division</label>
             <select
               value={filterDiv}
               onChange={(e) => setFilterDiv(e.target.value)}
-              className="input-mobile"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400 text-sm"
             >
               {divs.map(div => (
                 <option key={div} value={div}>Div {div}</option>
               ))}
             </select>
           </div>
-          
+
           <div>
-            <label className="label-mobile">Department</label>
-            <select
-              value={filterDepartment}
-              onChange={(e) => setFilterDepartment(e.target.value)}
-              className="input-mobile"
-            >
-              <option value="all">All Departments</option>
-              {departments.map(dept => (
-                <option key={dept} value={dept}>{dept}</option>
-              ))}
-            </select>
-          </div>
-          
-          <div>
-            <label className="label-mobile">Type</label>
+            <label className="text-xs font-medium text-slate-500 mb-1 block">Type</label>
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="input-mobile"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400 text-sm"
             >
               <option value="">All Types</option>
               {subjectTypes.map(type => (
@@ -533,26 +512,6 @@ const SubjectManagementPanel: React.FC = () => {
               ))}
             </select>
           </div>
-        </div>
-        
-        <div className="mt-4 flex items-center justify-between">
-          <div className="text-sm text-gray-600">
-            Showing subjects for: <span className="font-semibold">Year {filterYear}, Sem {filterSem}, Div {filterDiv}</span>
-            {filterType && <span className="ml-2">| Type: <span className="font-semibold">{filterType}</span></span>}
-          </div>
-          <button
-            onClick={() => {
-              setFilterYear('2');
-              setFilterSem('3');
-              setFilterDiv('A');
-              setFilterType('');
-              setSearchTerm('');
-              setAvailableSemesters(getAvailableSemesters('2'));
-            }}
-            className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
-          >
-            Reset Filters
-          </button>
         </div>
       </div>
 
@@ -640,10 +599,10 @@ const SubjectManagementPanel: React.FC = () => {
                   </button>
                 </div>
               </div>
-              
+
               <h3 className="font-semibold text-gray-900 mb-1">{subject.subjectName}</h3>
               <p className="text-sm text-gray-600 mb-2">{subject.subjectCode}</p>
-              
+
               <div className="space-y-2 text-sm text-gray-600">
                 <div className="flex items-center">
                   <GraduationCap className="w-4 h-4 mr-2 text-gray-400" />
@@ -680,7 +639,7 @@ const SubjectManagementPanel: React.FC = () => {
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="p-4 lg:p-6 space-y-4 lg:space-y-6">
               {/* Essential Fields Only */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4">
@@ -689,7 +648,7 @@ const SubjectManagementPanel: React.FC = () => {
                   <input
                     type="text"
                     value={formData.subjectCode}
-                    onChange={(e) => setFormData({...formData, subjectCode: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, subjectCode: e.target.value })}
                     className="input-mobile"
                     placeholder="e.g., CS301"
                     required
@@ -700,7 +659,7 @@ const SubjectManagementPanel: React.FC = () => {
                   <input
                     type="text"
                     value={formData.subjectName}
-                    onChange={(e) => setFormData({...formData, subjectName: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, subjectName: e.target.value })}
                     className="input-mobile"
                     placeholder="e.g., Data Structures"
                     required
@@ -710,7 +669,7 @@ const SubjectManagementPanel: React.FC = () => {
                   <label className="label-mobile">Subject Type *</label>
                   <select
                     value={formData.subjectType}
-                    onChange={(e) => setFormData({...formData, subjectType: e.target.value as any})}
+                    onChange={(e) => setFormData({ ...formData, subjectType: e.target.value as any })}
                     className="input-mobile"
                     required
                   >
@@ -723,7 +682,7 @@ const SubjectManagementPanel: React.FC = () => {
                   <label className="label-mobile">Department *</label>
                   <select
                     value={formData.department}
-                    onChange={(e) => setFormData({...formData, department: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                     className="input-mobile"
                     required
                   >
@@ -742,7 +701,7 @@ const SubjectManagementPanel: React.FC = () => {
                       const defaultSem = getDefaultSemesterForYear(newYear);
                       setFormAvailableSemesters(newAvailableSemesters);
                       setFormData({
-                        ...formData, 
+                        ...formData,
                         year: newYear,
                         sem: isValidSemesterForYear(newYear, formData.sem) ? formData.sem : defaultSem
                       });
@@ -759,7 +718,7 @@ const SubjectManagementPanel: React.FC = () => {
                   <label className="label-mobile">Semester *</label>
                   <select
                     value={formData.sem}
-                    onChange={(e) => setFormData({...formData, sem: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, sem: e.target.value })}
                     className="input-mobile"
                     required
                   >
@@ -810,7 +769,7 @@ const SubjectManagementPanel: React.FC = () => {
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
-            
+
             <div className="p-4 lg:p-6 space-y-6">
               <div className="text-center">
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-100 rounded-full mb-4">
@@ -822,7 +781,7 @@ const SubjectManagementPanel: React.FC = () => {
                   {selectedSubject.subjectType}
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
@@ -843,18 +802,17 @@ const SubjectManagementPanel: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="space-y-4">
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-3">System Information</h4>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="font-medium text-gray-600">Status:</span>
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          selectedSubject.isActive 
-                            ? 'bg-green-100 text-green-800' 
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${selectedSubject.isActive
+                            ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
-                        }`}>
+                          }`}>
                           {selectedSubject.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </div>

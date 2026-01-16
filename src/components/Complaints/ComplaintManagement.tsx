@@ -80,9 +80,9 @@ const ComplaintManagement: React.FC = () => {
 
       // Auto-detect role from user profile
       const complainantRole = user?.role === 'student' ? 'Student' :
-                             user?.role === 'teacher' ? 'Teacher' :
-                             user?.role === 'hod' ? 'Teacher' : // HODs are also teachers
-                             user?.role === 'admin' ? 'Staff' : 'Other';
+        user?.role === 'teacher' ? 'Teacher' :
+          user?.role === 'hod' ? 'Teacher' : // HODs are also teachers
+            user?.role === 'admin' ? 'Staff' : 'Other';
 
       const complaintData = {
         ...formData,
@@ -127,11 +127,11 @@ const ComplaintManagement: React.FC = () => {
   const canDeleteComplaint = (complaint: Complaint) => {
     if (isAdmin) return true; // Admin can delete any complaint
     if (!user) return false;
-    
+
     // Check if current user is the complainant
     if (complaint.complainantEmail === user.email) return true;
     if (complaint.complainantName === user.name) return true;
-    
+
     return false;
   };
 
@@ -167,7 +167,7 @@ const ComplaintManagement: React.FC = () => {
 
   const filteredComplaints = complaints.filter(complaint => {
     const matchesSearch = complaint.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         complaint.description.toLowerCase().includes(searchTerm.toLowerCase());
+      complaint.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = filterCategory === 'all' || complaint.category === filterCategory;
     const matchesStatus = filterStatus === 'all' || complaint.status === filterStatus;
     const matchesPriority = filterPriority === 'all' || complaint.priority === filterPriority;
@@ -215,13 +215,13 @@ const ComplaintManagement: React.FC = () => {
   const isTeacher = user?.role === 'teacher';
 
   return (
-    <div className="max-w-7xl mx-auto p-4 sm:p-6">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
+    <div className="p-4 lg:p-6 space-y-4 max-w-7xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div className="min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 truncate">
+          <h1 className="text-xl lg:text-2xl font-bold text-slate-900">
             {user?.role === 'student' ? 'Submit Complaint' : 'Complaint Management'}
           </h1>
-          <p className="text-gray-600 mt-1 text-sm sm:text-base truncate">
+          <p className="text-sm text-slate-500">
             {user?.role === 'student'
               ? 'Submit complaints and grievances'
               : 'Manage and track complaints and grievances'
@@ -229,27 +229,27 @@ const ComplaintManagement: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+        <div className="flex items-center gap-2">
           <button
             onClick={loadData}
             disabled={loading}
-            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 w-full sm:w-auto"
+            className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors disabled:opacity-50 text-sm font-medium"
           >
-            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-            <span className="text-sm">Refresh</span>
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
           </button>
           <button
             onClick={() => setShowForm(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors text-sm font-medium"
           >
-            <Plus className="w-5 h-5" />
-            <span className="text-sm">Submit Complaint</span>
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Submit Complaint</span>
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-6">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
           <div className="flex items-start gap-2">
             <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
             <p className="text-red-800 text-sm flex-1">{error}</p>
@@ -265,26 +265,26 @@ const ComplaintManagement: React.FC = () => {
       )}
 
       {loading && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6">
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
           <div className="flex items-center gap-2">
-            <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-            <p className="text-blue-800 text-sm">Loading complaints...</p>
+            <Loader2 className="w-5 h-5 text-slate-600 animate-spin" />
+            <p className="text-slate-700 text-sm">Loading complaints...</p>
           </div>
         </div>
       )}
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4 mb-6">
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+        <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 min-w-0">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
               <input
                 type="text"
                 placeholder="Search complaints..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 focus:border-transparent text-sm"
                 aria-label="Search complaints"
               />
             </div>

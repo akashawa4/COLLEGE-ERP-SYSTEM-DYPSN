@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  BookOpen, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Search, 
-  Filter, 
-  Users, 
+import {
+  BookOpen,
+  Plus,
+  Edit,
+  Trash2,
+  Search,
+  Filter,
+  Users,
   Calendar,
   Clock,
   GraduationCap,
@@ -278,10 +278,10 @@ const CourseManagementPanel: React.FC = () => {
 
   const filteredCourses = courses.filter(course => {
     const matchesSearch = course.courseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         course.courseCode.toLowerCase().includes(searchTerm.toLowerCase());
+      course.courseCode.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesDepartment = !filterDepartment || course.department === filterDepartment;
     const matchesStatus = !filterStatus || course.status === filterStatus;
-    
+
     return matchesSearch && matchesDepartment && matchesStatus;
   });
 
@@ -313,40 +313,39 @@ const CourseManagementPanel: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-4 sm:p-6">
+    <div className="p-4 lg:p-6 space-y-4 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">Course Management</h1>
-          <p className="text-gray-600">Manage courses, curriculum, and academic documents</p>
+          <h1 className="text-xl lg:text-2xl font-bold text-slate-900">Course Management</h1>
+          <p className="text-sm text-slate-500">Manage courses, curriculum, and academic documents</p>
         </div>
-        <div className="flex gap-3 mt-4 sm:mt-0">
+        <div className="flex gap-2">
           <button
             onClick={() => setShowCreateModal(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors text-sm font-medium"
           >
             <Plus className="w-4 h-4" />
             Add Course
           </button>
           <button
             onClick={() => setShowDocumentModal(true)}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors text-sm font-medium"
           >
             <Upload className="w-4 h-4" />
-            Upload Document
+            Upload Doc
           </button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-6">
+      <div className="flex space-x-1 bg-slate-100 p-1 rounded-xl w-full sm:w-auto self-start">
         <button
           onClick={() => setActiveTab('courses')}
-          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-            activeTab === 'courses'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
+          className={`flex-1 py-1.5 px-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'courses'
+              ? 'bg-white text-slate-900 shadow-sm'
+              : 'text-slate-500 hover:text-slate-900'
+            }`}
         >
           <div className="flex items-center justify-center gap-2">
             <BookOpen className="w-4 h-4" />
@@ -355,11 +354,10 @@ const CourseManagementPanel: React.FC = () => {
         </button>
         <button
           onClick={() => setActiveTab('documents')}
-          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-            activeTab === 'documents'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
+          className={`flex-1 py-1.5 px-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'documents'
+              ? 'bg-white text-slate-900 shadow-sm'
+              : 'text-slate-500 hover:text-slate-900'
+            }`}
         >
           <div className="flex items-center justify-center gap-2">
             <FileText className="w-4 h-4" />
@@ -372,22 +370,22 @@ const CourseManagementPanel: React.FC = () => {
       {activeTab === 'courses' && (
         <>
           {/* Filters */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                 <input
                   type="text"
                   placeholder="Search courses..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent text-sm"
                 />
               </div>
               <select
                 value={filterDepartment}
                 onChange={(e) => setFilterDepartment(e.target.value)}
-                className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent text-sm"
               >
                 <option value="">All Departments</option>
                 {departments.map(dept => (
@@ -397,14 +395,14 @@ const CourseManagementPanel: React.FC = () => {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent text-sm"
               >
                 <option value="">All Status</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
                 <option value="completed">Completed</option>
               </select>
-              <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2">
+              <button className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors flex items-center justify-center gap-2 text-sm font-medium">
                 <Filter className="w-4 h-4" />
                 Clear Filters
               </button>
@@ -427,7 +425,7 @@ const CourseManagementPanel: React.FC = () => {
                     <button className="p-1 text-gray-400 hover:text-blue-600 transition-colors">
                       <Edit className="w-4 h-4" />
                     </button>
-                    <button 
+                    <button
                       onClick={() => handleDeleteCourse(course.id)}
                       className="p-1 text-gray-400 hover:text-red-600 transition-colors"
                     >

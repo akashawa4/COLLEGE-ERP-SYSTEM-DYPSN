@@ -803,18 +803,18 @@ const TeacherManagementPanel: React.FC<TeacherManagementPanelProps> = ({ onPageC
           {/* Today's Attendance */}
           <div
             onClick={() => onPageChange?.('teacher-leave-attendance')}
-            className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border border-green-100 cursor-pointer hover:shadow-md transition-all group"
+            className="bg-white p-4 rounded-xl border border-slate-200 cursor-pointer hover:shadow-md hover:border-slate-300 transition-all group"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-green-700 group-hover:text-green-800 transition-colors">Today's Attendance</p>
-                <p className="text-2xl font-bold text-green-800 mt-1">
+                <p className="text-sm font-medium text-slate-600 group-hover:text-slate-700 transition-colors">Today's Attendance</p>
+                <p className="text-2xl font-bold text-slate-900 mt-1">
                   {teachers.filter(t => t.isActive).length}/{teachers.length}
                 </p>
-                <p className="text-xs text-green-600 mt-1">Teachers Present</p>
+                <p className="text-xs text-slate-500 mt-1">Teachers Present</p>
               </div>
-              <div className="p-3 bg-green-100 rounded-lg group-hover:bg-green-200 transition-colors">
-                <User className="w-6 h-6 text-green-600" />
+              <div className="p-3 bg-emerald-50 rounded-xl group-hover:bg-emerald-100 transition-colors">
+                <User className="w-5 h-5 text-emerald-600" />
               </div>
             </div>
           </div>
@@ -822,16 +822,16 @@ const TeacherManagementPanel: React.FC<TeacherManagementPanelProps> = ({ onPageC
           {/* Pending Leave Requests */}
           <div
             onClick={() => onPageChange?.('teacher-leave-attendance')}
-            className="bg-gradient-to-br from-amber-50 to-yellow-50 p-4 rounded-xl border border-amber-100 cursor-pointer hover:shadow-md transition-all group"
+            className="bg-white p-4 rounded-xl border border-slate-200 cursor-pointer hover:shadow-md hover:border-slate-300 transition-all group"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-amber-700 group-hover:text-amber-800 transition-colors">Pending Leaves</p>
-                <p className="text-2xl font-bold text-amber-800 mt-1">5</p>
-                <p className="text-xs text-amber-600 mt-1">Awaiting Approval</p>
+                <p className="text-sm font-medium text-slate-600 group-hover:text-slate-700 transition-colors">Pending Leaves</p>
+                <p className="text-2xl font-bold text-slate-900 mt-1">5</p>
+                <p className="text-xs text-slate-500 mt-1">Awaiting Approval</p>
               </div>
-              <div className="p-3 bg-amber-100 rounded-lg group-hover:bg-amber-200 transition-colors">
-                <Clock className="w-6 h-6 text-amber-600" />
+              <div className="p-3 bg-amber-50 rounded-xl group-hover:bg-amber-100 transition-colors">
+                <Clock className="w-5 h-5 text-amber-600" />
               </div>
             </div>
           </div>
@@ -839,16 +839,16 @@ const TeacherManagementPanel: React.FC<TeacherManagementPanelProps> = ({ onPageC
           {/* Approved Leaves */}
           <div
             onClick={() => onPageChange?.('teacher-leave-attendance')}
-            className="bg-gradient-to-br from-blue-50 to-sky-50 p-4 rounded-xl border border-blue-100 cursor-pointer hover:shadow-md transition-all group"
+            className="bg-white p-4 rounded-xl border border-slate-200 cursor-pointer hover:shadow-md hover:border-slate-300 transition-all group"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-blue-700 group-hover:text-blue-800 transition-colors">Approved Leaves</p>
-                <p className="text-2xl font-bold text-blue-800 mt-1">12</p>
-                <p className="text-xs text-blue-600 mt-1">This Month</p>
+                <p className="text-sm font-medium text-slate-600 group-hover:text-slate-700 transition-colors">Approved Leaves</p>
+                <p className="text-2xl font-bold text-slate-900 mt-1">12</p>
+                <p className="text-xs text-slate-500 mt-1">This Month</p>
               </div>
-              <div className="p-3 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
-                <Calendar className="w-6 h-6 text-blue-600" />
+              <div className="p-3 bg-slate-100 rounded-xl group-hover:bg-slate-200 transition-colors">
+                <Calendar className="w-5 h-5 text-slate-600" />
               </div>
             </div>
           </div>
@@ -856,16 +856,16 @@ const TeacherManagementPanel: React.FC<TeacherManagementPanelProps> = ({ onPageC
           {/* On Leave Today */}
           <div
             onClick={() => onPageChange?.('teacher-leave-attendance')}
-            className="bg-gradient-to-br from-purple-50 to-violet-50 p-4 rounded-xl border border-purple-100 cursor-pointer hover:shadow-md transition-all group"
+            className="bg-white p-4 rounded-xl border border-slate-200 cursor-pointer hover:shadow-md hover:border-slate-300 transition-all group"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-purple-700 group-hover:text-purple-800 transition-colors">On Leave Today</p>
-                <p className="text-2xl font-bold text-purple-800 mt-1">2</p>
-                <p className="text-xs text-purple-600 mt-1">Teachers</p>
+                <p className="text-sm font-medium text-slate-600 group-hover:text-slate-700 transition-colors">On Leave Today</p>
+                <p className="text-2xl font-bold text-slate-900 mt-1">2</p>
+                <p className="text-xs text-slate-500 mt-1">Teachers</p>
               </div>
-              <div className="p-3 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
-                <GraduationCap className="w-6 h-6 text-purple-600" />
+              <div className="p-3 bg-slate-100 rounded-xl group-hover:bg-slate-200 transition-colors">
+                <GraduationCap className="w-5 h-5 text-slate-600" />
               </div>
             </div>
           </div>
@@ -873,21 +873,21 @@ const TeacherManagementPanel: React.FC<TeacherManagementPanelProps> = ({ onPageC
       </div>
 
       {/* Teacher Management Section */}
-      <div className="bg-white rounded-2xl shadow-mobile border border-gray-200 p-4 lg:p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 lg:p-6">
         {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4 lg:mb-6">
-          <div className="mb-4 lg:mb-0">
-            <h2 className="text-lg lg:text-2xl font-bold text-gray-900 mb-2">Teacher Management</h2>
-            <p className="text-sm lg:text-base text-gray-600">Manage faculty members and their information</p>
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4 lg:mb-5">
+          <div className="mb-3 lg:mb-0">
+            <h2 className="text-lg lg:text-xl font-bold text-slate-900">Teacher Management</h2>
+            <p className="text-sm text-slate-500">Manage faculty members and their information</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full lg:w-auto">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => {
                 setShowForm(true);
                 setEditingTeacher(null);
                 resetForm();
               }}
-              className="btn-mobile bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 active:scale-95 flex items-center justify-center gap-2"
+              className="px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 active:scale-95 flex items-center gap-2 text-sm font-medium transition-colors"
             >
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">Add Teacher</span>
@@ -896,25 +896,22 @@ const TeacherManagementPanel: React.FC<TeacherManagementPanelProps> = ({ onPageC
 
             <button
               onClick={() => downloadExcelTemplate()}
-              className="btn-mobile bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-2"
+              className="px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 flex items-center gap-2 text-sm font-medium transition-colors"
             >
               <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">Excel Template</span>
-              <span className="sm:hidden">Template</span>
+              <span className="hidden sm:inline">Template</span>
             </button>
-            <label className="btn-mobile bg-blue-600 hover:bg-blue-700 text-white cursor-pointer flex items-center justify-center gap-2">
+            <label className="px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 cursor-pointer flex items-center gap-2 text-sm font-medium transition-colors">
               <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImportTeachers} disabled={isImporting} />
               <Upload className="w-4 h-4" />
-              <span className="hidden sm:inline">{isImporting ? 'Importing…' : 'Import Excel'}</span>
-              <span className="sm:hidden">{isImporting ? 'Importing…' : 'Import'}</span>
+              <span className="hidden sm:inline">{isImporting ? 'Importing…' : 'Import'}</span>
             </label>
             <button
               onClick={exportTeachers}
-              className="btn-mobile bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center gap-2"
+              className="px-3 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 flex items-center gap-2 text-sm font-medium transition-colors"
             >
               <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">Export Excel</span>
-              <span className="sm:hidden">Export</span>
+              <span className="hidden sm:inline">Export</span>
             </button>
           </div>
         </div>
@@ -959,38 +956,37 @@ const TeacherManagementPanel: React.FC<TeacherManagementPanelProps> = ({ onPageC
         {/* Teachers Grid - Mobile Optimized */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
           {filteredTeachers.map((teacher) => (
-            <div
-              key={teacher.id}
-              className="border border-gray-200 rounded-xl p-4 hover:shadow-mobile transition-shadow cursor-pointer active:scale-[0.98]"
+            <div key={teacher.id}
+              className="border border-slate-200 rounded-xl p-4 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer active:scale-[0.98]"
               onClick={() => handleViewDetails(teacher)}
             >
               <div className="flex items-center mb-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-                  <User className="w-5 h-5 text-blue-600" />
+                <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center mr-3">
+                  <User className="w-5 h-5 text-slate-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900 truncate">{teacher.name}</h3>
-                  <p className="text-sm text-gray-500 truncate">{teacher.designation}</p>
+                  <h3 className="font-semibold text-slate-900 truncate">{teacher.name}</h3>
+                  <p className="text-sm text-slate-500 truncate">{teacher.designation}</p>
                 </div>
               </div>
               <div className="space-y-2 text-sm">
-                <div className="flex items-center text-gray-600">
+                <div className="flex items-center text-slate-600">
                   <Mail className="w-4 h-4 mr-2 flex-shrink-0" />
                   <span className="truncate">{teacher.email}</span>
                 </div>
-                <div className="flex items-center text-gray-600">
+                <div className="flex items-center text-slate-600">
                   <Phone className="w-4 h-4 mr-2 flex-shrink-0" />
                   <span className="truncate">{teacher.phone}</span>
                 </div>
-                <div className="flex items-center text-gray-600">
+                <div className="flex items-center text-slate-600">
                   <MapPin className="w-4 h-4 mr-2 flex-shrink-0" />
                   <span className="truncate">{teacher.department}</span>
                 </div>
               </div>
-              <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-100">
-                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${teacher.isActive
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-red-100 text-red-800'
+              <div className="flex justify-between items-center mt-4 pt-3 border-t border-slate-100">
+                <span className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-full ${teacher.isActive
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-slate-100 text-slate-600'
                   }`}>
                   {teacher.isActive ? 'Active' : 'Inactive'}
                 </span>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Bell, Menu, LogOut, User, X } from 'lucide-react';
+import { Bell, Menu, LogOut, User } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface HeaderProps {
@@ -25,48 +25,49 @@ const Header: React.FC<HeaderProps> = ({
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <header className="bg-white shadow-mobile border-b border-gray-200 sticky top-0 z-50">
+    <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
       <div className="flex items-center justify-between px-4 py-3 lg:px-6 lg:py-4">
         {/* Left Section */}
         <div className="flex items-center space-x-3">
           <button
             onClick={onMenuClick}
-            className="lg:hidden p-2.5 hover:bg-gray-100 rounded-xl transition-colors active:scale-95"
+            className="lg:hidden p-2.5 hover:bg-slate-100 rounded-xl transition-colors active:scale-95"
           >
-            <Menu className="w-6 h-6" />
+            <Menu className="w-6 h-6 text-slate-700" />
           </button>
 
           {/* Logo for mobile */}
           <div className="lg:hidden flex items-center space-x-2">
-            <div className="w-8 h-8 bg-sky-500 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center shadow-sm">
               <span className="text-white font-bold text-sm">D</span>
             </div>
-            <span className="text-lg font-bold text-gray-900 font-heading">DYPSN</span>
+            <span className="text-lg font-bold text-slate-900">DYPSN</span>
           </div>
         </div>
 
-        {/* Center section removed (no global search) */}
+        {/* Center section */}
         <div className="hidden lg:block flex-1 max-w-md mx-8" />
 
         {/* Right Section */}
         <div className="flex items-center space-x-2">
-          {/* Desktop offline indicator (non-intrusive) */}
+          {/* Desktop offline indicator */}
           {!isOnline && (
             <div className="hidden lg:flex items-center">
-              <div className="px-2 py-1 rounded-md bg-amber-50 text-amber-800 text-xs border border-amber-200 flex items-center gap-1">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+              <div className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 text-xs font-medium border border-amber-200 flex items-center gap-2">
+                <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
                 Offline
               </div>
             </div>
           )}
+
           {/* Notifications */}
           <button
             onClick={() => setShowNotifications(!showNotifications)}
-            className="relative p-2.5 hover:bg-gray-100 rounded-xl transition-colors active:scale-95"
+            className="relative p-2.5 hover:bg-slate-100 rounded-xl transition-colors active:scale-95"
           >
-            <Bell className="w-6 h-6 text-gray-600" />
+            <Bell className="w-5 h-5 text-slate-600" />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+              <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-slate-800 text-white text-xs rounded-full flex items-center justify-center font-bold">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
@@ -76,12 +77,12 @@ const Header: React.FC<HeaderProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowProfileMenu(!showProfileMenu)}
-              className="flex items-center space-x-1.5 p-1.5 hover:bg-gray-100 rounded-xl transition-colors active:scale-95"
+              className="flex items-center space-x-2 p-1.5 hover:bg-slate-100 rounded-xl transition-colors active:scale-95"
             >
-              <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold text-xs border-2 border-gray-200 flex-shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center text-white font-semibold text-sm shadow-sm">
                 {user?.name?.charAt(0)?.toUpperCase() || 'U'}
               </div>
-              <span className="hidden lg:block text-xs font-medium text-gray-700 max-w-[120px] truncate">{user?.name}</span>
+              <span className="hidden lg:block text-sm font-medium text-slate-700 max-w-[120px] truncate">{user?.name}</span>
             </button>
 
             {/* Profile Dropdown */}
@@ -91,16 +92,16 @@ const Header: React.FC<HeaderProps> = ({
                   className="fixed inset-0 z-30"
                   onClick={() => setShowProfileMenu(false)}
                 />
-                <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-mobile-lg border border-gray-200 z-40 animate-scale-in">
-                  <div className="p-4 border-b border-gray-200">
+                <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-lg border border-slate-200 z-40 animate-scale-in overflow-hidden">
+                  <div className="p-4 border-b border-slate-100 bg-slate-50">
                     <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold text-base">
+                      <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center text-white font-semibold text-base shadow-sm">
                         {user?.name?.charAt(0)?.toUpperCase() || 'U'}
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">{user?.name}</p>
-                        <p className="text-xs text-gray-500">{user?.email}</p>
-                        <p className="text-xs text-blue-600 capitalize font-medium">{user?.role}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-slate-900 truncate">{user?.name}</p>
+                        <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+                        <p className="text-xs text-slate-600 capitalize font-medium mt-0.5">{user?.role}</p>
                       </div>
                     </div>
                   </div>
@@ -111,9 +112,9 @@ const Header: React.FC<HeaderProps> = ({
                         onProfileClick && onProfileClick();
                         setShowProfileMenu(false);
                       }}
-                      className="w-full flex items-center space-x-3 px-3 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                      className="w-full flex items-center space-x-3 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
                     >
-                      <User className="w-4 h-4" />
+                      <User className="w-4 h-4 text-slate-500" />
                       <span>Profile</span>
                     </button>
 
@@ -122,9 +123,9 @@ const Header: React.FC<HeaderProps> = ({
                         logout();
                         setShowProfileMenu(false);
                       }}
-                      className="w-full flex items-center space-x-3 px-3 py-3 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      className="w-full flex items-center space-x-3 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
                     >
-                      <LogOut className="w-4 h-4" />
+                      <LogOut className="w-4 h-4 text-slate-500" />
                       <span>Logout</span>
                     </button>
                   </div>
@@ -134,8 +135,6 @@ const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Mobile search removed */}
     </header>
   );
 };

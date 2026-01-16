@@ -1,5 +1,5 @@
 import React from 'react';
-import { 
+import {
   ExternalLink,
   Building,
   Utensils,
@@ -20,11 +20,11 @@ const HostelManagement: React.FC<{ user: any }> = ({ user }) => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-4 sm:p-6">
+    <div className="p-4 lg:p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="text-center mb-8">
-        <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">Hostel & Room Services</h1>
-        <p className="text-lg text-gray-600">Find your perfect accommodation and mess food</p>
+        <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-2">Hostel & Room Services</h1>
+        <p className="text-base text-slate-500">Find your perfect accommodation and mess food</p>
       </div>
 
       {/* Main Banner Card - Orange and White Design */}
@@ -61,7 +61,7 @@ const HostelManagement: React.FC<{ user: any }> = ({ user }) => {
             <h3 className="text-xl font-semibold text-gray-900">Room Renting</h3>
           </div>
           <p className="text-gray-600 mb-4">
-            Find comfortable and affordable rooms near your college. We offer a wide range of accommodation options 
+            Find comfortable and affordable rooms near your college. We offer a wide range of accommodation options
             including single rooms, shared rooms, and dormitories with all necessary amenities.
           </p>
           <div className="space-y-2 text-sm text-gray-500">
@@ -93,7 +93,7 @@ const HostelManagement: React.FC<{ user: any }> = ({ user }) => {
             <h3 className="text-xl font-semibold text-gray-900">Mess Food</h3>
           </div>
           <p className="text-gray-600 mb-4">
-            Enjoy delicious and nutritious meals at affordable prices. Our mess services provide 
+            Enjoy delicious and nutritious meals at affordable prices. Our mess services provide
             home-cooked food with proper hygiene and nutrition standards.
           </p>
           <div className="space-y-2 text-sm text-gray-500">
@@ -162,8 +162,8 @@ const HostelManagement: React.FC<{ user: any }> = ({ user }) => {
               <a href="tel:+919876543210" className="text-orange-600 hover:underline font-medium">
                 +91 98765 43210
               </a>
-              <a 
-                href="tel:+919876543210" 
+              <a
+                href="tel:+919876543210"
                 className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center gap-2"
               >
                 <Phone className="w-4 h-4" />
@@ -181,8 +181,8 @@ const HostelManagement: React.FC<{ user: any }> = ({ user }) => {
               <a href="tel:+919876543211" className="text-green-600 hover:underline font-medium">
                 +91 98765 43211
               </a>
-              <a 
-                href="tel:+919876543211" 
+              <a
+                href="tel:+919876543211"
                 className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
               >
                 <Phone className="w-4 h-4" />
@@ -200,8 +200,8 @@ const HostelManagement: React.FC<{ user: any }> = ({ user }) => {
               <a href="mailto:support@nivasispace.com" className="text-purple-600 hover:underline font-medium">
                 support@nivasispace.com
               </a>
-              <a 
-                href="mailto:support@nivasispace.com" 
+              <a
+                href="mailto:support@nivasispace.com"
                 className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
               >
                 <Mail className="w-4 h-4" />
