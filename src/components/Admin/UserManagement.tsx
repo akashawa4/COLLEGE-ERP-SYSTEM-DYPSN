@@ -692,6 +692,111 @@ const UserManagement: React.FC = () => {
         )}
       </div>
 
+      {/* Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+          <div className="flex items-center">
+            <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
+              <Users className="w-5 h-5 text-slate-700" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-slate-500">Total Users</p>
+              <p className="text-2xl font-bold text-slate-900">{users.length}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+          <div className="flex items-center">
+            <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
+              <CheckCircle className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-slate-500">Active Users</p>
+              <p className="text-2xl font-bold text-slate-900">
+                {users.filter((u) => u.isActive).length}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+          <div className="flex items-center">
+            <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
+              <Crown className="w-5 h-5 text-slate-700" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-slate-500">HODs</p>
+              <p className="text-2xl font-bold text-slate-900">
+                {users.filter((u) => u.role === "hod").length}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+          <div className="flex items-center">
+            <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center">
+              <Shield className="w-5 h-5 text-white" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-slate-500">Admins</p>
+              <p className="text-2xl font-bold text-slate-900">
+                {users.filter((u) => u.role === "admin").length}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex items-center">
+            <Users className="w-8 h-8 text-orange-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Non-Teaching Staff</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {users.filter((u) => u.role === "non-teaching").length}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex items-center">
+            <GraduationCap className="w-8 h-8 text-green-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Teachers</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {users.filter((u) => u.role === "teacher").length}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex items-center">
+            <Users className="w-8 h-8 text-indigo-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Visitors</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {users.filter((u) => u.role === "visitor").length}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex items-center">
+            <Users className="w-8 h-8 text-cyan-600" />
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Drivers</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {users.filter((u) => u.role === "driver").length}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Users: table (desktop) + cards (mobile) */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {/* Desktop table */}
@@ -978,111 +1083,6 @@ const UserManagement: React.FC = () => {
             </div>
             ))
           )}
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-          <div className="flex items-center">
-            <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
-              <Users className="w-5 h-5 text-slate-700" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-slate-500">Total Users</p>
-              <p className="text-2xl font-bold text-slate-900">{users.length}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-          <div className="flex items-center">
-            <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
-              <CheckCircle className="w-5 h-5 text-emerald-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-slate-500">Active Users</p>
-              <p className="text-2xl font-bold text-slate-900">
-                {users.filter((u) => u.isActive).length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-          <div className="flex items-center">
-            <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
-              <Crown className="w-5 h-5 text-slate-700" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-slate-500">HODs</p>
-              <p className="text-2xl font-bold text-slate-900">
-                {users.filter((u) => u.role === "hod").length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-          <div className="flex items-center">
-            <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center">
-              <Shield className="w-5 h-5 text-white" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-slate-500">Admins</p>
-              <p className="text-2xl font-bold text-slate-900">
-                {users.filter((u) => u.role === "admin").length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <Users className="w-8 h-8 text-orange-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Non-Teaching Staff</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {users.filter((u) => u.role === "non-teaching").length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <GraduationCap className="w-8 h-8 text-green-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Teachers</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {users.filter((u) => u.role === "teacher").length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <Users className="w-8 h-8 text-indigo-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Visitors</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {users.filter((u) => u.role === "visitor").length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <Users className="w-8 h-8 text-cyan-600" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Drivers</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {users.filter((u) => u.role === "driver").length}
-              </p>
-            </div>
-          </div>
         </div>
       </div>
 

@@ -336,7 +336,7 @@ const LoginForm: React.FC = () => {
 
         {/* Footer */}
         <div className="text-center text-xs text-slate-400 space-y-1 pb-4">
-          <p>© 2025 DYPSN. All rights reserved.</p>
+          <p>© 2026 DYPSN. All rights reserved.</p>
           <p>
             Developed by{' '}
             <span className="font-medium text-slate-600">Team Chaos</span>

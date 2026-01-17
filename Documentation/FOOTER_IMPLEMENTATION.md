@@ -35,7 +35,7 @@ const Footer: React.FC = () => {
         <div className="flex flex-col lg:flex-row items-center justify-between">
           <div className="text-center lg:text-left mb-2 lg:mb-0">
             <p className="text-sm text-gray-600">
-              © 2025 DYPSN. All rights reserved.
+              © 2026DYPSN. All rights reserved.
             </p>
           </div>
           <div className="text-center lg:text-right">
@@ -117,7 +117,7 @@ return (
 │                                                         │
 │                                                         │
 ├─────────────────────────────────────────────────────────┤
-│ © 2025 DYPSN. All rights reserved.    Designed and     │
+│ © 2026 DYPSN. All rights reserved.    Designed and     │
 │                                      Developed by      │
 │                                      Akash.Solution    │
 │                                      (Akash Vijay      │
@@ -135,7 +135,7 @@ return (
 │                                                         │
 │                                                         │
 ├─────────────────────────────────────────────────────────┤
-│              © 2025 DYPSN. All rights reserved.         │
+│              © 2026 DYPSN. All rights reserved.         │
 │                                                         │
 │           Designed and Developed by                    │
 │              Akash.Solution                             │

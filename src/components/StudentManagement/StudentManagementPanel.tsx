@@ -59,7 +59,7 @@ const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ user })
     }
   };
   const [searchTerm, setSearchTerm] = useState('');
-  const [departmentFilter, setDepartmentFilter] = useState(user?.role === 'admin' ? 'all' : (user?.department || 'all'));
+  const [departmentFilter, setDepartmentFilter] = useState(user?.role === 'admin' || user?.role === 'hod' ? 'all' : (user?.department || 'all'));
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [scholarshipFilter, setScholarshipFilter] = useState('all');
   const [genderFilter, setGenderFilter] = useState('all');

@@ -48,6 +48,7 @@ const LostFoundManagement = lazy(() => import('./components/LostFound/LostFoundM
 const HostelManagement = lazy(() => import('./components/Hostel/HostelManagement'));
 const CourseManagementPanel = lazy(() => import('./components/CourseManagement/CourseManagementPanel'));
 const DocumentManagementPanel = lazy(() => import('./components/DocumentManagement/DocumentManagementPanel'));
+const AnnualReport = lazy(() => import('./components/Admin/AnnualReport'));
 const AboutPage = lazy(() => import('./components/Visitor/AboutPage'));
 const TeacherLeaveAttendance = lazy(() => import('./components/TeacherManagement/TeacherLeaveAttendance'));
 // Visitor lightweight components
@@ -815,6 +816,11 @@ const AppContent: React.FC = () => {
           </div>
         );
       // Admin routes
+      case 'annual-report':
+        if (user.role === 'admin') {
+          return <AnnualReport />;
+        }
+        return <Dashboard onPageChange={handlePageChange} />;
       case 'user-management':
         if (user.role === 'admin') {
           return <UserManagement />;

@@ -30,7 +30,8 @@ import {
   User,
   Bus,
   Phone,
-  Home as HomeIcon
+  Home as HomeIcon,
+  FileBarChart
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -90,6 +91,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, currentPage, onPageC
 
     const adminItems = [
       { id: 'dashboard', label: 'Admin Dashboard', icon: BarChart3 },
+      { id: 'annual-report', label: 'Annual Report', icon: FileBarChart },
       { id: 'user-management', label: 'User Management', icon: Users },
       { id: 'teacher-management', label: 'Teacher Management', icon: GraduationCap },
       { id: 'student-management', label: 'Student Management', icon: Users },
