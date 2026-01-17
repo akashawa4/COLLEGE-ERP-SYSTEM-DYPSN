@@ -7,7 +7,9 @@ import {
   Clock,
   Search,
   Phone,
-  MessageCircle
+  MessageCircle,
+  AlertCircle,
+  XCircle
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { listenCanteenMenu, upsertCanteenItem, deleteCanteenItem } from '../../firebase/canteenStationary';
@@ -36,6 +38,9 @@ const CanteenManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterAvailability, setFilterAvailability] = useState<string>('all');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<MenuItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const isVisitor = user?.role === 'visitor';
 
@@ -82,8 +87,30 @@ const CanteenManagement: React.FC = () => {
     setShowForm(true);
   };
 
-  const handleDelete = async (id: string) => {
-    await deleteCanteenItem(id);
+  const handleDeleteClick = (item: MenuItem) => {
+    setItemToDelete(item);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!itemToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      await deleteCanteenItem(itemToDelete.id);
+      setShowDeleteModal(false);
+      setItemToDelete(null);
+    } catch (error) {
+      console.error('Failed to delete item:', error);
+      alert('Failed to delete item. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setItemToDelete(null);
   };
 
   const resetForm = () => {
@@ -236,8 +263,9 @@ const CanteenManagement: React.FC = () => {
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDelete(item.id)}
+                        onClick={() => handleDeleteClick(item)}
                         className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                        title="Delete item"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -389,6 +417,67 @@ const CanteenManagement: React.FC = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && itemToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full shadow-xl">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-red-100 rounded-full">
+                    <AlertCircle className="w-6 h-6 text-red-600" />
+                  </div>
+                  <h2 className="text-xl font-semibold text-gray-900">Delete Menu Item</h2>
+                </div>
+                <button
+                  onClick={handleDeleteCancel}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  disabled={isDeleting}
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="mb-6">
+                <p className="text-gray-700 mb-2">
+                  Are you sure you want to delete <span className="font-semibold text-gray-900">"{itemToDelete.name}"</span>?
+                </p>
+                <p className="text-sm text-gray-500">
+                  This action cannot be undone. The menu item will be permanently removed from the canteen menu.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleDeleteCancel}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isDeleting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

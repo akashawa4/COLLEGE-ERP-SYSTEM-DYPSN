@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Save, X, Users, Calendar, BookOpen, Download } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, X, Users, Calendar, BookOpen, Download, AlertCircle, XCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { batchService } from '../../firebase/firestore';
+import { batchService, userService, getCurrentBatchYear } from '../../firebase/firestore';
 import { getDepartmentCode } from '../../utils/departmentMapping';
 import { getAvailableSemesters, isValidSemesterForYear, getDefaultSemesterForYear } from '../../utils/semesterMapping';
 import * as XLSX from 'xlsx';
+import { User } from '../../types';
 
 interface BatchData {
   id?: string;
@@ -39,6 +40,9 @@ const BatchManagementPanel: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingBatch, setEditingBatch] = useState<BatchData | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [batchToDelete, setBatchToDelete] = useState<BatchData | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [newBatch, setNewBatch] = useState<BatchData>({
     batchName: '',
     fromRollNo: '',
@@ -48,6 +52,10 @@ const BatchManagementPanel: React.FC = () => {
     div: 'A',
     department: 'CSE'
   });
+  
+  // Roll number dropdown states
+  const [availableRollNumbers, setAvailableRollNumbers] = useState<number[]>([]);
+  const [loadingRollNumbers, setLoadingRollNumbers] = useState(false);
 
   // Handle year change to update available semesters
   const handleYearChange = (newYear: string) => {
@@ -72,6 +80,57 @@ const BatchManagementPanel: React.FC = () => {
   useEffect(() => {
     filterBatches();
   }, [batches, selectedDepartment]);
+
+  // Fetch available roll numbers when modal opens or filters change
+  useEffect(() => {
+    if (showAddModal || showEditModal) {
+      fetchAvailableRollNumbers();
+    }
+  }, [showAddModal, showEditModal, selectedYear, selectedSem, selectedDiv]);
+
+  const fetchAvailableRollNumbers = async () => {
+    setLoadingRollNumbers(true);
+    try {
+      const batch = getCurrentBatchYear();
+      // Use selected department if not 'all', otherwise use user's department, fallback to 'CSE'
+      let department: string;
+      if (selectedDepartment !== 'all') {
+        // selectedDepartment is already a code (CSE, IT, etc.)
+        department = selectedDepartment;
+      } else {
+        // Use user's department, convert to code if needed
+        department = user?.department ? getDepartmentCode(user.department) : 'CSE';
+      }
+      
+      const students = await userService.getStudentsByBatchDeptYearSemDiv(
+        batch,
+        department,
+        selectedYear,
+        selectedSem,
+        selectedDiv
+      );
+      
+      // Extract unique roll numbers, filter out invalid ones, and sort
+      const rollNumbers = students
+        .map(s => {
+          const rollNo = s.rollNumber || (s as any).rollNumber;
+          if (!rollNo) return null;
+          const parsed = parseInt(String(rollNo));
+          return isNaN(parsed) ? null : parsed;
+        })
+        .filter((roll): roll is number => roll !== null)
+        .sort((a, b) => a - b);
+      
+      // Remove duplicates
+      const uniqueRollNumbers = Array.from(new Set(rollNumbers));
+      setAvailableRollNumbers(uniqueRollNumbers);
+    } catch (error) {
+      console.error('Error fetching roll numbers:', error);
+      setAvailableRollNumbers([]);
+    } finally {
+      setLoadingRollNumbers(false);
+    }
+  };
 
   const loadBatches = async () => {
     setLoading(true);
@@ -183,20 +242,25 @@ const BatchManagementPanel: React.FC = () => {
     }
   };
 
-  const handleDeleteBatch = async (batchId: string) => {
-    if (!confirm('Are you sure you want to delete this batch? This action cannot be undone.')) {
-      return;
-    }
+  const handleDeleteBatch = (batch: BatchData) => {
+    setBatchToDelete(batch);
+    setShowDeleteModal(true);
+  };
 
+  const handleDeleteConfirm = async () => {
+    if (!batchToDelete || !batchToDelete.id) return;
+
+    setIsDeleting(true);
     try {
-      setLoading(true);
-      await batchService.deleteBatch(batchId);
+      await batchService.deleteBatch(batchToDelete.id);
       loadBatches();
+      setShowDeleteModal(false);
+      setBatchToDelete(null);
     } catch (error) {
       console.error('Error deleting batch:', error);
       alert('Error deleting batch. Please try again.');
     } finally {
-      setLoading(false);
+      setIsDeleting(false);
     }
   };
 
@@ -377,7 +441,7 @@ const BatchManagementPanel: React.FC = () => {
                       <Edit className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => handleDeleteBatch(batch.id!)}
+                      onClick={() => handleDeleteBatch(batch)}
                       className="p-1 text-red-600 hover:bg-red-50 rounded"
                       title="Delete batch"
                     >
@@ -445,25 +509,47 @@ const BatchManagementPanel: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">From Roll Number</label>
-                <input
-                  type="number"
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  From Roll Number
+                  {loadingRollNumbers && <span className="text-xs text-gray-500 ml-2">(Loading...)</span>}
+                </label>
+                <select
                   value={newBatch.fromRollNo}
-                  onChange={e => setNewBatch({ ...newBatch, fromRollNo: e.target.value })}
+                  onChange={e => {
+                    const fromRoll = e.target.value;
+                    setNewBatch({ ...newBatch, fromRollNo: fromRoll, toRollNo: '' });
+                  }}
                   className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g., 101"
-                />
+                  disabled={loadingRollNumbers || availableRollNumbers.length === 0}
+                >
+                  <option value="">Select From Roll Number</option>
+                  {availableRollNumbers.map(roll => (
+                    <option key={roll} value={roll.toString()}>{roll}</option>
+                  ))}
+                </select>
+                {!loadingRollNumbers && availableRollNumbers.length === 0 && (
+                  <p className="text-xs text-gray-500 mt-1">No students found for selected filters</p>
+                )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">To Roll Number</label>
-                <input
-                  type="number"
+                <select
                   value={newBatch.toRollNo}
                   onChange={e => setNewBatch({ ...newBatch, toRollNo: e.target.value })}
                   className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g., 125"
-                />
+                  disabled={loadingRollNumbers || !newBatch.fromRollNo || availableRollNumbers.length === 0}
+                >
+                  <option value="">Select To Roll Number</option>
+                  {newBatch.fromRollNo && availableRollNumbers
+                    .filter(roll => roll >= parseInt(newBatch.fromRollNo))
+                    .map(roll => (
+                      <option key={roll} value={roll.toString()}>{roll}</option>
+                    ))}
+                </select>
+                {!newBatch.fromRollNo && (
+                  <p className="text-xs text-gray-500 mt-1">Please select From Roll Number first</p>
+                )}
               </div>
             </div>
 
@@ -514,23 +600,47 @@ const BatchManagementPanel: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">From Roll Number</label>
-                <input
-                  type="number"
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  From Roll Number
+                  {loadingRollNumbers && <span className="text-xs text-gray-500 ml-2">(Loading...)</span>}
+                </label>
+                <select
                   value={editingBatch.fromRollNo}
-                  onChange={e => setEditingBatch({ ...editingBatch, fromRollNo: e.target.value })}
+                  onChange={e => {
+                    const fromRoll = e.target.value;
+                    setEditingBatch({ ...editingBatch, fromRollNo: fromRoll, toRollNo: '' });
+                  }}
                   className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
+                  disabled={loadingRollNumbers || availableRollNumbers.length === 0}
+                >
+                  <option value="">Select From Roll Number</option>
+                  {availableRollNumbers.map(roll => (
+                    <option key={roll} value={roll.toString()}>{roll}</option>
+                  ))}
+                </select>
+                {!loadingRollNumbers && availableRollNumbers.length === 0 && (
+                  <p className="text-xs text-gray-500 mt-1">No students found for selected filters</p>
+                )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">To Roll Number</label>
-                <input
-                  type="number"
+                <select
                   value={editingBatch.toRollNo}
                   onChange={e => setEditingBatch({ ...editingBatch, toRollNo: e.target.value })}
                   className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
+                  disabled={loadingRollNumbers || !editingBatch.fromRollNo || availableRollNumbers.length === 0}
+                >
+                  <option value="">Select To Roll Number</option>
+                  {editingBatch.fromRollNo && availableRollNumbers
+                    .filter(roll => roll >= parseInt(editingBatch.fromRollNo))
+                    .map(roll => (
+                      <option key={roll} value={roll.toString()}>{roll}</option>
+                    ))}
+                </select>
+                {!editingBatch.fromRollNo && (
+                  <p className="text-xs text-gray-500 mt-1">Please select From Roll Number first</p>
+                )}
               </div>
             </div>
 
@@ -548,6 +658,67 @@ const BatchManagementPanel: React.FC = () => {
               >
                 {loading ? 'Updating...' : 'Update Batch'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && batchToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full shadow-xl">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-red-100 rounded-full">
+                    <AlertCircle className="w-6 h-6 text-red-600" />
+                  </div>
+                  <h2 className="text-xl font-semibold text-gray-900">Delete Batch</h2>
+                </div>
+                <button
+                  onClick={handleDeleteCancel}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  disabled={isDeleting}
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="mb-6">
+                <p className="text-gray-700 mb-2">
+                  Are you sure you want to delete <span className="font-semibold text-gray-900">"{batchToDelete.batchName}"</span>?
+                </p>
+                <p className="text-sm text-gray-500">
+                  This action cannot be undone. The batch and all associated data will be permanently removed.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleDeleteCancel}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isDeleting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

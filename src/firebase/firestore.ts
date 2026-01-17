@@ -1079,58 +1079,48 @@ export const userService = {
     }
   },
 
-  // Get all students (optimized - primarily from flat users collection, with optional hierarchical fallback)
+  // Get all students (optimized with Promise.all for parallel execution)
   async getAllStudents(): Promise<User[]> {
     try {
       const allStudentsMap = new Map<string, User>();
       
       // 1. Fetch from flat users collection (primary source - fast)
-      try {
-        const usersRef = collection(db, COLLECTIONS.USERS);
-        let querySnapshot;
+      const flatStudentsPromise = (async () => {
         try {
-          const q = query(usersRef, where('role', '==', 'student'), orderBy('name'));
-          querySnapshot = await getDocs(q);
-        } catch (orderByError: any) {
-          // If orderBy fails (likely missing index), try without orderBy
-          console.log('[userService.getAllStudents] OrderBy query failed, trying without orderBy:', orderByError.message);
-          const q = query(usersRef, where('role', '==', 'student'));
-          querySnapshot = await getDocs(q);
-        }
-        
-        querySnapshot.docs.forEach(doc => {
-          const student = {
-            id: doc.id,
-            ...doc.data()
-          } as User;
-          // Use a unique key: email + id combination to avoid overwriting students with same email
-          // If email exists, use email_id, otherwise just id
-          const key = student.email ? `${student.email}_${student.id}` : student.id;
-          if (key && !allStudentsMap.has(key)) {
-            allStudentsMap.set(key, student);
-          } else if (key && allStudentsMap.has(key)) {
-            // If key exists, check if it's a different student (different rollNumber or id)
-            const existing = allStudentsMap.get(key);
-            if (existing && (existing.rollNumber !== student.rollNumber || existing.id !== student.id)) {
-              // Different student, use id as unique key instead
-              const uniqueKey = student.id || `${student.email}_${Date.now()}`;
-              allStudentsMap.set(uniqueKey, student);
-            }
+          const usersRef = collection(db, COLLECTIONS.USERS);
+          let querySnapshot;
+          try {
+            const q = query(usersRef, where('role', '==', 'student'), orderBy('name'));
+            querySnapshot = await getDocs(q);
+          } catch (orderByError: any) {
+            // If orderBy fails (likely missing index), try without orderBy
+            console.log('[userService.getAllStudents] OrderBy query failed, trying without orderBy:', orderByError.message);
+            const q = query(usersRef, where('role', '==', 'student'));
+            querySnapshot = await getDocs(q);
           }
-        });
-        console.log('[userService.getAllStudents] Fetched from users collection:', allStudentsMap.size);
-      } catch (error: any) {
-        console.error('[userService.getAllStudents] Error fetching from users collection:', error);
-      }
+          
+          const students: User[] = [];
+          querySnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            const student = {
+              id: doc.id,
+              ...data
+            } as User;
+            students.push(student);
+          });
+          return students;
+        } catch (error: any) {
+          console.error('[userService.getAllStudents] Error fetching from users collection:', error);
+          return [];
+        }
+      })();
       
-      // 2. Always query hierarchical collection to get all students
-      // Students might be stored in hierarchical structure even if flat collection has data
-      // We'll query it but with optimizations to prevent slow queries
-      try {
+      // 2. Fetch from hierarchical collection using Promise.all for parallel execution
+      const hierarchicalStudentsPromise = (async () => {
+        try {
           const currentYear = new Date().getFullYear();
           const currentBatch = currentYear.toString();
           const previousBatch = (currentYear - 1).toString();
-          // Only query current and previous batch (most relevant)
           const batches = [currentBatch, previousBatch];
           const departments = ['CSE', 'IT', 'ME', 'EE', 'CE', 'ENTC'];
           const years = ['1st', '2nd', '3rd', '4th'];
@@ -1155,7 +1145,7 @@ export const userService = {
                     // Add timeout to prevent hanging
                     const queryPromise = Promise.race([
                       getDocs(studentsRef),
-                      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+                      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000))
                     ]).catch(() => null);
                     queryPromises.push(queryPromise);
                   }
@@ -1164,76 +1154,108 @@ export const userService = {
             }
           }
           
-          // Execute queries in batches of 20 to avoid overwhelming Firestore
-          const batchSize = 20;
-          let hierarchicalCount = 0;
+          // Execute ALL queries in parallel using Promise.all with batching
+          const batchSize = 50; // Increased batch size for better parallelization
+          const allResults: any[] = [];
+          
           for (let i = 0; i < queryPromises.length; i += batchSize) {
             const batch = queryPromises.slice(i, i + batchSize);
             const results = await Promise.all(batch);
-            
-            results.forEach((querySnapshot: any) => {
-              if (querySnapshot && querySnapshot.docs) {
-                    querySnapshot.docs.forEach((doc: any) => {
-                      const student = {
-                        id: doc.id,
-                        ...doc.data()
-                      } as User;
-                      
-                      // Use rollNumber as primary key for hierarchical students (more unique)
-                      // Fallback to email_id or just id
-                      let key = (student as any).rollNumber || 
-                               (student.email ? `${student.email}_${student.id}` : student.id) ||
-                               student.id;
-                      
-                      // Check if this student already exists by comparing rollNumber and email
-                      let existingKey: string | null = null;
-                      for (const [mapKey, existingStudent] of allStudentsMap.entries()) {
-                        if (existingStudent.rollNumber === (student as any).rollNumber && 
-                            existingStudent.rollNumber) {
-                          existingKey = mapKey;
-                          break;
-                        }
-                        if (existingStudent.email === student.email && student.email) {
-                          existingKey = mapKey;
-                          break;
-                        }
-                        if (existingStudent.id === student.id) {
-                          existingKey = mapKey;
-                          break;
-                        }
-                      }
-                      
-                      if (existingKey) {
-                        // Merge with existing, prefer hierarchical data for batch/department
-                        const existing = allStudentsMap.get(existingKey);
-                        if (existing) {
-                          allStudentsMap.set(existingKey, {
-                            ...existing,
-                            ...student,
-                            ...((student as any).batchYear ? { batchYear: (student as any).batchYear } : {}),
-                            ...((existing as any).batchYear && !(student as any).batchYear ? { batchYear: (existing as any).batchYear } : {}),
-                            department: student.department || existing.department
-                          } as User);
-                        }
-                      } else {
-                        // New student, add with unique key
-                        allStudentsMap.set(key, student);
-                      }
-                      hierarchicalCount++;
-                    });
-              }
-            });
-            
-            // Small delay between batches to avoid rate limiting
-            if (i + batchSize < queryPromises.length) {
-              await new Promise(resolve => setTimeout(resolve, 50));
-            }
+            allResults.push(...results);
           }
-          console.log('[userService.getAllStudents] Fetched from hierarchical collection:', hierarchicalCount);
+          
+          // Process all results
+          const students: User[] = [];
+          allResults.forEach((querySnapshot: any) => {
+            if (querySnapshot && querySnapshot.docs) {
+              querySnapshot.docs.forEach((doc: any) => {
+                const data = doc.data();
+                const student = {
+                  id: doc.id,
+                  ...data
+                } as User;
+                students.push(student);
+              });
+            }
+          });
+          
+          console.log('[userService.getAllStudents] Fetched from hierarchical collection:', students.length);
+          return students;
         } catch (error: any) {
           console.error('[userService.getAllStudents] Error fetching from hierarchical collection:', error);
-          // Don't throw - we already have students from flat collection
+          return [];
         }
+      })();
+      
+      // Execute both queries in parallel
+      const [flatStudents, hierarchicalStudents] = await Promise.all([
+        flatStudentsPromise,
+        hierarchicalStudentsPromise
+      ]);
+      
+      // Combine and deduplicate students
+      // Use a more lenient deduplication strategy - only merge if it's truly the same student
+      const allStudentsList = [...flatStudents, ...hierarchicalStudents];
+      
+      allStudentsList.forEach(student => {
+        // Create unique key based on rollNumber (most reliable), then email, then id
+        const rollNumber = (student as any).rollNumber;
+        const email = student.email;
+        const id = student.id;
+        
+        // Try to find existing student by rollNumber first (most unique)
+        let existingKey: string | null = null;
+        if (rollNumber) {
+          for (const [mapKey, existingStudent] of allStudentsMap.entries()) {
+            if (existingStudent.rollNumber === rollNumber) {
+              existingKey = mapKey;
+              break;
+            }
+          }
+        }
+        
+        // If not found by rollNumber, try by email
+        if (!existingKey && email) {
+          for (const [mapKey, existingStudent] of allStudentsMap.entries()) {
+            if (existingStudent.email === email) {
+              existingKey = mapKey;
+              break;
+            }
+          }
+        }
+        
+        // If not found by email, try by id
+        if (!existingKey && id) {
+          for (const [mapKey, existingStudent] of allStudentsMap.entries()) {
+            if (existingStudent.id === id) {
+              existingKey = mapKey;
+              break;
+            }
+          }
+        }
+        
+        if (existingKey) {
+          // Merge with existing, prefer data with more complete information
+          const existing = allStudentsMap.get(existingKey);
+          if (existing) {
+            // Merge, keeping the most complete data
+            allStudentsMap.set(existingKey, {
+              ...existing,
+              ...student,
+              // Prefer rollNumber from either source
+              rollNumber: rollNumber || existing.rollNumber,
+              // Prefer batchYear from hierarchical if available
+              ...((student as any).batchYear ? { batchYear: (student as any).batchYear } : {}),
+              ...((existing as any).batchYear && !(student as any).batchYear ? { batchYear: (existing as any).batchYear } : {}),
+              department: student.department || existing.department
+            } as User);
+          }
+        } else {
+          // New unique student - use rollNumber as key if available, otherwise email_id, otherwise just id
+          const key = rollNumber || (email ? `${email}_${id}` : id) || `student_${Date.now()}_${Math.random()}`;
+          allStudentsMap.set(key, student);
+        }
+      });
       
       // Convert map to array and sort
       const allStudents = Array.from(allStudentsMap.values());
@@ -1244,6 +1266,7 @@ export const userService = {
       });
       
       console.log('[userService.getAllStudents] Total unique students found:', sorted.length);
+      console.log('[userService.getAllStudents] Flat students:', flatStudents.length, 'Hierarchical students:', hierarchicalStudents.length);
       return sorted;
     } catch (error: any) {
       console.error('[userService.getAllStudents] Error fetching students:', error);

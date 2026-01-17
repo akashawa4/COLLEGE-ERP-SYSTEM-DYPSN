@@ -37,6 +37,9 @@ const LostFoundManagement: React.FC<{ user: any }> = ({ user }) => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<LostFoundItem | null>(null);
   const [saving, setSaving] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<LostFoundItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [newItem, setNewItem] = useState({
     itemName: '',
     description: '',
@@ -222,24 +225,29 @@ const LostFoundManagement: React.FC<{ user: any }> = ({ user }) => {
   };
 
   // Handle delete item
-  const handleDeleteItem = async (itemId: string) => {
-    if (!confirm('Are you sure you want to delete this item?')) return;
+  const handleDeleteItem = (item: LostFoundItem) => {
+    setItemToDelete(item);
+    setShowDeleteModal(true);
+  };
 
+  const handleDeleteConfirm = async () => {
+    if (!itemToDelete || !itemToDelete.id) return;
+
+    setIsDeleting(true);
     try {
-      setSaving(true);
-      await lostFoundService.deleteLostFoundItem(itemId);
+      await lostFoundService.deleteLostFoundItem(itemToDelete.id);
 
       // Reload items
       const itemsData = await lostFoundService.getAllLostFoundItems();
       setItems(itemsData);
       setFilteredItems(itemsData);
-
-      alert('Item deleted successfully!');
+      setShowDeleteModal(false);
+      setItemToDelete(null);
     } catch (error) {
       console.error('Error deleting item:', error);
       alert('Error deleting item. Please try again.');
     } finally {
-      setSaving(false);
+      setIsDeleting(false);
     }
   };
 
@@ -466,7 +474,7 @@ const LostFoundManagement: React.FC<{ user: any }> = ({ user }) => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDeleteItem(item.id);
+                        handleDeleteItem(item);
                       }}
                       className="p-1 text-gray-400 hover:text-red-600 transition-colors"
                       title="Delete"
@@ -1016,6 +1024,67 @@ const LostFoundManagement: React.FC<{ user: any }> = ({ user }) => {
                     Claim This Item
                   </button>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && itemToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full shadow-xl">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-red-100 rounded-full">
+                    <AlertCircle className="w-6 h-6 text-red-600" />
+                  </div>
+                  <h2 className="text-xl font-semibold text-gray-900">Delete Item</h2>
+                </div>
+                <button
+                  onClick={handleDeleteCancel}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  disabled={isDeleting}
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="mb-6">
+                <p className="text-gray-700 mb-2">
+                  Are you sure you want to delete <span className="font-semibold text-gray-900">"{itemToDelete.itemName}"</span>?
+                </p>
+                <p className="text-sm text-gray-500">
+                  This action cannot be undone. The item will be permanently removed from the lost and found system.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleDeleteCancel}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isDeleting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
